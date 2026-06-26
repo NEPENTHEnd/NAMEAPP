@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(npx --version)",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\nodejs\\\\node.exe\", \"${env:ProgramFiles\\(x86\\)}\\\\nodejs\\\\node.exe\", \"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\", \"$env:APPDATA\\\\npm\\\\node.exe\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\" } }; Get-Command winget -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source; if \\(Test-Path \"$env:USERPROFILE\\\\scoop\\\\shims\\\\node.exe\"\\) { Write-Output \"scoop node found\" })",
+      "PowerShell($env:Path = \"C:\\\\Program Files\\\\nodejs;\" + $env:Path; node --version; & \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" --version)",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Mustafa Eren\\\\Desktop\\\\NAMEAPP\\\\docs\")",
+      "PowerShell(Move-Item \"C:\\\\Users\\\\Mustafa Eren\\\\Desktop\\\\NAMEAPP\\\\PRD.md\" \"C:\\\\Users\\\\Mustafa Eren\\\\Desktop\\\\NAMEAPP\\\\docs\\\\PRD.md\" -Force)"
+    ]
+  }
+}
