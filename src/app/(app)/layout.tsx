@@ -21,15 +21,15 @@ export default async function AppLayout({
           <div className="flex h-[60px] items-center gap-3">
             <Link
               href="/"
-              className="flex shrink-0 items-center rounded-lg bg-white px-2.5 py-1.5 dark:shadow-[0_0_0_1px_rgba(255,255,255,.08)]"
+              className="flex shrink-0 items-center rounded-lg dark:bg-white dark:px-2.5 dark:py-1.5"
             >
               <Image
                 src="/name-teknik-logo.png"
                 alt="Name Teknik"
-                width={1902}
-                height={827}
+                width={1592}
+                height={238}
                 priority
-                className="h-9 w-auto object-contain sm:h-11"
+                className="h-7 w-auto object-contain sm:h-9"
               />
             </Link>
 

@@ -47,10 +47,10 @@ export default function GirisPage() {
             <Image
               src="/name-teknik-logo.png"
               alt="Name Teknik"
-              width={150}
-              height={34}
+              width={1592}
+              height={238}
               priority
-              className="mb-2 h-[34px] w-auto object-contain"
+              className="mb-2 h-10 w-auto object-contain"
             />
             <div className="text-[13px] font-medium text-muted-foreground">
               Teknik Servis Takip Sistemi
