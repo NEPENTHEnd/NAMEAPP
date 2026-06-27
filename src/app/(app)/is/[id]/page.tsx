@@ -123,6 +123,8 @@ export default async function IsDetaySayfasi({
         gonderEtiketi="Değişiklikleri kaydet"
         iptalHref="/"
         finansalGoster={kullanici.rol === "yonetici"}
+        servisNoGoster={kullanici.rol === "yonetici"}
+        degisiklikTakip
       />
     </div>
   )

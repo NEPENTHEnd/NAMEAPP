@@ -59,7 +59,16 @@ export async function personelEkle(formData: FormData) {
   const supabase = await yoneticiSupabase()
   const ad = metin(formData, "ad")
   if (!ad) return
-  await supabase.from("teknik_personel").insert({ ad })
+  // Sıradaki boş fiş ön ekini otomatik ata
+  const { data: enBuyuk } = await supabase
+    .from("teknik_personel")
+    .select("fis_prefix")
+    .not("fis_prefix", "is", null)
+    .order("fis_prefix", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const sonraki = (enBuyuk?.fis_prefix ?? 0) + 1
+  await supabase.from("teknik_personel").insert({ ad, fis_prefix: sonraki })
   bitir()
 }
 
@@ -143,8 +152,9 @@ export async function davetUret(formData: FormData) {
   const supabase = await yoneticiSupabase()
   const rol = metin(formData, "rol")
   if (rol !== "teknisyen" && rol !== "yonetici") return
+  const personelId = metin(formData, "personel_id") || null
   const rpc = supabase as unknown as RpcIstemci
-  await rpc.rpc("davet_uret", { p_rol: rol })
+  await rpc.rpc("davet_uret", { p_rol: rol, p_personel_id: personelId })
   bitir()
 }
 

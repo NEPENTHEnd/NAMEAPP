@@ -46,15 +46,19 @@ export default async function TanimlarSayfasi({
   const [musteriler, personeller, durumlar, faturalar, profiller, davetler] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
-      supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
+      supabase.from("teknik_personel").select("id, ad, aktif, fis_prefix").order("fis_prefix"),
       supabase.from("durum").select("id, ad, sira, renk").order("sira"),
       supabase.from("fatura_durumu").select("id, ad").order("ad"),
       supabase.from("kullanici_profil").select("id, ad, rol").order("ad"),
       supabase
         .from("davet_kodu")
-        .select("kod, rol, kullanildi, created_at")
+        .select("kod, rol, kullanildi, created_at, teknik_personel_id")
         .order("created_at", { ascending: false }),
     ])
+
+  const personelAd = new Map(
+    (personeller.data ?? []).map((p) => [p.id, p.ad])
+  )
 
   return (
     <div className="grid gap-5">
@@ -130,6 +134,11 @@ export default async function TanimlarSayfasi({
                   <Input name="ad" defaultValue={p.ad} className="max-w-xs" required />
                   <Button type="submit" size="sm" variant="outline">Kaydet</Button>
                 </form>
+                {p.fis_prefix ? (
+                  <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
+                    fiş ön eki: {p.fis_prefix}
+                  </span>
+                ) : null}
                 <form action={personelAktiflik}>
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="aktif" value={p.aktif ? "false" : "true"} />
@@ -222,10 +231,35 @@ export default async function TanimlarSayfasi({
       {/* DAVET KODLARI */}
       {sekme === "davet" && (
         <section className="grid gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <form action={davetUret}>
+          <div className="flex flex-wrap items-end gap-3">
+            <form action={davetUret} className="flex flex-wrap items-end gap-2">
               <input type="hidden" name="rol" value="teknisyen" />
-              <Button type="submit" size="sm">+ Teknisyen daveti üret</Button>
+              <div className="grid gap-1">
+                <label className="text-xs font-semibold text-muted-foreground">
+                  Tekniker için davet
+                </label>
+                <select
+                  name="personel_id"
+                  required
+                  defaultValue=""
+                  className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm"
+                >
+                  <option value="" disabled>
+                    Kişi seç…
+                  </option>
+                  {(personeller.data ?? [])
+                    .filter((p) => p.aktif)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.ad}
+                        {p.fis_prefix ? ` (ön ek ${p.fis_prefix})` : ""}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <Button type="submit" size="sm">
+                Davet üret
+              </Button>
             </form>
             {kullanici.sahip && (
               <form action={davetUret}>
@@ -256,7 +290,13 @@ export default async function TanimlarSayfasi({
                     {d.kod}
                   </code>
                   <span className="text-xs text-muted-foreground">
-                    {d.rol === "yonetici" ? "Yönetici" : "Teknisyen"}
+                    {d.rol === "yonetici"
+                      ? "Yönetici"
+                      : `Teknisyen${
+                          d.teknik_personel_id
+                            ? " · " + (personelAd.get(d.teknik_personel_id) ?? "")
+                            : ""
+                        }`}
                   </span>
                   <span
                     className={cn(

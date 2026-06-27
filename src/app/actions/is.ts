@@ -6,6 +6,18 @@ import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
+import type {
+  TablesInsert,
+  TablesUpdate,
+} from "@/lib/supabase/database.types"
+
+// Tipli istemcide tanımlı olmayan RPC'ler için sade arayüz
+type RpcIstemci = {
+  rpc: (
+    fn: string,
+    args?: Record<string, unknown>
+  ) => Promise<{ data: unknown; error: { message: string } | null }>
+}
 
 // useActionState ile kullanılan dönüş tipi
 export type IsFormState = {
@@ -102,31 +114,18 @@ async function musteriIdCozumle(
   return { id: veri.musteri_id! }
 }
 
-// finansal=false (teknisyen) ise finansal alanlar HİÇ yazılmaz:
-// insert'te varsayılan (null) kalır, update'te mevcut değer korunur.
-function dbSatiri(
-  veri: z.infer<typeof sema>,
-  musteriId: string,
-  finansal: boolean
-) {
-  const satir = {
+// Her rolde yazılabilir temel alanlar (servis_no ve finansal HARİÇ).
+function temelSatir(veri: z.infer<typeof sema>, musteriId: string) {
+  return {
     musteri_id: musteriId,
     cihaz_adi: veri.cihaz_adi,
     seri_no: veri.seri_no ?? null,
-    servis_no: veri.servis_no ?? null,
     gelis_tarihi: veri.gelis_tarihi,
     cikis_tarihi: veri.cikis_tarihi ?? null,
     durum_id: veri.durum_id,
     teknik_personel_id: veri.teknik_personel_id ?? null,
     ilgili_kisi: veri.ilgili_kisi ?? null,
     aciklama: veri.aciklama ?? null,
-  }
-  if (!finansal) return satir
-  return {
-    ...satir,
-    fatura_durumu_id: veri.fatura_durumu_id ?? null,
-    fiyat_teklifi: veri.fiyat_teklifi ?? null,
-    fatura_tutari: veri.fatura_tutari ?? null,
   }
 }
 
@@ -144,9 +143,25 @@ export async function isOlustur(
   if ("hata" in m) return { error: m.hata }
 
   const finansal = kullanici.rol === "yonetici"
+  const ekle: TablesInsert<"is_kaydi"> = {
+    ...temelSatir(parsed.data, m.id),
+    olusturan_id: kullanici.id,
+  }
+  if (finansal) {
+    ekle.servis_no = parsed.data.servis_no ?? null
+    ekle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
+    ekle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
+    ekle.fatura_tutari = parsed.data.fatura_tutari ?? null
+  } else {
+    // Teknisyen: fiş no otomatik üretilir (ön eki varsa)
+    const rpc = supabase as unknown as RpcIstemci
+    const { data: fis } = await rpc.rpc("fis_no_uret")
+    ekle.servis_no = (typeof fis === "string" ? fis : null) ?? parsed.data.servis_no ?? null
+  }
+
   const { data, error } = await supabase
     .from("is_kaydi")
-    .insert({ ...dbSatiri(parsed.data, m.id, finansal), olusturan_id: kullanici.id })
+    .insert(ekle)
     .select("id")
     .single()
 
@@ -173,9 +188,18 @@ export async function isGuncelle(
   if ("hata" in m) return { error: m.hata }
 
   const finansal = kullanici.rol === "yonetici"
+  const guncelle: TablesUpdate<"is_kaydi"> = temelSatir(parsed.data, m.id)
+  if (finansal) {
+    // Yalnız yönetici servis no + finansal alanları değiştirebilir
+    guncelle.servis_no = parsed.data.servis_no ?? null
+    guncelle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
+    guncelle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
+    guncelle.fatura_tutari = parsed.data.fatura_tutari ?? null
+  }
+
   const { error } = await supabase
     .from("is_kaydi")
-    .update(dbSatiri(parsed.data, m.id, finansal))
+    .update(guncelle)
     .eq("id", id)
 
   if (error) {
@@ -184,7 +208,7 @@ export async function isGuncelle(
 
   revalidatePath("/")
   revalidatePath(`/is/${id}`)
-  redirect(`/is/${id}`)
+  return { basari: true } // sayfada kal, yeşil tik göster
 }
 
 // Yönetici: işler listesi önizleme panelinden hızlı finansal güncelleme

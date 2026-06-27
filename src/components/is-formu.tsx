@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useState } from "react"
 import Link from "next/link"
 
 import type { IsFormState } from "@/app/actions/is"
@@ -36,6 +36,8 @@ type Props = {
   gonderEtiketi?: string
   iptalHref?: string
   finansalGoster?: boolean
+  servisNoGoster?: boolean
+  degisiklikTakip?: boolean
 }
 
 const selectClass =
@@ -71,20 +73,35 @@ export function IsFormu({
   gonderEtiketi = "Kaydet",
   iptalHref = "/",
   finansalGoster = true,
+  servisNoGoster = true,
+  degisiklikTakip = false,
 }: Props) {
   const [state, formAction, pending] = useActionState<IsFormState, FormData>(
     action,
     {}
   )
   const [yeniMusteri, setYeniMusteri] = useState(false)
+  // Değişiklik takibi: edit modunda buton değişiklik olana dek pasif kalır.
+  const [degisti, setDegisti] = useState(!degisiklikTakip)
   const fe = state.fieldErrors ?? {}
+
+  // Kayıt başarılıysa "değişti" sıfırlanır -> buton pasif + yeşil tik görünür.
+  useEffect(() => {
+    if (state.basari) setDegisti(false)
+  }, [state])
 
   function Hata({ alan }: { alan: string }) {
     return fe[alan] ? <p className="text-xs text-destructive">{fe[alan]}</p> : null
   }
 
   return (
-    <form action={formAction} className="grid gap-4">
+    <form
+      action={formAction}
+      onInput={() => {
+        if (degisiklikTakip && !degisti) setDegisti(true)
+      }}
+      className="grid gap-4"
+    >
       {state.error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {state.error}
@@ -126,10 +143,19 @@ export function IsFormu({
             <label className={labelClass} htmlFor="ilgili_kisi">İlgili kişi & telefon</label>
             <Input id="ilgili_kisi" name="ilgili_kisi" placeholder="Ad Soyad · 05xx…" defaultValue={varsayilan.ilgili_kisi ?? ""} />
           </div>
-          <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="servis_no">Servis (fiş) no</label>
-            <Input id="servis_no" name="servis_no" placeholder="Örn. 9577" defaultValue={varsayilan.servis_no ?? ""} />
-          </div>
+          {servisNoGoster ? (
+            <div className="grid gap-1.5">
+              <label className={labelClass} htmlFor="servis_no">Servis (fiş) no</label>
+              <Input id="servis_no" name="servis_no" placeholder="Örn. 9577" defaultValue={varsayilan.servis_no ?? ""} />
+            </div>
+          ) : (
+            <div className="grid gap-1.5">
+              <label className={labelClass}>Servis (fiş) no</label>
+              <div className="flex h-9 items-center rounded-[9px] border border-dashed border-input px-2.5 text-sm text-muted-foreground">
+                Kaydedince otomatik üretilir
+              </div>
+            </div>
+          )}
         </div>
       </Bolum>
 
@@ -216,9 +242,17 @@ export function IsFormu({
       </Bolum>
 
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || (degisiklikTakip && !degisti)}>
           {pending ? "Kaydediliyor…" : gonderEtiketi}
         </Button>
+        {degisiklikTakip && state.basari && !degisti && (
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Kaydedildi
+          </span>
+        )}
         <Link href={iptalHref} className={buttonVariants({ variant: "ghost" })}>
           İptal
         </Link>

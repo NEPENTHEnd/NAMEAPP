@@ -21,6 +21,7 @@ export type Database = {
           kullanildi: boolean
           olusturan_id: string | null
           rol: string
+          teknik_personel_id: string | null
         }
         Insert: {
           created_at?: string
@@ -28,6 +29,7 @@ export type Database = {
           kullanildi?: boolean
           olusturan_id?: string | null
           rol: string
+          teknik_personel_id?: string | null
         }
         Update: {
           created_at?: string
@@ -35,6 +37,7 @@ export type Database = {
           kullanildi?: boolean
           olusturan_id?: string | null
           rol?: string
+          teknik_personel_id?: string | null
         }
         Relationships: []
       }
@@ -252,16 +255,19 @@ export type Database = {
         Row: {
           ad: string
           aktif: boolean
+          fis_prefix: number | null
           id: string
         }
         Insert: {
           ad: string
           aktif?: boolean
+          fis_prefix?: number | null
           id?: string
         }
         Update: {
           ad?: string
           aktif?: boolean
+          fis_prefix?: number | null
           id?: string
         }
         Relationships: []
