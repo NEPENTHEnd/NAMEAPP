@@ -50,7 +50,15 @@ export default function GirisPage() {
               width={1592}
               height={238}
               priority
-              className="mb-2 h-10 w-auto object-contain"
+              className="mb-2 h-9 w-auto object-contain dark:hidden"
+            />
+            <Image
+              src="/name-teknik-logo-beyaz.png"
+              alt="Name Teknik"
+              width={1592}
+              height={238}
+              priority
+              className="mb-2 hidden h-9 w-auto object-contain dark:block"
             />
             <div className="text-[13px] font-medium text-muted-foreground">
               Teknik Servis Takip Sistemi

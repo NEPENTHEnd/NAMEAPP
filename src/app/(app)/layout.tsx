@@ -19,17 +19,22 @@ export default async function AppLayout({
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5">
           <div className="flex h-[60px] items-center gap-3">
-            <Link
-              href="/"
-              className="flex shrink-0 items-center rounded-lg dark:bg-white dark:px-2.5 dark:py-1.5"
-            >
+            <Link href="/" className="flex shrink-0 items-center">
               <Image
                 src="/name-teknik-logo.png"
                 alt="Name Teknik"
                 width={1592}
                 height={238}
                 priority
-                className="h-7 w-auto object-contain sm:h-9"
+                className="h-[26px] w-auto object-contain sm:h-8 dark:hidden"
+              />
+              <Image
+                src="/name-teknik-logo-beyaz.png"
+                alt="Name Teknik"
+                width={1592}
+                height={238}
+                priority
+                className="hidden h-[26px] w-auto object-contain sm:h-8 dark:block"
               />
             </Link>
 
