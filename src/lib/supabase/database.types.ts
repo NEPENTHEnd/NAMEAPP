@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      davet_kodu: {
+        Row: {
+          created_at: string
+          kod: string
+          kullanildi: boolean
+          olusturan_id: string | null
+          rol: string
+        }
+        Insert: {
+          created_at?: string
+          kod: string
+          kullanildi?: boolean
+          olusturan_id?: string | null
+          rol: string
+        }
+        Update: {
+          created_at?: string
+          kod?: string
+          kullanildi?: boolean
+          olusturan_id?: string | null
+          rol?: string
+        }
+        Relationships: []
+      }
       durum: {
         Row: {
           ad: string
@@ -173,18 +197,21 @@ export type Database = {
           ad: string | null
           id: string
           rol: string
+          sahip: boolean
           teknik_personel_id: string | null
         }
         Insert: {
           ad?: string | null
           id: string
           rol?: string
+          sahip?: boolean
           teknik_personel_id?: string | null
         }
         Update: {
           ad?: string | null
           id?: string
           rol?: string
+          sahip?: boolean
           teknik_personel_id?: string | null
         }
         Relationships: [

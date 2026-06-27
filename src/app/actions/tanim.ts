@@ -130,6 +130,24 @@ export async function faturaDuzenle(formData: FormData) {
   bitir()
 }
 
+// ---- Davet kodu üret (tek kullanımlık) ----
+// Yetki RPC içinde: teknisyen kodu -> yönetici; yönetici kodu -> yalnız sahip.
+type RpcIstemci = {
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>
+  ) => Promise<{ data: unknown; error: { message: string } | null }>
+}
+
+export async function davetUret(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const rol = metin(formData, "rol")
+  if (rol !== "teknisyen" && rol !== "yonetici") return
+  const rpc = supabase as unknown as RpcIstemci
+  await rpc.rpc("davet_uret", { p_rol: rol })
+  bitir()
+}
+
 // ---- Kullanıcı rolü ----
 export async function rolDuzenle(formData: FormData) {
   const supabase = await yoneticiSupabase()

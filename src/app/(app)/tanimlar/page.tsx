@@ -18,6 +18,7 @@ import {
   faturaEkle,
   faturaDuzenle,
   rolDuzenle,
+  davetUret,
 } from "@/app/actions/tanim"
 
 const SEKMELER = [
@@ -26,6 +27,7 @@ const SEKMELER = [
   { k: "durum", label: "Durumlar" },
   { k: "fatura", label: "Fatura Durumları" },
   { k: "roller", label: "Kullanıcı & Roller" },
+  { k: "davet", label: "Davet Kodları" },
 ]
 
 type SP = Record<string, string | string[] | undefined>
@@ -35,19 +37,23 @@ export default async function TanimlarSayfasi({
 }: {
   searchParams: Promise<SP>
 }) {
-  await getYonetici()
+  const kullanici = await getYonetici()
   const sp = await searchParams
   const sekmeRaw = Array.isArray(sp.sekme) ? sp.sekme[0] : sp.sekme
   const sekme = SEKMELER.some((s) => s.k === sekmeRaw) ? sekmeRaw! : "musteri"
 
   const supabase = await createClient()
-  const [musteriler, personeller, durumlar, faturalar, profiller] =
+  const [musteriler, personeller, durumlar, faturalar, profiller, davetler] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
       supabase.from("durum").select("id, ad, sira, renk").order("sira"),
       supabase.from("fatura_durumu").select("id, ad").order("ad"),
       supabase.from("kullanici_profil").select("id, ad, rol").order("ad"),
+      supabase
+        .from("davet_kodu")
+        .select("kod, rol, kullanildi, created_at")
+        .order("created_at", { ascending: false }),
     ])
 
   return (
@@ -210,6 +216,62 @@ export default async function TanimlarSayfasi({
               </form>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* DAVET KODLARI */}
+      {sekme === "davet" && (
+        <section className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={davetUret}>
+              <input type="hidden" name="rol" value="teknisyen" />
+              <Button type="submit" size="sm">+ Teknisyen daveti üret</Button>
+            </form>
+            {kullanici.sahip && (
+              <form action={davetUret}>
+                <input type="hidden" name="rol" value="yonetici" />
+                <Button type="submit" size="sm" variant="secondary">
+                  + Yönetici daveti üret
+                </Button>
+              </form>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Her kod <strong>tek kullanımlıktır</strong> — kayıt olununca tükenir.
+            Üretilen kodu ilgili kişiye verin; "Üye ol" ekranında kullansın.
+          </p>
+
+          {(davetler.data ?? []).length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+              Henüz davet kodu üretilmedi.
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {(davetler.data ?? []).map((d) => (
+                <div
+                  key={d.kod}
+                  className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2.5"
+                >
+                  <code className="rounded bg-muted px-2 py-1 font-mono text-sm font-semibold">
+                    {d.kod}
+                  </code>
+                  <span className="text-xs text-muted-foreground">
+                    {d.rol === "yonetici" ? "Yönetici" : "Teknisyen"}
+                  </span>
+                  <span
+                    className={cn(
+                      "ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium",
+                      d.kullanildi
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                    )}
+                  >
+                    {d.kullanildi ? "kullanıldı" : "aktif"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>

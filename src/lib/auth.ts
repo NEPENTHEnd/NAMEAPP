@@ -9,6 +9,7 @@ export type Kullanici = {
   eposta: string | null
   ad: string | null
   rol: Rol
+  sahip: boolean
 }
 
 // Giriş yapan kullanıcıyı + profilini döndürür. Oturum yoksa /giris'e atar.
@@ -26,7 +27,7 @@ export async function getKullanici(): Promise<Kullanici> {
 
   const { data: profil } = await supabase
     .from("kullanici_profil")
-    .select("ad, rol")
+    .select("ad, rol, sahip")
     .eq("id", user.id)
     .maybeSingle()
 
@@ -35,6 +36,7 @@ export async function getKullanici(): Promise<Kullanici> {
     eposta: user.email ?? null,
     ad: profil?.ad ?? null,
     rol: (profil?.rol as Rol) ?? "teknisyen",
+    sahip: profil?.sahip ?? false,
   }
 }
 
