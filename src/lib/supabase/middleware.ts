@@ -32,7 +32,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/giris")
+  const isAuthRoute =
+    request.nextUrl.pathname.startsWith("/giris") ||
+    request.nextUrl.pathname.startsWith("/kayit")
 
   if (!user && !isAuthRoute) {
     // Oturum yoksa giriş sayfasına yönlendir.

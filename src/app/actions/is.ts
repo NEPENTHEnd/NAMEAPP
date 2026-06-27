@@ -11,6 +11,7 @@ import { getKullanici } from "@/lib/auth"
 export type IsFormState = {
   error?: string
   fieldErrors?: Record<string, string>
+  basari?: boolean
 }
 
 // Boş string'i undefined'a çevir (opsiyonel alanlar için)
@@ -101,8 +102,14 @@ async function musteriIdCozumle(
   return { id: veri.musteri_id! }
 }
 
-function dbSatiri(veri: z.infer<typeof sema>, musteriId: string) {
-  return {
+// finansal=false (teknisyen) ise finansal alanlar HİÇ yazılmaz:
+// insert'te varsayılan (null) kalır, update'te mevcut değer korunur.
+function dbSatiri(
+  veri: z.infer<typeof sema>,
+  musteriId: string,
+  finansal: boolean
+) {
+  const satir = {
     musteri_id: musteriId,
     cihaz_adi: veri.cihaz_adi,
     seri_no: veri.seri_no ?? null,
@@ -111,11 +118,15 @@ function dbSatiri(veri: z.infer<typeof sema>, musteriId: string) {
     cikis_tarihi: veri.cikis_tarihi ?? null,
     durum_id: veri.durum_id,
     teknik_personel_id: veri.teknik_personel_id ?? null,
-    fatura_durumu_id: veri.fatura_durumu_id ?? null,
     ilgili_kisi: veri.ilgili_kisi ?? null,
+    aciklama: veri.aciklama ?? null,
+  }
+  if (!finansal) return satir
+  return {
+    ...satir,
+    fatura_durumu_id: veri.fatura_durumu_id ?? null,
     fiyat_teklifi: veri.fiyat_teklifi ?? null,
     fatura_tutari: veri.fatura_tutari ?? null,
-    aciklama: veri.aciklama ?? null,
   }
 }
 
@@ -123,7 +134,7 @@ export async function isOlustur(
   _prev: IsFormState,
   formData: FormData
 ): Promise<IsFormState> {
-  await getKullanici() // oturum yoksa /giris'e atar
+  const kullanici = await getKullanici() // oturum yoksa /giris'e atar
 
   const parsed = sema.safeParse(formdanOku(formData))
   if (!parsed.success) return alanHatalari(parsed.error)
@@ -132,9 +143,10 @@ export async function isOlustur(
   const m = await musteriIdCozumle(supabase, parsed.data)
   if ("hata" in m) return { error: m.hata }
 
+  const finansal = kullanici.rol === "yonetici"
   const { data, error } = await supabase
     .from("is_kaydi")
-    .insert(dbSatiri(parsed.data, m.id))
+    .insert({ ...dbSatiri(parsed.data, m.id, finansal), olusturan_id: kullanici.id })
     .select("id")
     .single()
 
@@ -151,7 +163,7 @@ export async function isGuncelle(
   _prev: IsFormState,
   formData: FormData
 ): Promise<IsFormState> {
-  await getKullanici()
+  const kullanici = await getKullanici()
 
   const parsed = sema.safeParse(formdanOku(formData))
   if (!parsed.success) return alanHatalari(parsed.error)
@@ -160,9 +172,10 @@ export async function isGuncelle(
   const m = await musteriIdCozumle(supabase, parsed.data)
   if ("hata" in m) return { error: m.hata }
 
+  const finansal = kullanici.rol === "yonetici"
   const { error } = await supabase
     .from("is_kaydi")
-    .update(dbSatiri(parsed.data, m.id))
+    .update(dbSatiri(parsed.data, m.id, finansal))
     .eq("id", id)
 
   if (error) {
@@ -172,6 +185,41 @@ export async function isGuncelle(
   revalidatePath("/")
   revalidatePath(`/is/${id}`)
   redirect(`/is/${id}`)
+}
+
+// Yönetici: işler listesi önizleme panelinden hızlı finansal güncelleme
+export async function isFinansalGuncelle(
+  id: string,
+  _prev: IsFormState,
+  formData: FormData
+): Promise<IsFormState> {
+  const kullanici = await getKullanici()
+  if (kullanici.rol !== "yonetici") {
+    return { error: "Bu işlem için yönetici yetkisi gerekir." }
+  }
+
+  const sayiCevir = (v: FormDataEntryValue | null): number | null => {
+    const s = String(v ?? "").trim()
+    if (!s) return null
+    const n = Number(s.replace(",", "."))
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("is_kaydi")
+    .update({
+      fatura_durumu_id: (formData.get("fatura_durumu_id") as string) || null,
+      fiyat_teklifi: sayiCevir(formData.get("fiyat_teklifi")),
+      fatura_tutari: sayiCevir(formData.get("fatura_tutari")),
+    })
+    .eq("id", id)
+
+  if (error) return { error: "Kaydedilemedi: " + error.message }
+
+  revalidatePath("/")
+  revalidatePath(`/is/${id}`)
+  return { basari: true }
 }
 
 export async function isSil(id: string) {

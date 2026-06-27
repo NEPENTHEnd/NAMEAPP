@@ -93,6 +93,7 @@ export type Database = {
           id: string
           ilgili_kisi: string | null
           musteri_id: string
+          olusturan_id: string | null
           seri_no: string | null
           servis_no: string | null
           teknik_personel_id: string | null
@@ -111,6 +112,7 @@ export type Database = {
           id?: string
           ilgili_kisi?: string | null
           musteri_id: string
+          olusturan_id?: string | null
           seri_no?: string | null
           servis_no?: string | null
           teknik_personel_id?: string | null
@@ -129,6 +131,7 @@ export type Database = {
           id?: string
           ilgili_kisi?: string | null
           musteri_id?: string
+          olusturan_id?: string | null
           seri_no?: string | null
           servis_no?: string | null
           teknik_personel_id?: string | null

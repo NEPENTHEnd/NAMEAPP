@@ -5,6 +5,7 @@ import { getKullanici } from "@/lib/auth"
 import { AppNav } from "@/components/app-nav"
 import { UserMenu } from "@/components/user-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { CevrimdisiUyari } from "@/components/cevrimdisi-uyari"
 
 // Giriş gerektiren tüm sayfaların ortak kabuğu: üst başlık + navigasyon + çıkış.
 export default async function AppLayout({
@@ -16,6 +17,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-svh flex-col">
+      <CevrimdisiUyari />
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5">
           <div className="flex h-[60px] items-center gap-3">

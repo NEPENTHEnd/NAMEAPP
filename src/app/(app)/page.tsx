@@ -2,6 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 
 import { createClient } from "@/lib/supabase/server"
+import { getKullanici } from "@/lib/auth"
 import { buttonVariants } from "@/components/ui/button"
 import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/table"
 import { sonAylar, ayAraligi } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
+import { PanelFinansal } from "@/components/panel-finansal"
 import { IslerFiltreler } from "./isler-filtreler"
 import { OnizleSatiri } from "./onizle-satiri"
 
@@ -72,6 +74,8 @@ export default async function IslerSayfasi({
   const yon = tek(sp.yon) === "asc" ? "asc" : "desc"
 
   const supabase = await createClient()
+  const kullanici = await getKullanici()
+  const finansal = kullanici.rol === "yonetici" // teknisyen finansal sütunları görmez
 
   // Filtre seçenekleri (dropdown'lar için)
   const [durumlarRes, personellerRes, faturalarRes, musterilerRes] =
@@ -152,13 +156,18 @@ export default async function IslerSayfasi({
     cihaz_adi: string
     servis_no: string | null
     musteriAd: string | null
+    fatura_durumu_id: string | null
+    fiyat_teklifi: number | null
+    fatura_tutari: number | null
     fotolar: { id: string; url: string }[]
   }
   let seciliBilgi: SeciliBilgi | null = null
   if (secili) {
     const { data: kayit } = await supabase
       .from("is_kaydi")
-      .select("cihaz_adi, servis_no, musteri:musteri_id ( ad )")
+      .select(
+        "cihaz_adi, servis_no, fatura_durumu_id, fiyat_teklifi, fatura_tutari, musteri:musteri_id ( ad )"
+      )
       .eq("id", secili)
       .maybeSingle()
     if (kayit) {
@@ -184,6 +193,9 @@ export default async function IslerSayfasi({
         cihaz_adi: kayit.cihaz_adi,
         servis_no: kayit.servis_no,
         musteriAd: kayit.musteri?.ad ?? null,
+        fatura_durumu_id: kayit.fatura_durumu_id,
+        fiyat_teklifi: kayit.fiyat_teklifi,
+        fatura_tutari: kayit.fatura_tutari,
         fotolar,
       }
     }
@@ -292,12 +304,14 @@ export default async function IslerSayfasi({
                     </TableHead>
                     <TableHead>Durum</TableHead>
                     <TableHead>Personel</TableHead>
-                    <TableHead>Fatura</TableHead>
-                    <TableHead className="text-right">
-                      <Link href={siralaHref("tutar")} scroll={false} className="hover:underline">
-                        Tutar{siralaOk("tutar")}
-                      </Link>
-                    </TableHead>
+                    {finansal && <TableHead>Fatura</TableHead>}
+                    {finansal && (
+                      <TableHead className="text-right">
+                        <Link href={siralaHref("tutar")} scroll={false} className="hover:underline">
+                          Tutar{siralaOk("tutar")}
+                        </Link>
+                      </TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -342,12 +356,16 @@ export default async function IslerSayfasi({
                         )}
                       </TableCell>
                       <TableCell>{k.teknik_personel?.ad ?? "—"}</TableCell>
-                      <TableCell>
-                        <FaturaRozeti ad={k.fatura_durumu?.ad} />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
-                      </TableCell>
+                      {finansal && (
+                        <TableCell>
+                          <FaturaRozeti ad={k.fatura_durumu?.ad} />
+                        </TableCell>
+                      )}
+                      {finansal && (
+                        <TableCell className="text-right tabular-nums">
+                          {tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
+                        </TableCell>
+                      )}
                     </OnizleSatiri>
                   ))}
                 </TableBody>
@@ -420,6 +438,18 @@ export default async function IslerSayfasi({
                     >
                       Detayı aç →
                     </Link>
+                    {finansal && (
+                      <PanelFinansal
+                        key={secili}
+                        isKaydiId={secili}
+                        faturaDurumlari={faturalarRes.data ?? []}
+                        varsayilan={{
+                          fatura_durumu_id: seciliBilgi.fatura_durumu_id,
+                          fiyat_teklifi: seciliBilgi.fiyat_teklifi,
+                          fatura_tutari: seciliBilgi.fatura_tutari,
+                        }}
+                      />
+                    )}
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
@@ -455,10 +485,12 @@ export default async function IslerSayfasi({
                   <div>Personel: {k.teknik_personel?.ad ?? "—"}</div>
                   <div>Geliş: {tarihTR(k.gelis_tarihi)}</div>
                   <div>Çıkış: {tarihTR(k.cikis_tarihi)}</div>
-                  <div>Fatura: {k.fatura_durumu?.ad ?? "—"}</div>
-                  <div className="font-medium text-foreground">
-                    {tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
-                  </div>
+                  {finansal && <div>Fatura: {k.fatura_durumu?.ad ?? "—"}</div>}
+                  {finansal && (
+                    <div className="font-medium text-foreground">
+                      {tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}

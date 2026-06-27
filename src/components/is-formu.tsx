@@ -35,6 +35,7 @@ type Props = {
   varsayilan?: IsFormVarsayilan
   gonderEtiketi?: string
   iptalHref?: string
+  finansalGoster?: boolean
 }
 
 const selectClass =
@@ -69,6 +70,7 @@ export function IsFormu({
   varsayilan = {},
   gonderEtiketi = "Kaydet",
   iptalHref = "/",
+  finansalGoster = true,
 }: Props) {
   const [state, formAction, pending] = useActionState<IsFormState, FormData>(
     action,
@@ -176,6 +178,7 @@ export function IsFormu({
         </div>
       </Bolum>
 
+      {finansalGoster && (
       <Bolum baslik="Mali Bilgiler">
         <div className="grid gap-3.5 sm:grid-cols-3">
           <div className="grid gap-1.5">
@@ -199,6 +202,7 @@ export function IsFormu({
           </div>
         </div>
       </Bolum>
+      )}
 
       <Bolum baslik="Açıklama / Notlar">
         <textarea

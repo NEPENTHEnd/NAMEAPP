@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/client"
@@ -108,6 +109,13 @@ export default function GirisPage() {
               {yukleniyor ? "Giriş yapılıyor…" : "Giriş yap"}
             </button>
           </form>
+
+          <p className="mt-4 text-center text-[12.5px] text-muted-foreground">
+            Hesabın yok mu?{" "}
+            <Link href="/kayit" className="font-medium text-primary hover:underline">
+              Üye ol
+            </Link>
+          </p>
         </div>
         <div className="mt-[18px] text-center text-xs text-muted-foreground/80">
           © 2026 Name Teknik · Kayseri · Endüstriyel Elektronik Onarım
