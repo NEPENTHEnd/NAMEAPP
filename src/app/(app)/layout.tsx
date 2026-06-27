@@ -26,8 +26,8 @@ export default async function AppLayout({
               <Image
                 src="/name-teknik-logo.png"
                 alt="Name Teknik"
-                width={260}
-                height={52}
+                width={1902}
+                height={827}
                 priority
                 className="h-9 w-auto object-contain sm:h-11"
               />
