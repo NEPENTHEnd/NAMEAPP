@@ -59,16 +59,7 @@ export async function personelEkle(formData: FormData) {
   const supabase = await yoneticiSupabase()
   const ad = metin(formData, "ad")
   if (!ad) return
-  // Sıradaki boş fiş ön ekini otomatik ata
-  const { data: enBuyuk } = await supabase
-    .from("teknik_personel")
-    .select("fis_prefix")
-    .not("fis_prefix", "is", null)
-    .order("fis_prefix", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  const sonraki = (enBuyuk?.fis_prefix ?? 0) + 1
-  await supabase.from("teknik_personel").insert({ ad, fis_prefix: sonraki })
+  await supabase.from("teknik_personel").insert({ ad })
   bitir()
 }
 
@@ -150,11 +141,21 @@ type RpcIstemci = {
 
 export async function davetUret(formData: FormData) {
   const supabase = await yoneticiSupabase()
-  const rol = metin(formData, "rol")
-  if (rol !== "teknisyen" && rol !== "yonetici") return
-  const personelId = metin(formData, "personel_id") || null
+  const kisiId = metin(formData, "kisi_id")
+  if (!kisiId) return
   const rpc = supabase as unknown as RpcIstemci
-  await rpc.rpc("davet_uret", { p_rol: rol, p_personel_id: personelId })
+  await rpc.rpc("davet_uret", { p_kisi_id: kisiId })
+  bitir()
+}
+
+// Yeni kişi (gelecek personel/yönetici) ekle — sahip; sıradaki ön ek atanır
+export async function davetKisiEkle(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const ad = metin(formData, "ad")
+  const rol = metin(formData, "rol")
+  if (!ad || (rol !== "teknisyen" && rol !== "yonetici")) return
+  const rpc = supabase as unknown as RpcIstemci
+  await rpc.rpc("davet_kisi_ekle", { p_ad: ad, p_rol: rol })
   bitir()
 }
 

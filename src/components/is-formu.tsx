@@ -193,7 +193,7 @@ export function IsFormu({
             <Hata alan="durum_id" />
           </div>
           <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="teknik_personel_id">Teknik personel</label>
+            <label className={labelClass} htmlFor="teknik_personel_id">Tekniker (işi yapan)</label>
             <select id="teknik_personel_id" name="teknik_personel_id" className={selectClass} defaultValue={varsayilan.teknik_personel_id ?? ""}>
               <option value="">Atanmadı</option>
               {personeller.map((p) => (

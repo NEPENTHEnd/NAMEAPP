@@ -19,11 +19,12 @@ import {
   faturaDuzenle,
   rolDuzenle,
   davetUret,
+  davetKisiEkle,
 } from "@/app/actions/tanim"
 
 const SEKMELER = [
   { k: "musteri", label: "Müşteriler" },
-  { k: "personel", label: "Teknik Personel" },
+  { k: "personel", label: "Tekniker" },
   { k: "durum", label: "Durumlar" },
   { k: "fatura", label: "Fatura Durumları" },
   { k: "roller", label: "Kullanıcı & Roller" },
@@ -43,22 +44,24 @@ export default async function TanimlarSayfasi({
   const sekme = SEKMELER.some((s) => s.k === sekmeRaw) ? sekmeRaw! : "musteri"
 
   const supabase = await createClient()
-  const [musteriler, personeller, durumlar, faturalar, profiller, davetler] =
+  const [musteriler, personeller, durumlar, faturalar, profiller, davetler, kisiler] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
-      supabase.from("teknik_personel").select("id, ad, aktif, fis_prefix").order("fis_prefix"),
+      supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
       supabase.from("durum").select("id, ad, sira, renk").order("sira"),
       supabase.from("fatura_durumu").select("id, ad").order("ad"),
       supabase.from("kullanici_profil").select("id, ad, rol").order("ad"),
       supabase
         .from("davet_kodu")
-        .select("kod, rol, kullanildi, created_at, teknik_personel_id")
+        .select("kod, rol, kullanildi, created_at, fis_prefix")
         .order("created_at", { ascending: false }),
+      supabase
+        .from("davet_kisi")
+        .select("id, ad, fis_prefix, rol, aktif")
+        .order("fis_prefix"),
     ])
 
-  const personelAd = new Map(
-    (personeller.data ?? []).map((p) => [p.id, p.ad])
-  )
+  const rolEtiket = (r: string) => (r === "yonetici" ? "Yönetici" : "Personel")
 
   return (
     <div className="grid gap-5">
@@ -123,7 +126,7 @@ export default async function TanimlarSayfasi({
       {sekme === "personel" && (
         <section className="grid gap-3">
           <form action={personelEkle} className="flex flex-wrap gap-2">
-            <Input name="ad" placeholder="Personel adı" required className="max-w-xs" />
+            <Input name="ad" placeholder="Tekniker adı" required className="max-w-xs" />
             <Button type="submit" size="sm">Ekle</Button>
           </form>
           <div className="grid gap-2">
@@ -134,11 +137,6 @@ export default async function TanimlarSayfasi({
                   <Input name="ad" defaultValue={p.ad} className="max-w-xs" required />
                   <Button type="submit" size="sm" variant="outline">Kaydet</Button>
                 </form>
-                {p.fis_prefix ? (
-                  <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
-                    fiş ön eki: {p.fis_prefix}
-                  </span>
-                ) : null}
                 <form action={personelAktiflik}>
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="aktif" value={p.aktif ? "false" : "true"} />
@@ -218,8 +216,8 @@ export default async function TanimlarSayfasi({
                   defaultValue={u.rol}
                   className="h-9 rounded-lg border border-input bg-card px-2.5 text-[12.5px]"
                 >
-                  <option value="teknisyen">teknisyen</option>
-                  <option value="yonetici">yonetici</option>
+                  <option value="teknisyen">Personel</option>
+                  <option value="yonetici">Yönetici</option>
                 </select>
                 <Button type="submit" size="sm" variant="outline">Kaydet</Button>
               </form>
@@ -230,88 +228,99 @@ export default async function TanimlarSayfasi({
 
       {/* DAVET KODLARI */}
       {sekme === "davet" && (
-        <section className="grid gap-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <form action={davetUret} className="flex flex-wrap items-end gap-2">
-              <input type="hidden" name="rol" value="teknisyen" />
+        <section className="grid gap-4">
+          {/* Kişiler: her biri için davet üret */}
+          <div className="grid gap-2">
+            <h2 className="text-sm font-semibold">Kişiye davet üret</h2>
+            <p className="text-xs text-muted-foreground">
+              Her kod <strong>tek kullanımlıktır</strong>. Kişi "Üye ol" ekranında
+              kullanınca tükenir; hesabı kişinin rolü ve fiş ön ekiyle açılır.
+            </p>
+            <div className="grid gap-2">
+              {(kisiler.data ?? [])
+                .filter((k) => k.aktif && (kullanici.sahip || k.rol !== "yonetici"))
+                .map((k) => (
+                  <form
+                    key={k.id}
+                    action={davetUret}
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2.5"
+                  >
+                    <input type="hidden" name="kisi_id" value={k.id} />
+                    <span className="font-semibold">{k.ad}</span>
+                    <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
+                      ön ek {k.fis_prefix}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {rolEtiket(k.rol)}
+                    </span>
+                    <Button type="submit" size="sm" variant="outline" className="ml-auto">
+                      Davet üret
+                    </Button>
+                  </form>
+                ))}
+            </div>
+          </div>
+
+          {/* Yeni kişi ekle (yalnız sahip) */}
+          {kullanici.sahip && (
+            <form
+              action={davetKisiEkle}
+              className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed p-3"
+            >
               <div className="grid gap-1">
                 <label className="text-xs font-semibold text-muted-foreground">
-                  Tekniker için davet
+                  Yeni kişi ekle (sıradaki ön ek atanır)
                 </label>
-                <select
-                  name="personel_id"
-                  required
-                  defaultValue=""
-                  className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm"
-                >
-                  <option value="" disabled>
-                    Kişi seç…
-                  </option>
-                  {(personeller.data ?? [])
-                    .filter((p) => p.aktif)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.ad}
-                        {p.fis_prefix ? ` (ön ek ${p.fis_prefix})` : ""}
-                      </option>
-                    ))}
-                </select>
+                <Input name="ad" placeholder="Ad" required className="max-w-xs" />
               </div>
-              <Button type="submit" size="sm">
-                Davet üret
-              </Button>
+              <select
+                name="rol"
+                defaultValue="teknisyen"
+                className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm"
+              >
+                <option value="teknisyen">Personel</option>
+                <option value="yonetici">Yönetici</option>
+              </select>
+              <Button type="submit" size="sm">Ekle</Button>
             </form>
-            {kullanici.sahip && (
-              <form action={davetUret}>
-                <input type="hidden" name="rol" value="yonetici" />
-                <Button type="submit" size="sm" variant="secondary">
-                  + Yönetici daveti üret
-                </Button>
-              </form>
+          )}
+
+          {/* Üretilmiş kodlar */}
+          <div className="grid gap-2">
+            <h2 className="text-sm font-semibold">Üretilen kodlar</h2>
+            {(davetler.data ?? []).length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                Henüz davet kodu üretilmedi.
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                {(davetler.data ?? []).map((d) => (
+                  <div
+                    key={d.kod}
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2.5"
+                  >
+                    <code className="rounded bg-muted px-2 py-1 font-mono text-sm font-semibold">
+                      {d.kod}
+                    </code>
+                    <span className="text-xs text-muted-foreground">
+                      {rolEtiket(d.rol)}
+                      {d.fis_prefix ? ` · ön ek ${d.fis_prefix}` : ""}
+                    </span>
+                    <span
+                      className={cn(
+                        "ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        d.kullanildi
+                          ? "bg-muted text-muted-foreground"
+                          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                      )}
+                    >
+                      {d.kullanildi ? "kullanıldı" : "aktif"}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Her kod <strong>tek kullanımlıktır</strong> — kayıt olununca tükenir.
-            Üretilen kodu ilgili kişiye verin; "Üye ol" ekranında kullansın.
-          </p>
-
-          {(davetler.data ?? []).length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Henüz davet kodu üretilmedi.
-            </div>
-          ) : (
-            <div className="grid gap-2">
-              {(davetler.data ?? []).map((d) => (
-                <div
-                  key={d.kod}
-                  className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2.5"
-                >
-                  <code className="rounded bg-muted px-2 py-1 font-mono text-sm font-semibold">
-                    {d.kod}
-                  </code>
-                  <span className="text-xs text-muted-foreground">
-                    {d.rol === "yonetici"
-                      ? "Yönetici"
-                      : `Teknisyen${
-                          d.teknik_personel_id
-                            ? " · " + (personelAd.get(d.teknik_personel_id) ?? "")
-                            : ""
-                        }`}
-                  </span>
-                  <span
-                    className={cn(
-                      "ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium",
-                      d.kullanildi
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                    )}
-                  >
-                    {d.kullanildi ? "kullanıldı" : "aktif"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </section>
       )}
     </div>

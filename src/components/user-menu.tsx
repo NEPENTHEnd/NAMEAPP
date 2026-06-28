@@ -44,7 +44,9 @@ export function UserMenu({
           <span className="text-[12.5px] font-semibold text-foreground">
             {ad ?? eposta}
           </span>
-          <span className="text-[11px] capitalize text-muted-foreground">{rol}</span>
+          <span className="text-[11px] text-muted-foreground">
+            {rol === "yonetici" ? "Yönetici" : "Personel"}
+          </span>
         </span>
         <svg
           width="14"

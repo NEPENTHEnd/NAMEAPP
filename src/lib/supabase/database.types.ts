@@ -14,9 +14,37 @@ export type Database = {
   }
   public: {
     Tables: {
+      davet_kisi: {
+        Row: {
+          ad: string
+          aktif: boolean
+          created_at: string
+          fis_prefix: number
+          id: string
+          rol: string
+        }
+        Insert: {
+          ad: string
+          aktif?: boolean
+          created_at?: string
+          fis_prefix: number
+          id?: string
+          rol: string
+        }
+        Update: {
+          ad?: string
+          aktif?: boolean
+          created_at?: string
+          fis_prefix?: number
+          id?: string
+          rol?: string
+        }
+        Relationships: []
+      }
       davet_kodu: {
         Row: {
           created_at: string
+          fis_prefix: number | null
           kod: string
           kullanildi: boolean
           olusturan_id: string | null
@@ -25,6 +53,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          fis_prefix?: number | null
           kod: string
           kullanildi?: boolean
           olusturan_id?: string | null
@@ -33,6 +62,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          fis_prefix?: number | null
           kod?: string
           kullanildi?: boolean
           olusturan_id?: string | null
@@ -198,6 +228,7 @@ export type Database = {
       kullanici_profil: {
         Row: {
           ad: string | null
+          fis_prefix: number | null
           id: string
           rol: string
           sahip: boolean
@@ -205,6 +236,7 @@ export type Database = {
         }
         Insert: {
           ad?: string | null
+          fis_prefix?: number | null
           id: string
           rol?: string
           sahip?: boolean
@@ -212,6 +244,7 @@ export type Database = {
         }
         Update: {
           ad?: string | null
+          fis_prefix?: number | null
           id?: string
           rol?: string
           sahip?: boolean
@@ -255,19 +288,16 @@ export type Database = {
         Row: {
           ad: string
           aktif: boolean
-          fis_prefix: number | null
           id: string
         }
         Insert: {
           ad: string
           aktif?: boolean
-          fis_prefix?: number | null
           id?: string
         }
         Update: {
           ad?: string
           aktif?: boolean
-          fis_prefix?: number | null
           id?: string
         }
         Relationships: []
