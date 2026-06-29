@@ -198,7 +198,7 @@ export default async function RaporlarSayfasi({
               href={`/raporlar/fotolar-zip${ay ? `?ay=${ay}` : ""}`}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Fotoğrafları indir (ZIP)
+              {ay ? `${ayAdi(ay)} fotoğrafları (ZIP)` : "Tüm fotoğraflar (ZIP)"}
             </a>
             <FotoArsivSil ay={ay} adet={kapsamAdet} />
           </div>

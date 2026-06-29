@@ -18,8 +18,7 @@ import {
   faturaEkle,
   faturaDuzenle,
   rolDuzenle,
-  davetUret,
-  davetKisiEkle,
+  davetKodYenile,
 } from "@/app/actions/tanim"
 
 const SEKMELER = [
@@ -44,7 +43,7 @@ export default async function TanimlarSayfasi({
   const sekme = SEKMELER.some((s) => s.k === sekmeRaw) ? sekmeRaw! : "musteri"
 
   const supabase = await createClient()
-  const [musteriler, personeller, durumlar, faturalar, profiller, davetler, kisiler] =
+  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
@@ -52,12 +51,8 @@ export default async function TanimlarSayfasi({
       supabase.from("fatura_durumu").select("id, ad").order("ad"),
       supabase.from("kullanici_profil").select("id, ad, rol").order("ad"),
       supabase
-        .from("davet_kodu")
-        .select("kod, rol, kullanildi, created_at, fis_prefix")
-        .order("created_at", { ascending: false }),
-      supabase
         .from("davet_kisi")
-        .select("id, ad, fis_prefix, rol, aktif")
+        .select("id, ad, fis_prefix, rol, aktif, kod")
         .order("fis_prefix"),
     ])
 
@@ -231,95 +226,41 @@ export default async function TanimlarSayfasi({
         <section className="grid gap-4">
           {/* Kişiler: her biri için davet üret */}
           <div className="grid gap-2">
-            <h2 className="text-sm font-semibold">Kişiye davet üret</h2>
+            <h2 className="text-sm font-semibold">Davet kodları</h2>
             <p className="text-xs text-muted-foreground">
-              Her kod <strong>tek kullanımlıktır</strong>. Kişi "Üye ol" ekranında
-              kullanınca tükenir; hesabı kişinin rolü ve fiş ön ekiyle açılır.
+              Her kişinin kodu <strong>sabittir</strong> (tekrar tekrar kullanılabilir).
+              İlgili kişiye verin; "Üye ol" ekranında kullansın — hesabı rolü ve fiş
+              ön ekiyle açılır. Kod ele geçerse "Yenile" ile değiştirin.
             </p>
             <div className="grid gap-2">
               {(kisiler.data ?? [])
-                .filter((k) => k.aktif && (kullanici.sahip || k.rol !== "yonetici"))
+                .filter((k) => kullanici.sahip || k.rol !== "yonetici")
                 .map((k) => (
-                  <form
+                  <div
                     key={k.id}
-                    action={davetUret}
                     className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2.5"
                   >
-                    <input type="hidden" name="kisi_id" value={k.id} />
-                    <span className="font-semibold">{k.ad}</span>
+                    <span className="w-28 font-semibold">{k.ad}</span>
                     <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
                       ön ek {k.fis_prefix}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {rolEtiket(k.rol)}
                     </span>
-                    <Button type="submit" size="sm" variant="outline" className="ml-auto">
-                      Davet üret
-                    </Button>
-                  </form>
-                ))}
-            </div>
-          </div>
-
-          {/* Yeni kişi ekle (yalnız sahip) */}
-          {kullanici.sahip && (
-            <form
-              action={davetKisiEkle}
-              className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed p-3"
-            >
-              <div className="grid gap-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Yeni kişi ekle (sıradaki ön ek atanır)
-                </label>
-                <Input name="ad" placeholder="Ad" required className="max-w-xs" />
-              </div>
-              <select
-                name="rol"
-                defaultValue="teknisyen"
-                className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm"
-              >
-                <option value="teknisyen">Personel</option>
-                <option value="yonetici">Yönetici</option>
-              </select>
-              <Button type="submit" size="sm">Ekle</Button>
-            </form>
-          )}
-
-          {/* Üretilmiş kodlar */}
-          <div className="grid gap-2">
-            <h2 className="text-sm font-semibold">Üretilen kodlar</h2>
-            {(davetler.data ?? []).length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                Henüz davet kodu üretilmedi.
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                {(davetler.data ?? []).map((d) => (
-                  <div
-                    key={d.kod}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2.5"
-                  >
                     <code className="rounded bg-muted px-2 py-1 font-mono text-sm font-semibold">
-                      {d.kod}
+                      {k.kod}
                     </code>
-                    <span className="text-xs text-muted-foreground">
-                      {rolEtiket(d.rol)}
-                      {d.fis_prefix ? ` · ön ek ${d.fis_prefix}` : ""}
-                    </span>
-                    <span
-                      className={cn(
-                        "ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium",
-                        d.kullanildi
-                          ? "bg-muted text-muted-foreground"
-                          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                      )}
-                    >
-                      {d.kullanildi ? "kullanıldı" : "aktif"}
-                    </span>
+                    {kullanici.sahip && (
+                      <form action={davetKodYenile} className="ml-auto">
+                        <input type="hidden" name="kisi_id" value={k.id} />
+                        <Button type="submit" size="sm" variant="ghost">
+                          Yenile
+                        </Button>
+                      </form>
+                    )}
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
           </div>
         </section>
       )}

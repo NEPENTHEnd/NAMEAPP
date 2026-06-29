@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           fis_prefix: number
           id: string
+          kod: string | null
           rol: string
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           created_at?: string
           fis_prefix: number
           id?: string
+          kod?: string | null
           rol: string
         }
         Update: {
@@ -37,6 +39,7 @@ export type Database = {
           created_at?: string
           fis_prefix?: number
           id?: string
+          kod?: string | null
           rol?: string
         }
         Relationships: []

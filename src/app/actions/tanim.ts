@@ -139,23 +139,13 @@ type RpcIstemci = {
   ) => Promise<{ data: unknown; error: { message: string } | null }>
 }
 
-export async function davetUret(formData: FormData) {
+// Kişinin sabit davet kodunu yeniler (sahip) — kod ele geçtiyse değiştirmek için
+export async function davetKodYenile(formData: FormData) {
   const supabase = await yoneticiSupabase()
   const kisiId = metin(formData, "kisi_id")
   if (!kisiId) return
   const rpc = supabase as unknown as RpcIstemci
-  await rpc.rpc("davet_uret", { p_kisi_id: kisiId })
-  bitir()
-}
-
-// Yeni kişi (gelecek personel/yönetici) ekle — sahip; sıradaki ön ek atanır
-export async function davetKisiEkle(formData: FormData) {
-  const supabase = await yoneticiSupabase()
-  const ad = metin(formData, "ad")
-  const rol = metin(formData, "rol")
-  if (!ad || (rol !== "teknisyen" && rol !== "yonetici")) return
-  const rpc = supabase as unknown as RpcIstemci
-  await rpc.rpc("davet_kisi_ekle", { p_ad: ad, p_rol: rol })
+  await rpc.rpc("davet_kod_yenile", { p_kisi_id: kisiId })
   bitir()
 }
 
