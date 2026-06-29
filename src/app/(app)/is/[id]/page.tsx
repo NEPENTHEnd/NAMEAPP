@@ -9,6 +9,7 @@ import { IsFormu } from "@/components/is-formu"
 import { SilButonu } from "@/components/sil-butonu"
 import { FotoBolumu, type FotoOgesi } from "@/components/foto-bolumu"
 import { DurumRozeti } from "@/components/rozet"
+import { TakipKodu } from "@/components/takip-kodu"
 
 function tarihSaatTR(s: string | null): string {
   if (!s) return "—"
@@ -31,7 +32,7 @@ export default async function IsDetaySayfasi({
     .from("is_kaydi")
     .select(
       `
-        id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
+        id, cihaz_adi, seri_no, servis_no, takip_no, gelis_tarihi, cikis_tarihi,
         ilgili_kisi, adres, fiyat_teklifi, fatura_tutari, garanti_no, aciklama,
         created_at, updated_at,
         musteri_id, durum_id, teknik_personel_id, fatura_durumu_id,
@@ -94,6 +95,8 @@ export default async function IsDetaySayfasi({
             : ""}
         </p>
       </div>
+
+      <TakipKodu kod={kayit.takip_no} />
 
       <div className="rounded-lg border p-4">
         <FotoBolumu isKaydiId={id} fotograflar={fotograflar} />

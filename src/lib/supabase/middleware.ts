@@ -36,7 +36,11 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/giris") ||
     request.nextUrl.pathname.startsWith("/kayit")
 
-  if (!user && !isAuthRoute) {
+  // /takip herkese açık (müşteri takip portalı) — oturum gerekmez.
+  const isPublicRoute =
+    isAuthRoute || request.nextUrl.pathname.startsWith("/takip")
+
+  if (!user && !isPublicRoute) {
     // Oturum yoksa giriş sayfasına yönlendir.
     const url = request.nextUrl.clone()
     url.pathname = "/giris"

@@ -158,6 +158,7 @@ export type Database = {
           olusturan_id: string | null
           seri_no: string | null
           servis_no: string | null
+          takip_no: string
           teknik_personel_id: string | null
           updated_at: string
         }
@@ -179,6 +180,7 @@ export type Database = {
           olusturan_id?: string | null
           seri_no?: string | null
           servis_no?: string | null
+          takip_no?: string
           teknik_personel_id?: string | null
           updated_at?: string
         }
@@ -200,6 +202,7 @@ export type Database = {
           olusturan_id?: string | null
           seri_no?: string | null
           servis_no?: string | null
+          takip_no?: string
           teknik_personel_id?: string | null
           updated_at?: string
         }
@@ -317,6 +320,18 @@ export type Database = {
     }
     Functions: {
       yonetici_mi: { Args: never; Returns: boolean }
+      takip_sorgula: {
+        Args: { p_takip_no: string }
+        Returns: {
+          musteri_ad: string | null
+          cihaz_adi: string
+          servis_no: string | null
+          durum_ad: string | null
+          durum_renk: string | null
+          gelis_tarihi: string
+          cikis_tarihi: string | null
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
