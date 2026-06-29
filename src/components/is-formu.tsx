@@ -77,7 +77,7 @@ export function IsFormu({
   gonderEtiketi = "Kaydet",
   iptalHref = "/",
   finansalGoster = true,
-  servisNoGoster = true,
+  servisNoGoster = false, // fiş no otomatik üretilir; alan salt-okunur gösterilir
   degisiklikTakip = false,
   fotoSecimi = false,
 }: Props) {

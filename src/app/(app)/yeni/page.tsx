@@ -29,7 +29,6 @@ export default async function YeniIsSayfasi() {
         varsayilan={{ gelis_tarihi: bugun }}
         gonderEtiketi="İşi oluştur"
         finansalGoster={kullanici.rol === "yonetici"}
-        servisNoGoster={kullanici.rol === "yonetici"}
         fotoSecimi
       />
     </div>

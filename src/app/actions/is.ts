@@ -148,16 +148,15 @@ export async function isOlustur(
     ...temelSatir(parsed.data, m.id),
     olusturan_id: kullanici.id,
   }
+  // Fiş no HERKESE otomatik (ön eki olan kullanıcıda); yoksa form değeri/boş
+  const rpc = supabase as unknown as RpcIstemci
+  const { data: fis } = await rpc.rpc("fis_no_uret")
+  ekle.servis_no =
+    (typeof fis === "string" ? fis : null) ?? parsed.data.servis_no ?? null
   if (finansal) {
-    ekle.servis_no = parsed.data.servis_no ?? null
     ekle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     ekle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
     ekle.fatura_tutari = parsed.data.fatura_tutari ?? null
-  } else {
-    // Teknisyen: fiş no otomatik üretilir (ön eki varsa)
-    const rpc = supabase as unknown as RpcIstemci
-    const { data: fis } = await rpc.rpc("fis_no_uret")
-    ekle.servis_no = (typeof fis === "string" ? fis : null) ?? parsed.data.servis_no ?? null
   }
 
   const { data, error } = await supabase
@@ -191,9 +190,8 @@ export async function isGuncelle(
 
   const finansal = kullanici.rol === "yonetici"
   const guncelle: TablesUpdate<"is_kaydi"> = temelSatir(parsed.data, m.id)
+  // Fiş no değişmez (otomatik). Yalnız yönetici finansal alanları değiştirir.
   if (finansal) {
-    // Yalnız yönetici servis no + finansal alanları değiştirebilir
-    guncelle.servis_no = parsed.data.servis_no ?? null
     guncelle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     guncelle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
     guncelle.fatura_tutari = parsed.data.fatura_tutari ?? null
