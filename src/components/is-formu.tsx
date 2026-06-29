@@ -1,10 +1,13 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import type { IsFormState } from "@/app/actions/is"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
+import { fotograflariYukle } from "@/lib/foto-istemci"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -38,6 +41,7 @@ type Props = {
   finansalGoster?: boolean
   servisNoGoster?: boolean
   degisiklikTakip?: boolean
+  fotoSecimi?: boolean
 }
 
 const selectClass =
@@ -75,7 +79,9 @@ export function IsFormu({
   finansalGoster = true,
   servisNoGoster = true,
   degisiklikTakip = false,
+  fotoSecimi = false,
 }: Props) {
+  const router = useRouter()
   const [state, formAction, pending] = useActionState<IsFormState, FormData>(
     action,
     {}
@@ -83,12 +89,27 @@ export function IsFormu({
   const [yeniMusteri, setYeniMusteri] = useState(false)
   // Değişiklik takibi: edit modunda buton değişiklik olana dek pasif kalır.
   const [degisti, setDegisti] = useState(!degisiklikTakip)
+  const [fotoYukleniyor, setFotoYukleniyor] = useState(false)
+  const fotoRef = useRef<HTMLInputElement>(null)
   const fe = state.fieldErrors ?? {}
 
-  // Kayıt başarılıysa "değişti" sıfırlanır -> buton pasif + yeşil tik görünür.
   useEffect(() => {
-    if (state.basari) setDegisti(false)
-  }, [state])
+    if (state.id) {
+      // Yeni iş oluşturuldu: seçili fotoğrafları yükle, sonra detaya git.
+      const dosyalar = Array.from(fotoRef.current?.files ?? [])
+      const detayaGit = () => router.push(`/is/${state.id}`)
+      if (dosyalar.length === 0) {
+        detayaGit()
+        return
+      }
+      setFotoYukleniyor(true)
+      fotograflariYukle(createClient(), state.id, dosyalar, 0)
+        .catch(() => {}) // foto hatası olsa da iş oluştu; detayda eklenebilir
+        .finally(detayaGit)
+    } else if (state.basari) {
+      setDegisti(false)
+    }
+  }, [state, router])
 
   function Hata({ alan }: { alan: string }) {
     return fe[alan] ? <p className="text-xs text-destructive">{fe[alan]}</p> : null
@@ -241,9 +262,33 @@ export function IsFormu({
         />
       </Bolum>
 
+      {fotoSecimi && (
+        <Bolum baslik="Fotoğraflar">
+          <input
+            ref={fotoRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            className="block w-full text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-muted"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Kaydedince fotoğraflar otomatik yüklenir. Telefonda doğrudan kameradan
+            çekebilirsin.
+          </p>
+        </Bolum>
+      )}
+
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending || (degisiklikTakip && !degisti)}>
-          {pending ? "Kaydediliyor…" : gonderEtiketi}
+        <Button
+          type="submit"
+          disabled={pending || fotoYukleniyor || (degisiklikTakip && !degisti)}
+        >
+          {pending
+            ? "Kaydediliyor…"
+            : fotoYukleniyor
+              ? "Fotoğraflar yükleniyor…"
+              : gonderEtiketi}
         </Button>
         {degisiklikTakip && state.basari && !degisti && (
           <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600">

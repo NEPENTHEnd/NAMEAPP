@@ -30,6 +30,7 @@ export default async function YeniIsSayfasi() {
         gonderEtiketi="İşi oluştur"
         finansalGoster={kullanici.rol === "yonetici"}
         servisNoGoster={kullanici.rol === "yonetici"}
+        fotoSecimi
       />
     </div>
   )

@@ -24,6 +24,7 @@ export type IsFormState = {
   error?: string
   fieldErrors?: Record<string, string>
   basari?: boolean
+  id?: string // yeni oluşturulan iş id'si (foto yükleme + yönlendirme için)
 }
 
 // Boş string'i undefined'a çevir (opsiyonel alanlar için)
@@ -170,7 +171,8 @@ export async function isOlustur(
   }
 
   revalidatePath("/")
-  redirect(`/is/${data.id}`)
+  // Yönlendirme/foto yükleme client'ta yapılır (id döndürülür)
+  return { basari: true, id: data.id }
 }
 
 export async function isGuncelle(

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 
 import { createClient } from "@/lib/supabase/client"
+import { fotograflariYukle, MAKS_DOSYA_BOYUT } from "@/lib/foto-istemci"
 import { fotoSil } from "@/app/actions/foto"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -13,66 +14,6 @@ export type FotoOgesi = {
   id: string
   url: string
   dosyaYolu: string
-}
-
-const MAKS_BOYUT = 25 * 1024 * 1024 // 25 MB (sıkıştırmadan önceki orijinal sınırı)
-
-function uzanti(dosya: File): string {
-  const adParca = dosya.name.split(".").pop()?.toLowerCase()
-  if (adParca && adParca.length <= 5) return adParca
-  return dosya.type.split("/").pop() || "jpg"
-}
-
-const MAKS_KENAR = 1600 // en uzun kenar (px)
-const JPEG_KALITE = 0.72
-
-function gorselYukle(dosya: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(dosya)
-    const img = document.createElement("img")
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      resolve(img)
-    }
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error("görsel yüklenemedi"))
-    }
-    img.src = url
-  })
-}
-
-// Fotoğrafı yüklemeden önce küçült + JPEG'e çevir (depolama tasarrufu).
-// Sıkıştırma yapılamazsa (örn. desteklenmeyen format) orijinali döndürür.
-async function sikistir(
-  dosya: File
-): Promise<{ veri: Blob; ext: string; tip: string }> {
-  if (!dosya.type.startsWith("image/")) {
-    return { veri: dosya, ext: uzanti(dosya), tip: dosya.type }
-  }
-  try {
-    const img = await gorselYukle(dosya)
-    const olcek = Math.min(1, MAKS_KENAR / Math.max(img.width, img.height))
-    const w = Math.round(img.width * olcek)
-    const h = Math.round(img.height * olcek)
-    const canvas = document.createElement("canvas")
-    canvas.width = w
-    canvas.height = h
-    const ctx = canvas.getContext("2d")
-    if (!ctx) throw new Error("canvas")
-    ctx.drawImage(img, 0, 0, w, h)
-    const blob = await new Promise<Blob | null>((res) =>
-      canvas.toBlob(res, "image/jpeg", JPEG_KALITE)
-    )
-    if (!blob) throw new Error("blob")
-    // Sıkıştırma orijinalden büyükse orijinali kullan
-    if (blob.size >= dosya.size) {
-      return { veri: dosya, ext: uzanti(dosya), tip: dosya.type }
-    }
-    return { veri: blob, ext: "jpg", tip: "image/jpeg" }
-  } catch {
-    return { veri: dosya, ext: uzanti(dosya), tip: dosya.type }
-  }
 }
 
 export function FotoBolumu({
@@ -101,38 +42,17 @@ export function FotoBolumu({
         setHata(`"${d.name}" bir resim dosyası değil.`)
         return
       }
-      if (d.size > MAKS_BOYUT) {
-        setHata(`"${d.name}" 10 MB sınırını aşıyor.`)
+      if (d.size > MAKS_DOSYA_BOYUT) {
+        setHata(`"${d.name}" çok büyük (25 MB sınırı).`)
         return
       }
     }
 
     setYukleniyor(true)
     const supabase = createClient()
-    let sira = fotograflar.length
 
     try {
-      for (const dosya of dosyalar) {
-        const { veri, ext, tip } = await sikistir(dosya)
-        const yol = `${isKaydiId}/${crypto.randomUUID()}.${ext}`
-
-        const { error: yuklemeHatasi } = await supabase.storage
-          .from("foto")
-          .upload(yol, veri, { contentType: tip, upsert: false })
-        if (yuklemeHatasi) {
-          throw new Error("Yükleme başarısız: " + yuklemeHatasi.message)
-        }
-
-        const { error: satirHatasi } = await supabase
-          .from("foto")
-          .insert({ is_kaydi_id: isKaydiId, dosya_yolu: yol, sira: sira++ })
-        if (satirHatasi) {
-          // Satır eklenemezse yüklenen dosyayı geri al
-          await supabase.storage.from("foto").remove([yol])
-          throw new Error("Fotoğraf kaydedilemedi: " + satirHatasi.message)
-        }
-      }
-
+      await fotograflariYukle(supabase, isKaydiId, dosyalar, fotograflar.length)
       if (inputRef.current) inputRef.current.value = ""
       router.refresh()
     } catch (err) {
