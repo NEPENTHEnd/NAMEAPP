@@ -161,6 +161,7 @@ export type Database = {
           takip_no: string
           teknik_personel_id: string | null
           updated_at: string
+          yonetici_gordu: boolean
         }
         Insert: {
           aciklama?: string | null
@@ -183,6 +184,7 @@ export type Database = {
           takip_no?: string
           teknik_personel_id?: string | null
           updated_at?: string
+          yonetici_gordu?: boolean
         }
         Update: {
           aciklama?: string | null
@@ -205,6 +207,7 @@ export type Database = {
           takip_no?: string
           teknik_personel_id?: string | null
           updated_at?: string
+          yonetici_gordu?: boolean
         }
         Relationships: [
           {

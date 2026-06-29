@@ -6,6 +6,7 @@ import { AppNav } from "@/components/app-nav"
 import { UserMenu } from "@/components/user-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { CevrimdisiUyari } from "@/components/cevrimdisi-uyari"
+import { BildirimRozeti } from "@/components/bildirim-rozeti"
 
 // Giriş gerektiren tüm sayfaların ortak kabuğu: üst başlık + navigasyon + çıkış.
 export default async function AppLayout({
@@ -56,6 +57,7 @@ export default async function AppLayout({
                 </svg>
                 <span className="hidden whitespace-nowrap sm:inline">Yeni İş</span>
               </Link>
+              {kullanici.rol === "yonetici" && <BildirimRozeti />}
               <ThemeToggle />
               <UserMenu
                 ad={kullanici.ad}

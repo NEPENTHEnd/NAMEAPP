@@ -152,6 +152,8 @@ export async function isOlustur(
   const ekle: TablesInsert<"is_kaydi"> = {
     ...temelSatir(parsed.data, m.id),
     olusturan_id: kullanici.id,
+    // Personelin eklediği iş yöneticiye "yeni" görünür; yöneticininki görüldü sayılır.
+    yonetici_gordu: finansal,
   }
   // Fiş no HERKESE otomatik (ön eki olan kullanıcıda); yoksa form değeri/boş
   const rpc = supabase as unknown as RpcIstemci

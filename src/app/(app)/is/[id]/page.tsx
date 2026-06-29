@@ -34,6 +34,7 @@ export default async function IsDetaySayfasi({
       `
         id, cihaz_adi, seri_no, servis_no, takip_no, gelis_tarihi, cikis_tarihi,
         ilgili_kisi, adres, fiyat_teklifi, fatura_tutari, garanti_no, aciklama,
+        yonetici_gordu,
         created_at, updated_at,
         musteri_id, durum_id, teknik_personel_id, fatura_durumu_id,
         musteri:musteri_id ( ad ),
@@ -44,6 +45,11 @@ export default async function IsDetaySayfasi({
     .maybeSingle()
 
   if (!kayit) notFound()
+
+  // Yönetici yeni bir işi açtığında "görüldü" işaretle (bildirim rozeti düşsün).
+  if (kullanici.rol === "yonetici" && !kayit.yonetici_gordu) {
+    await supabase.from("is_kaydi").update({ yonetici_gordu: true }).eq("id", id)
+  }
 
   // Fotoğraflar — private bucket olduğu için imzalı URL üret
   const { data: fotoSatirlari } = await supabase
