@@ -142,8 +142,10 @@ export type Database = {
       is_kaydi: {
         Row: {
           aciklama: string | null
+          adres: string | null
           cihaz_adi: string
           cikis_tarihi: string | null
+          garanti_no: string | null
           created_at: string
           durum_id: string
           fatura_durumu_id: string | null
@@ -161,8 +163,10 @@ export type Database = {
         }
         Insert: {
           aciklama?: string | null
+          adres?: string | null
           cihaz_adi: string
           cikis_tarihi?: string | null
+          garanti_no?: string | null
           created_at?: string
           durum_id: string
           fatura_durumu_id?: string | null
@@ -180,8 +184,10 @@ export type Database = {
         }
         Update: {
           aciklama?: string | null
+          adres?: string | null
           cihaz_adi?: string
           cikis_tarihi?: string | null
+          garanti_no?: string | null
           created_at?: string
           durum_id?: string
           fatura_durumu_id?: string | null

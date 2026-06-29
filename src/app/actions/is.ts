@@ -61,8 +61,10 @@ const sema = z
     teknik_personel_id: z.preprocess(bosNull, z.string().uuid().optional()),
     fatura_durumu_id: z.preprocess(bosNull, z.string().uuid().optional()),
     ilgili_kisi: metin,
+    adres: metin,
     fiyat_teklifi: sayi,
     fatura_tutari: sayi,
+    garanti_no: metin,
     aciklama: metin,
   })
   .refine((d) => !!d.musteri_id || !!d.yeni_musteri_adi, {
@@ -83,8 +85,10 @@ function formdanOku(formData: FormData) {
     teknik_personel_id: formData.get("teknik_personel_id"),
     fatura_durumu_id: formData.get("fatura_durumu_id"),
     ilgili_kisi: formData.get("ilgili_kisi"),
+    adres: formData.get("adres"),
     fiyat_teklifi: formData.get("fiyat_teklifi"),
     fatura_tutari: formData.get("fatura_tutari"),
+    garanti_no: formData.get("garanti_no"),
     aciklama: formData.get("aciklama"),
   }
 }
@@ -126,6 +130,7 @@ function temelSatir(veri: z.infer<typeof sema>, musteriId: string) {
     durum_id: veri.durum_id,
     teknik_personel_id: veri.teknik_personel_id ?? null,
     ilgili_kisi: veri.ilgili_kisi ?? null,
+    adres: veri.adres ?? null,
     aciklama: veri.aciklama ?? null,
   }
 }
@@ -157,6 +162,7 @@ export async function isOlustur(
     ekle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     ekle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
     ekle.fatura_tutari = parsed.data.fatura_tutari ?? null
+    ekle.garanti_no = parsed.data.garanti_no ?? null
   }
 
   const { data, error } = await supabase
@@ -195,6 +201,7 @@ export async function isGuncelle(
     guncelle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     guncelle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
     guncelle.fatura_tutari = parsed.data.fatura_tutari ?? null
+    guncelle.garanti_no = parsed.data.garanti_no ?? null
   }
 
   const { error } = await supabase
@@ -236,6 +243,7 @@ export async function isFinansalGuncelle(
       fatura_durumu_id: (formData.get("fatura_durumu_id") as string) || null,
       fiyat_teklifi: sayiCevir(formData.get("fiyat_teklifi")),
       fatura_tutari: sayiCevir(formData.get("fatura_tutari")),
+      garanti_no: (formData.get("garanti_no") as string)?.trim() || null,
     })
     .eq("id", id)
 

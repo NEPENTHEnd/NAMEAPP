@@ -10,6 +10,12 @@ export default async function YeniIsSayfasi() {
   const secenekler = await getIsFormSecenekleri()
   // Geliş tarihi için bugünü varsayılan ver
   const bugun = new Date().toISOString().slice(0, 10)
+  const personel = kullanici.rol !== "yonetici"
+  // Personel: durum otomatik (BAKILMADI), geliş bugün
+  const bakilmadiId =
+    secenekler.durumlar.find((d) => d.ad === "BAKILMADI")?.id ??
+    secenekler.durumlar[0]?.id ??
+    ""
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-5">
@@ -26,9 +32,13 @@ export default async function YeniIsSayfasi() {
         durumlar={secenekler.durumlar}
         personeller={secenekler.personeller}
         faturaDurumlari={secenekler.faturaDurumlari}
-        varsayilan={{ gelis_tarihi: bugun }}
+        varsayilan={{
+          gelis_tarihi: bugun,
+          durum_id: personel ? bakilmadiId : undefined,
+        }}
         gonderEtiketi="İşi oluştur"
-        finansalGoster={kullanici.rol === "yonetici"}
+        finansalGoster={!personel}
+        personelMod={personel}
         fotoSecimi
       />
     </div>

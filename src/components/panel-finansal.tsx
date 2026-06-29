@@ -22,6 +22,7 @@ export function PanelFinansal({
     fatura_durumu_id: string | null
     fiyat_teklifi: number | null
     fatura_tutari: number | null
+    garanti_no: string | null
   }
 }) {
   const action = isFinansalGuncelle.bind(null, isKaydiId)
@@ -69,6 +70,12 @@ export function PanelFinansal({
           className="h-8"
         />
       </div>
+      <Input
+        name="garanti_no"
+        placeholder="Garanti no (harf/rakam)"
+        defaultValue={varsayilan.garanti_no ?? ""}
+        className="h-8"
+      />
       {state.error && <p className="text-xs text-destructive">{state.error}</p>}
       {state.basari && (
         <p className="text-xs font-medium text-emerald-600">Kaydedildi ✓</p>

@@ -117,9 +117,10 @@ export default async function IslerSayfasi({
   if (bitis) query = query.lte("gelis_tarihi", bitis)
   const ayAralik = ay ? ayAraligi(ay) : null
   if (ayAralik) {
-    query = query
-      .gte("gelis_tarihi", ayAralik.baslangic)
-      .lte("gelis_tarihi", ayAralik.bitis)
+    // O ayın gelenleri VEYA hâlâ açık (çıkışsız) işler — açıklar her ay görünür
+    query = query.or(
+      `and(gelis_tarihi.gte.${ayAralik.baslangic},gelis_tarihi.lte.${ayAralik.bitis}),cikis_tarihi.is.null`
+    )
   }
 
   if (q) {
@@ -159,6 +160,7 @@ export default async function IslerSayfasi({
     fatura_durumu_id: string | null
     fiyat_teklifi: number | null
     fatura_tutari: number | null
+    garanti_no: string | null
     fotolar: { id: string; url: string }[]
   }
   let seciliBilgi: SeciliBilgi | null = null
@@ -166,7 +168,7 @@ export default async function IslerSayfasi({
     const { data: kayit } = await supabase
       .from("is_kaydi")
       .select(
-        "cihaz_adi, servis_no, fatura_durumu_id, fiyat_teklifi, fatura_tutari, musteri:musteri_id ( ad )"
+        "cihaz_adi, servis_no, fatura_durumu_id, fiyat_teklifi, fatura_tutari, garanti_no, musteri:musteri_id ( ad )"
       )
       .eq("id", secili)
       .maybeSingle()
@@ -196,6 +198,7 @@ export default async function IslerSayfasi({
         fatura_durumu_id: kayit.fatura_durumu_id,
         fiyat_teklifi: kayit.fiyat_teklifi,
         fatura_tutari: kayit.fatura_tutari,
+        garanti_no: kayit.garanti_no,
         fotolar,
       }
     }
@@ -447,6 +450,7 @@ export default async function IslerSayfasi({
                           fatura_durumu_id: seciliBilgi.fatura_durumu_id,
                           fiyat_teklifi: seciliBilgi.fiyat_teklifi,
                           fatura_tutari: seciliBilgi.fatura_tutari,
+                          garanti_no: seciliBilgi.garanti_no,
                         }}
                       />
                     )}

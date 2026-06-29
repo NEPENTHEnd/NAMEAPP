@@ -24,8 +24,10 @@ export type IsFormVarsayilan = {
   teknik_personel_id?: string | null
   fatura_durumu_id?: string | null
   ilgili_kisi?: string | null
+  adres?: string | null
   fiyat_teklifi?: number | null
   fatura_tutari?: number | null
+  garanti_no?: string | null
   aciklama?: string | null
 }
 
@@ -42,6 +44,7 @@ type Props = {
   servisNoGoster?: boolean
   degisiklikTakip?: boolean
   fotoSecimi?: boolean
+  personelMod?: boolean // tekniker/durum/çıkış/geliş gizli; geliş & durum sabit
 }
 
 const selectClass =
@@ -80,6 +83,7 @@ export function IsFormu({
   servisNoGoster = false, // fiş no otomatik üretilir; alan salt-okunur gösterilir
   degisiklikTakip = false,
   fotoSecimi = false,
+  personelMod = false,
 }: Props) {
   const router = useRouter()
   const [state, formAction, pending] = useActionState<IsFormState, FormData>(
@@ -182,6 +186,10 @@ export function IsFormu({
             </div>
           )}
         </div>
+        <div className="mt-3.5 grid gap-1.5">
+          <label className={labelClass} htmlFor="adres">Adres</label>
+          <Input id="adres" name="adres" placeholder="Müşteri / cihaz adresi" defaultValue={varsayilan.adres ?? ""} />
+        </div>
       </Bolum>
 
       <Bolum baslik="Cihaz Bilgileri">
@@ -196,6 +204,12 @@ export function IsFormu({
         </div>
       </Bolum>
 
+      {personelMod ? (
+        <>
+          <input type="hidden" name="durum_id" value={varsayilan.durum_id ?? ""} />
+          <input type="hidden" name="gelis_tarihi" value={varsayilan.gelis_tarihi ?? ""} />
+        </>
+      ) : (
       <Bolum baslik="Süreç & Atama">
         <div className="grid gap-3.5 sm:grid-cols-2">
           <div className="grid gap-1.5">
@@ -228,6 +242,7 @@ export function IsFormu({
           </div>
         </div>
       </Bolum>
+      )}
 
       {finansalGoster && (
       <Bolum baslik="Mali Bilgiler">
@@ -250,6 +265,10 @@ export function IsFormu({
             <label className={labelClass} htmlFor="fatura_tutari">Fatura tutarı (₺)</label>
             <Input id="fatura_tutari" name="fatura_tutari" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0" defaultValue={varsayilan.fatura_tutari ?? ""} aria-invalid={!!fe.fatura_tutari} />
             <Hata alan="fatura_tutari" />
+          </div>
+          <div className="grid gap-1.5">
+            <label className={labelClass} htmlFor="garanti_no">Garanti no</label>
+            <Input id="garanti_no" name="garanti_no" placeholder="Harf/rakam olabilir" defaultValue={varsayilan.garanti_no ?? ""} />
           </div>
         </div>
       </Bolum>
