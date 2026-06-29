@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/aylik-rapor", "schedule": "0 6 1 * *" }
+  ]
+}
