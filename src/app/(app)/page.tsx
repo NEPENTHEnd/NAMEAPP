@@ -375,7 +375,8 @@ export default async function IslerSayfasi({
               </Table>
             </div>
 
-            {/* Yan önizleme paneli */}
+            {/* Yan önizleme paneli — yalnız bir işe tıklanınca açılır (tablo aksi halde tam genişlik) */}
+            {secili && (
             <aside className="w-80 shrink-0 lg:w-96">
               <div className="sticky top-20 rounded-lg border p-3">
                 {seciliBilgi ? (
@@ -457,11 +458,12 @@ export default async function IslerSayfasi({
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Önizleme için bir işe tıklayın.
+                    Önizleme yüklenemedi.
                   </p>
                 )}
               </div>
             </aside>
+            )}
           </div>
 
           {/* Mobil: kart görünümü */}
