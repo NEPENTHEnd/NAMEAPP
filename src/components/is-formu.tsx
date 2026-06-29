@@ -26,6 +26,7 @@ export type IsFormVarsayilan = {
   fatura_durumu_id?: string | null
   ilgili_kisi?: string | null
   adres?: string | null
+  kargo_takip_no?: string | null
   fiyat_teklifi?: number | null
   fatura_tutari?: number | null
   garanti_no?: string | null
@@ -205,9 +206,15 @@ export function IsFormu({
           <Input id="cihaz_adi" name="cihaz_adi" placeholder="Örn. SIEMENS 6SE3221 7.5KW SÜRÜCÜ" defaultValue={varsayilan.cihaz_adi ?? ""} aria-invalid={!!fe.cihaz_adi} />
           <Hata alan="cihaz_adi" />
         </div>
-        <div className="grid gap-1.5">
-          <label className={labelClass} htmlFor="seri_no">Seri no</label>
-          <Input id="seri_no" name="seri_no" defaultValue={varsayilan.seri_no ?? ""} />
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <label className={labelClass} htmlFor="seri_no">Seri no</label>
+            <Input id="seri_no" name="seri_no" defaultValue={varsayilan.seri_no ?? ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <label className={labelClass} htmlFor="kargo_takip_no">Kargo takip no</label>
+            <Input id="kargo_takip_no" name="kargo_takip_no" placeholder="Kargo gönderi/takip no" defaultValue={varsayilan.kargo_takip_no ?? ""} />
+          </div>
         </div>
       </Bolum>
 

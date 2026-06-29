@@ -154,6 +154,7 @@ export type Database = {
           gelis_tarihi: string
           id: string
           ilgili_kisi: string | null
+          kargo_takip_no: string | null
           musteri_id: string
           olusturan_id: string | null
           seri_no: string | null
@@ -177,6 +178,7 @@ export type Database = {
           gelis_tarihi?: string
           id?: string
           ilgili_kisi?: string | null
+          kargo_takip_no?: string | null
           musteri_id: string
           olusturan_id?: string | null
           seri_no?: string | null
@@ -200,6 +202,7 @@ export type Database = {
           gelis_tarihi?: string
           id?: string
           ilgili_kisi?: string | null
+          kargo_takip_no?: string | null
           musteri_id?: string
           olusturan_id?: string | null
           seri_no?: string | null

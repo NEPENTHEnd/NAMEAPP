@@ -100,7 +100,7 @@ export default async function IslerSayfasi({
     .select(
       `
         id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
-        fiyat_teklifi, fatura_tutari,
+        fiyat_teklifi, fatura_tutari, garanti_no, kargo_takip_no,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
         teknik_personel:teknik_personel_id ( ad ),
@@ -133,6 +133,11 @@ export default async function IslerSayfasi({
       `cihaz_adi.ilike.*${q}*`,
       `seri_no.ilike.*${q}*`,
       `servis_no.ilike.*${q}*`,
+      `garanti_no.ilike.*${q}*`,
+      `kargo_takip_no.ilike.*${q}*`,
+      `takip_no.ilike.*${q}*`,
+      `ilgili_kisi.ilike.*${q}*`,
+      `adres.ilike.*${q}*`,
     ]
     if (eslesenMusteri && eslesenMusteri.length > 0) {
       orParcalari.push(`musteri_id.in.(${eslesenMusteri.map((m) => m.id).join(",")})`)
@@ -315,6 +320,7 @@ export default async function IslerSayfasi({
                         </Link>
                       </TableHead>
                     )}
+                    <TableHead>Kargo Takip</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -348,6 +354,11 @@ export default async function IslerSayfasi({
                             SN: {k.seri_no}
                           </span>
                         ) : null}
+                        {finansal && k.garanti_no ? (
+                          <span className="block text-xs text-muted-foreground">
+                            Garanti: {k.garanti_no}
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell>{tarihTR(k.gelis_tarihi)}</TableCell>
                       <TableCell>{tarihTR(k.cikis_tarihi)}</TableCell>
@@ -369,6 +380,9 @@ export default async function IslerSayfasi({
                           {tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
                         </TableCell>
                       )}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {k.kargo_takip_no ?? "—"}
+                      </TableCell>
                     </OnizleSatiri>
                   ))}
                 </TableBody>
@@ -491,6 +505,8 @@ export default async function IslerSayfasi({
                   <div>Personel: {k.teknik_personel?.ad ?? "—"}</div>
                   <div>Geliş: {tarihTR(k.gelis_tarihi)}</div>
                   <div>Çıkış: {tarihTR(k.cikis_tarihi)}</div>
+                  {finansal && k.garanti_no ? <div>Garanti: {k.garanti_no}</div> : null}
+                  {k.kargo_takip_no ? <div>Kargo: {k.kargo_takip_no}</div> : null}
                   {finansal && <div>Fatura: {k.fatura_durumu?.ad ?? "—"}</div>}
                   {finansal && (
                     <div className="font-medium text-foreground">

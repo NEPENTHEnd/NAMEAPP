@@ -43,6 +43,11 @@ export async function aramaOrIfadesi(
     `cihaz_adi.ilike.*${q}*`,
     `seri_no.ilike.*${q}*`,
     `servis_no.ilike.*${q}*`,
+    `garanti_no.ilike.*${q}*`,
+    `kargo_takip_no.ilike.*${q}*`,
+    `takip_no.ilike.*${q}*`,
+    `ilgili_kisi.ilike.*${q}*`,
+    `adres.ilike.*${q}*`,
   ]
   if (eslesenMusteri && eslesenMusteri.length > 0) {
     orParcalari.push(

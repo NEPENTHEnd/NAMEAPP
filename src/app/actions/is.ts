@@ -63,6 +63,7 @@ const sema = z
     fatura_durumu_id: z.preprocess(bosNull, z.string().uuid().optional()),
     ilgili_kisi: metin,
     adres: metin,
+    kargo_takip_no: metin,
     fiyat_teklifi: sayi,
     fatura_tutari: sayi,
     garanti_no: metin,
@@ -87,6 +88,7 @@ function formdanOku(formData: FormData) {
     fatura_durumu_id: formData.get("fatura_durumu_id"),
     ilgili_kisi: formData.get("ilgili_kisi"),
     adres: formData.get("adres"),
+    kargo_takip_no: formData.get("kargo_takip_no"),
     fiyat_teklifi: formData.get("fiyat_teklifi"),
     fatura_tutari: formData.get("fatura_tutari"),
     garanti_no: formData.get("garanti_no"),
@@ -132,6 +134,7 @@ function temelSatir(veri: z.infer<typeof sema>, musteriId: string) {
     teknik_personel_id: veri.teknik_personel_id ?? null,
     ilgili_kisi: veri.ilgili_kisi ?? null,
     adres: veri.adres ?? null,
+    kargo_takip_no: veri.kargo_takip_no ?? null,
     aciklama: veri.aciklama ?? null,
   }
 }
