@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { fotograflariYukle } from "@/lib/foto-istemci"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { KameraYakala } from "@/components/kamera-yakala"
 
 type Secenek = { id: string; ad: string }
 
@@ -95,12 +96,18 @@ export function IsFormu({
   const [degisti, setDegisti] = useState(!degisiklikTakip)
   const [fotoYukleniyor, setFotoYukleniyor] = useState(false)
   const fotoRef = useRef<HTMLInputElement>(null)
+  // Kameradan çekilen kareler (kaydedince dosya seçimiyle birlikte yüklenir).
+  const [kameraDosyalari, setKameraDosyalari] = useState<File[]>([])
+  const kameraRef = useRef<File[]>([])
   const fe = state.fieldErrors ?? {}
 
   useEffect(() => {
     if (state.id) {
-      // Yeni iş oluşturuldu: seçili fotoğrafları yükle, sonra detaya git.
-      const dosyalar = Array.from(fotoRef.current?.files ?? [])
+      // Yeni iş oluşturuldu: seçili + çekilen fotoğrafları yükle, sonra detaya git.
+      const dosyalar = [
+        ...Array.from(fotoRef.current?.files ?? []),
+        ...kameraRef.current,
+      ]
       const detayaGit = () => router.push(`/is/${state.id}`)
       if (dosyalar.length === 0) {
         detayaGit()
@@ -295,9 +302,35 @@ export function IsFormu({
             multiple
             className="block w-full text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-muted"
           />
+          <div className="mt-3 flex items-center gap-2">
+            <KameraYakala
+              onCek={(d) =>
+                setKameraDosyalari((p) => {
+                  const yeni = [...p, d]
+                  kameraRef.current = yeni
+                  return yeni
+                })
+              }
+            />
+            {kameraDosyalari.length > 0 && (
+              <span className="text-xs font-medium text-muted-foreground">
+                {kameraDosyalari.length} foto çekildi
+                <button
+                  type="button"
+                  onClick={() => {
+                    kameraRef.current = []
+                    setKameraDosyalari([])
+                  }}
+                  className="ml-2 text-destructive hover:underline"
+                >
+                  temizle
+                </button>
+              </span>
+            )}
+          </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Kaydedince fotoğraflar otomatik yüklenir. Telefonda doğrudan kameradan
-            çekebilirsin.
+            Kaydedince fotoğraflar otomatik yüklenir. Telefonda ya da PC kamerasından
+            doğrudan çekebilirsin.
           </p>
         </Bolum>
       )}

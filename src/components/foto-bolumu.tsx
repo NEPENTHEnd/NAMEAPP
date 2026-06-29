@@ -9,6 +9,7 @@ import { fotograflariYukle, MAKS_DOSYA_BOYUT } from "@/lib/foto-istemci"
 import { fotoSil } from "@/app/actions/foto"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { KameraYakala } from "@/components/kamera-yakala"
 
 export type FotoOgesi = {
   id: string
@@ -62,6 +63,21 @@ export function FotoBolumu({
     }
   }
 
+  // Kameradan çekilen kareyi hemen yükle (detayda iş kaydı zaten var).
+  async function kameradanYukle(dosya: File) {
+    setHata(null)
+    setYukleniyor(true)
+    const supabase = createClient()
+    try {
+      await fotograflariYukle(supabase, isKaydiId, [dosya], fotograflar.length)
+      router.refresh()
+    } catch (err) {
+      setHata(err instanceof Error ? err.message : "Bilinmeyen hata")
+    } finally {
+      setYukleniyor(false)
+    }
+  }
+
   return (
     <section className="grid gap-3">
       <h2 className="text-sm font-semibold">
@@ -98,10 +114,11 @@ export function FotoBolumu({
           otomatik küçültülür (yer tasarrufu).
         </p>
         {hata && <p className="text-sm text-destructive">{hata}</p>}
-        <div>
+        <div className="flex items-center gap-2">
           <Button type="submit" size="sm" disabled={yukleniyor}>
             {yukleniyor ? "Yükleniyor…" : "Yükle"}
           </Button>
+          <KameraYakala onCek={kameradanYukle} />
         </div>
       </form>
     </section>
