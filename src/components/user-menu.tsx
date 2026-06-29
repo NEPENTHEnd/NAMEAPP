@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { cikisYap } from "@/app/actions/auth"
+import { PushDugmesi } from "@/components/push-dugmesi"
 
 function basharfler(ad: string | null, eposta: string | null): string {
   const kaynak = (ad ?? eposta ?? "?").trim()
@@ -69,6 +70,11 @@ export function UserMenu({
             <div className="text-[13px] font-semibold">{ad ?? "Kullanıcı"}</div>
             <div className="text-[11.5px] text-muted-foreground">{eposta}</div>
           </div>
+          {rol === "yonetici" && (
+            <div className="mb-1 border-b border-muted pb-1">
+              <PushDugmesi />
+            </div>
+          )}
           <form action={cikisYap}>
             <button
               type="submit"

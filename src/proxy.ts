@@ -13,8 +13,8 @@ export const config = {
     /*
      * Aşağıdakiler hariç tüm yolları eşle:
      * - _next/static, _next/image (Next.js iç dosyaları)
-     * - favicon.ico, manifest.webmanifest (PWA), görsel uzantıları
+     * - favicon.ico, manifest.webmanifest (PWA), sw.js (service worker), görsel uzantıları
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 }

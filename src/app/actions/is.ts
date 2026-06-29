@@ -6,6 +6,7 @@ import { z } from "zod"
 
 import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
+import { yoneticilereBildir } from "@/lib/push"
 import type {
   TablesInsert,
   TablesUpdate,
@@ -175,6 +176,16 @@ export async function isOlustur(
 
   if (error || !data) {
     return { error: "Kayıt oluşturulamadı: " + (error?.message ?? "bilinmeyen hata") }
+  }
+
+  // Personelin eklediği işte yöneticilere push bildirim gönder (hata olsa da akış sürer)
+  if (!finansal) {
+    await yoneticilereBildir(supabase, {
+      baslik: "Yeni iş kaydı",
+      govde: `${kullanici.ad}: ${parsed.data.cihaz_adi}`,
+      url: `/is/${data.id}`,
+      tag: `is-${data.id}`,
+    })
   }
 
   revalidatePath("/")
