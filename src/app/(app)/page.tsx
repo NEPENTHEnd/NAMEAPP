@@ -243,7 +243,7 @@ export default async function IslerSayfasi({
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[21px] font-semibold tracking-tight">İşler</h1>
@@ -279,7 +279,7 @@ export default async function IslerSayfasi({
       ) : (
         <>
           {/* Masaüstü: tablo + yan önizleme paneli */}
-          <div className="hidden gap-4 md:flex">
+          <div className="hidden min-w-0 gap-4 md:flex">
             <div className="min-w-0 flex-1 overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>

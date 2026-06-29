@@ -17,7 +17,7 @@ export default async function AppLayout({
   const kullanici = await getKullanici()
 
   return (
-    <div className="flex min-h-svh flex-col">
+    <div className="flex min-h-svh flex-col overflow-x-clip">
       <CevrimdisiUyari />
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5">
