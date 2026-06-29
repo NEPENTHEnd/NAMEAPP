@@ -2,6 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 import { getKullanici } from "@/lib/auth"
+import { cikisYap } from "@/app/actions/auth"
 import { AppNav } from "@/components/app-nav"
 import { UserMenu } from "@/components/user-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -15,6 +16,31 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   const kullanici = await getKullanici()
+
+  // Davet koduyla yetkilendirilmemiş hesap (rol 'bekliyor'): uygulamaya alma.
+  const rolGecerli =
+    kullanici.rol === "yonetici" || kullanici.rol === "teknisyen"
+  if (!rolGecerli) {
+    return (
+      <main className="flex min-h-svh items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center">
+          <h1 className="text-lg font-semibold">Hesabınız yetkilendirilmedi</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Bu hesap henüz bir role atanmadı. Lütfen yöneticinizden davet kodu alıp
+            tekrar kayıt olun ya da yetki verilmesini bekleyin.
+          </p>
+          <form action={cikisYap} className="mt-5">
+            <button
+              type="submit"
+              className="rounded-[10px] bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Çıkış yap
+            </button>
+          </form>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <div className="flex min-h-svh flex-col overflow-x-clip">

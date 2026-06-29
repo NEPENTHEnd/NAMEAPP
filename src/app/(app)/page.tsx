@@ -115,7 +115,8 @@ export default async function IslerSayfasi({
   if (musteri) query = query.eq("musteri_id", musteri)
   if (baslangic) query = query.gte("gelis_tarihi", baslangic)
   if (bitis) query = query.lte("gelis_tarihi", bitis)
-  const ayAralik = ay ? ayAraligi(ay) : null
+  // Arama yapılırken ay filtresi devre dışı — sonuç hangi aydaysa o gelsin.
+  const ayAralik = ay && !q ? ayAraligi(ay) : null
   if (ayAralik) {
     // O ayın gelenleri VEYA hâlâ açık (çıkışsız) işler — açıklar her ay görünür
     query = query.or(
