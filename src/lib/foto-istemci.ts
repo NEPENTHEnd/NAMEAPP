@@ -59,6 +59,25 @@ export async function sikistir(
 }
 
 export const MAKS_DOSYA_BOYUT = 25 * 1024 * 1024 // 25 MB (sıkıştırmadan önce)
+export const FOTO_KOTA_BYTE = 512 * 1024 * 1024 // 0,5 GB fotoğraf deposu
+
+type RpcClient = {
+  rpc: (
+    fn: string,
+    args?: Record<string, unknown>
+  ) => Promise<{ data: unknown; error: { message: string } | null }>
+}
+
+// 'foto' deposunun toplam kullanımı (byte) + dosya sayısı
+export async function fotoKullanim(
+  supabase: Supabase
+): Promise<{ toplamByte: number; adet: number }> {
+  const rpc = supabase as unknown as RpcClient
+  const { data } = await rpc.rpc("foto_kullanim")
+  const satir = Array.isArray(data) ? data[0] : data
+  const d = satir as { toplam_byte?: number; adet?: number } | null
+  return { toplamByte: Number(d?.toplam_byte ?? 0), adet: Number(d?.adet ?? 0) }
+}
 
 // Seçilen fotoğrafları sıkıştırıp Storage'a yükler ve foto satırlarını ekler.
 // Hata olursa Error fırlatır.
@@ -68,6 +87,14 @@ export async function fotograflariYukle(
   dosyalar: File[],
   baslangicSira: number
 ): Promise<void> {
+  // Kota dolu mu? Doluysa yükleme engellenir.
+  const { toplamByte } = await fotoKullanim(supabase)
+  if (toplamByte >= FOTO_KOTA_BYTE) {
+    throw new Error(
+      "Fotoğraf deposu dolu (0,5 GB). Yöneticinin fotoğrafları arşivleyip silmesi gerekiyor."
+    )
+  }
+
   let sira = baslangicSira
   for (const dosya of dosyalar) {
     const { veri, ext, tip } = await sikistir(dosya)

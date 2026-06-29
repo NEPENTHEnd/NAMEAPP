@@ -171,9 +171,13 @@ export function IsFormu({
             </div>
           ) : (
             <div className="grid gap-1.5">
-              <label className={labelClass}>Servis (fiş) no</label>
-              <div className="flex h-9 items-center rounded-[9px] border border-dashed border-input px-2.5 text-sm text-muted-foreground">
-                Kaydedince otomatik üretilir
+              <label className={labelClass}>Fiş no</label>
+              <div className="flex h-9 items-center rounded-[9px] border border-input bg-muted/40 px-2.5 font-mono text-sm">
+                {varsayilan.servis_no ?? (
+                  <span className="font-sans text-muted-foreground">
+                    Kaydedince otomatik üretilir
+                  </span>
+                )}
               </div>
             </div>
           )}

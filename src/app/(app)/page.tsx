@@ -283,7 +283,7 @@ export default async function IslerSayfasi({
                   <TableRow>
                     <TableHead>
                       <Link href={siralaHref("servis")} scroll={false} className="hover:underline">
-                        Servis No{siralaOk("servis")}
+                        Fiş No{siralaOk("servis")}
                       </Link>
                     </TableHead>
                     <TableHead>Müşteri</TableHead>
