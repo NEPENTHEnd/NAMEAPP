@@ -38,6 +38,9 @@ BASLIK_ESLEME = {
     "URUNUN ADI VEYA KODU": "cihaz_adi",
     "KARTIN ADI": "cihaz_adi",
     "FIRMA ADI": "musteri",
+    "SUBE ADI": "musteri",
+    "SUBE": "musteri",
+    "SEHIR": "musteri",
     "GELIS TARIHI": "gelis_tarihi",
     "CIKIS TARIHI": "cikis_tarihi",
     "DURUM BILGISI": "durum",
@@ -47,13 +50,24 @@ BASLIK_ESLEME = {
     "FATURA": "fatura_durumu",
     "TEKNIK SERVIS NO": "servis_no",
     "FIS NO": "servis_no",
+    "KART NO": "servis_no",
     "ACIKLAMA": "aciklama",
     "ACIKLAMA / SERI NO": "aciklama",
     "ILGILI KISI": "ilgili_kisi",
     "FIYAT TEKLIFI": "fiyat_teklifi",
+    "TEKLIF FIYATI": "fiyat_teklifi",
+    "TEKLIF FIYAT": "fiyat_teklifi",
+    "TEKLIF BIRIM FIYATI": "fiyat_teklifi",
     "FATURA BIRIM TUTARI": "fatura_tutari",
+    "FATURA BIRIM TUTAR": "fatura_tutari",
+    "URUN SERI NO": "seri_no",
+    "SERI NO": "seri_no",
+    "SERI NUMARASI": "seri_no",
     "RESIM-1": "resim",
     "RESIM-2": "resim",
+    "RESIM 1": "resim",
+    "RESIM 2": "resim",
+    "RESIM": "resim",
 }
 
 # Bilinen yazım/normalize düzeltmeleri (genişletilebilir)
@@ -187,12 +201,17 @@ def main():
                 return satir[i] if i is not None and i < len(satir) else None
 
             cihaz = temizle(al("cihaz_adi"))
-            musteri = sayfa_musterisi or temizle(al("musteri"))
+            musteri = temizle(al("musteri")) or sayfa_musterisi
             if not cihaz:
                 continue  # cihaz adı yoksa gerçek kayıt değil (boş/biçim satırı)
 
             aciklama = temizle(al("aciklama"))
-            seri, aciklama = seri_no_ayikla(aciklama)
+            seri = temizle(al("seri_no"))
+            if not seri:
+                seri, aciklama = seri_no_ayikla(aciklama)
+
+            # Grup = sayfa adı (DİĞER → grupsuz/null)
+            grup = None if norm_baslik(ws.title) == "DIGER" else temizle(ws.title)
 
             durum = buyuk(al("durum"))
             durum = DURUM_DUZELT.get(norm_baslik(durum), durum) if durum else None
@@ -202,6 +221,7 @@ def main():
             kayit = {
                 "kaynak_sayfa": ws.title,
                 "kaynak_satir": r,
+                "grup": grup,
                 "musteri": musteri,
                 "cihaz_adi": cihaz,
                 "seri_no": seri,
