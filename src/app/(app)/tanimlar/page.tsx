@@ -49,7 +49,7 @@ export default async function TanimlarSayfasi({
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
       supabase.from("durum").select("id, ad, sira, renk").order("sira"),
       supabase.from("fatura_durumu").select("id, ad").order("ad"),
-      supabase.from("kullanici_profil").select("id, ad, rol").order("ad"),
+      supabase.from("kullanici_profil").select("id, ad, rol, fis_prefix").order("ad"),
       supabase
         .from("davet_kisi")
         .select("id, ad, fis_prefix, rol, aktif, kod")
@@ -57,6 +57,13 @@ export default async function TanimlarSayfasi({
     ])
 
   const rolEtiket = (r: string) => (r === "yonetici" ? "Yönetici" : "Personel")
+  // Bir davet kodu "kullanılmış" sayılır: o ön eke sahip kayıtlı bir profil varsa.
+  const kullanilanOnekler = new Set(
+    (profiller.data ?? [])
+      .filter((p) => p.rol === "yonetici" || p.rol === "teknisyen")
+      .map((p) => p.fis_prefix)
+      .filter((x): x is number => x != null)
+  )
 
   return (
     <div className="grid gap-5">
@@ -230,15 +237,22 @@ export default async function TanimlarSayfasi({
             <p className="text-xs text-muted-foreground">
               Her kişinin kodu <strong>sabittir</strong> (tekrar tekrar kullanılabilir).
               İlgili kişiye verin; "Üye ol" ekranında kullansın — hesabı rolü ve fiş
-              ön ekiyle açılır. Kod ele geçerse "Yenile" ile değiştirin.
+              ön ekiyle açılır. <span className="text-emerald-600 dark:text-emerald-400">Kullanılmış</span> kodlar soluk gösterilir. Kod ele geçerse "Yenile" ile değiştirin.
             </p>
             <div className="grid gap-2">
               {(kisiler.data ?? [])
                 .filter((k) => kullanici.sahip || k.rol !== "yonetici")
-                .map((k) => (
+                .map((k) => {
+                  const kullanildi = kullanilanOnekler.has(k.fis_prefix)
+                  return (
                   <div
                     key={k.id}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2.5"
+                    className={
+                      "flex flex-wrap items-center gap-3 rounded-xl border p-2.5 " +
+                      (kullanildi
+                        ? "border-border bg-muted/40 opacity-60"
+                        : "border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20")
+                    }
                   >
                     <span className="w-28 font-semibold">{k.ad}</span>
                     <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
@@ -250,6 +264,16 @@ export default async function TanimlarSayfasi({
                     <code className="rounded bg-muted px-2 py-1 font-mono text-sm font-semibold">
                       {k.kod}
                     </code>
+                    <span
+                      className={
+                        "rounded-full px-2 py-0.5 text-[11px] font-semibold " +
+                        (kullanildi
+                          ? "bg-muted text-muted-foreground"
+                          : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300")
+                      }
+                    >
+                      {kullanildi ? "Kullanıldı" : "Boşta"}
+                    </span>
                     {kullanici.sahip && (
                       <form action={davetKodYenile} className="ml-auto">
                         <input type="hidden" name="kisi_id" value={k.id} />
@@ -259,7 +283,8 @@ export default async function TanimlarSayfasi({
                       </form>
                     )}
                   </div>
-                ))}
+                  )
+                })}
             </div>
           </div>
         </section>

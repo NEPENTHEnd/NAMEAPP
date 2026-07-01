@@ -64,22 +64,25 @@ export default async function PanoSayfasi({
     ? sonAylar(12).find((a) => a.key === ay)?.label ?? "Seçili ay"
     : "Bu ay"
 
-  const [islerRes, durumlarRes, personellerRes, faturalarRes] =
+  const [islerRes, durumlarRes, personellerRes, faturalarRes, profillerRes] =
     await Promise.all([
       supabase
         .from("is_kaydi")
         .select(
-          "gelis_tarihi, cikis_tarihi, fatura_tutari, durum_id, teknik_personel_id, fatura_durumu_id"
+          "gelis_tarihi, cikis_tarihi, fatura_tutari, durum_id, teknik_personel_id, fatura_durumu_id, olusturan_id"
         ),
       supabase.from("durum").select("id, ad, renk, sira").order("sira"),
       supabase.from("teknik_personel").select("id, ad").order("ad"),
       supabase.from("fatura_durumu").select("id, ad"),
+      supabase.from("kullanici_profil").select("id, ad, rol"),
     ])
 
   const isler = islerRes.data ?? []
   const durumlar = durumlarRes.data ?? []
   const personeller = personellerRes.data ?? []
   const faturalar = faturalarRes.data ?? []
+  const profiller = profillerRes.data ?? []
+  const profilAd = new Map(profiller.map((p) => [p.id, p.ad ?? "—"]))
   const faturaAdById = new Map(faturalar.map((f) => [f.id, f.ad]))
 
   // Kartlar
@@ -127,13 +130,33 @@ export default async function PanoSayfasi({
     ? `conic-gradient(${stops.join(",")})`
     : "conic-gradient(#e2e8f0 0deg 360deg)"
 
-  // Personele göre dağılım
-  const personelAdet = personeller.map((p) => ({
-    ad: p.ad,
-    adet: isler.filter((j) => j.teknik_personel_id === p.id).length,
-  }))
-  const atanmamis = isler.filter((j) => !j.teknik_personel_id).length
-  if (atanmamis > 0) personelAdet.push({ ad: "Atanmamış", adet: atanmamis })
+  // Seçili ay penceresindeki işler (geliş tarihine göre)
+  const aydakiIsler = isler.filter(
+    (j) => j.gelis_tarihi >= ayBasi && j.gelis_tarihi <= aySonu
+  )
+
+  // ASIL: kim daha çok iş kaydetti (olusturan) — seçili ay
+  const kaydedenMap = new Map<string, number>()
+  for (const j of aydakiIsler) {
+    const key = j.olusturan_id ?? "yok"
+    kaydedenMap.set(key, (kaydedenMap.get(key) ?? 0) + 1)
+  }
+  const kaydedenAdet = [...kaydedenMap.entries()]
+    .map(([id, adet]) => ({
+      ad: id === "yok" ? "Bilinmiyor" : profilAd.get(id) ?? "—",
+      adet,
+    }))
+    .sort((a, b) => b.adet - a.adet)
+  const kaydedenMaks = Math.max(1, ...kaydedenAdet.map((k) => k.adet))
+
+  // Teknik personel dağılımı (seçili ay) — sağda küçük
+  const personelAdet = personeller
+    .map((p) => ({
+      ad: p.ad,
+      adet: aydakiIsler.filter((j) => j.teknik_personel_id === p.id).length,
+    }))
+    .filter((p) => p.adet > 0)
+    .sort((a, b) => b.adet - a.adet)
   const personelMaks = Math.max(1, ...personelAdet.map((p) => p.adet))
 
   // Aylık trend (son 3 ay)
@@ -180,8 +203,68 @@ export default async function PanoSayfasi({
         <Kart baslik={`${seciliAyEtiketi} ciro`} deger={tutarBicim.format(buAyCiro)} renk="#a855f7" />
       </div>
 
+      {/* ASIL: kim daha çok iş kaydetti + (sağda küçük) teknik personel */}
+      <div className="grid gap-3.5 lg:grid-cols-[2fr_1fr]">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
+          <div className="mb-1 text-[13.5px] font-semibold">
+            Kim daha çok iş kaydetti · {seciliAyEtiketi}
+          </div>
+          <p className="mb-4 text-[11.5px] text-muted-foreground">
+            Sisteme en çok ürün/iş giren personel
+          </p>
+          {kaydedenAdet.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Bu ay kayıt yok.</p>
+          ) : (
+            <div className="flex flex-col gap-[15px]">
+              {kaydedenAdet.map((k, i) => (
+                <div key={k.ad + i}>
+                  <div className="mb-1.5 flex justify-between text-[13px]">
+                    <span className="font-medium">
+                      {i === 0 ? "🏆 " : ""}
+                      {k.ad}
+                    </span>
+                    <span className="font-mono font-semibold">{k.adet}</span>
+                  </div>
+                  <div className="h-[11px] overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${Math.round((k.adet / kaydedenMaks) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Teknik personel — küçük */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
+          <div className="mb-4 text-[12.5px] font-semibold text-muted-foreground">
+            Teknik personel · {seciliAyEtiketi}
+          </div>
+          {personelAdet.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Bu ay atanan iş yok.</p>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {personelAdet.map((p) => (
+                <div key={p.ad} className="flex items-center gap-2 text-[12px]">
+                  <span className="w-20 shrink-0 truncate text-muted-foreground">{p.ad}</span>
+                  <div className="h-[7px] flex-1 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-sky-400"
+                      style={{ width: `${Math.round((p.adet / personelMaks) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="w-6 text-right font-mono font-semibold">{p.adet}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Grafikler */}
-      <div className="grid gap-3.5 lg:grid-cols-[1.2fr_1fr_1fr]">
+      <div className="grid gap-3.5 lg:grid-cols-[1.2fr_1fr]">
         {/* Donut */}
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
           <div className="mb-4 text-[13.5px] font-semibold">Duruma göre dağılım</div>
@@ -207,27 +290,6 @@ export default async function PanoSayfasi({
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Personel barlar */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
-          <div className="mb-5 text-[13.5px] font-semibold">Personele göre dağılım</div>
-          <div className="flex flex-col gap-[15px]">
-            {personelAdet.map((p) => (
-              <div key={p.ad}>
-                <div className="mb-1.5 flex justify-between text-[12.5px]">
-                  <span className="font-medium text-muted-foreground">{p.ad}</span>
-                  <span className="font-mono font-semibold">{p.adet}</span>
-                </div>
-                <div className="h-[9px] overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${Math.round((p.adet / personelMaks) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
           </div>
         </div>
 
