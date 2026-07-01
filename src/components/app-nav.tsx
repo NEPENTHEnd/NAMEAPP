@@ -13,7 +13,7 @@ type NavItem = {
 }
 
 const NAV: NavItem[] = [
-  { href: "/", etiket: "İşler" },
+  { href: "/", etiket: "Tüm İşler" },
   { href: "/pano", etiket: "Pano", roller: ["yonetici"] },
   { href: "/raporlar", etiket: "Raporlar", roller: ["yonetici"] },
   { href: "/tanimlar", etiket: "Tanımlar", roller: ["yonetici"] },

@@ -1,23 +1,13 @@
 import Link from "next/link"
-import Image from "next/image"
 
 import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
 import { buttonVariants } from "@/components/ui/button"
-import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DurumRozeti } from "@/components/rozet"
 import { sonAylar, ayAraligi } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
-import { PanelFinansal } from "@/components/panel-finansal"
 import { IslerFiltreler } from "./isler-filtreler"
-import { OnizleSatiri } from "./onizle-satiri"
+import { IslerEkrani } from "./isler-ekrani"
 
 const SAYFA_BOYUTU = 20
 
@@ -59,6 +49,8 @@ export default async function IslerSayfasi({
   const bitis = tek(sp.bitis) ?? ""
   const ay = tek(sp.ay) ?? ""
   const secili = tek(sp.secili) ?? ""
+  const grupParam = tek(sp.grup) ?? "" // "" | "diger" | grup id
+  const bakilmadiFiltre = tek(sp.bakilmadi) === "1"
   const sayfa = Math.max(1, Number(tek(sp.sayfa) ?? "1") || 1)
 
   // Sıralama
@@ -78,7 +70,7 @@ export default async function IslerSayfasi({
   const finansal = kullanici.rol === "yonetici" // teknisyen finansal sütunları görmez
 
   // Filtre seçenekleri (dropdown'lar için)
-  const [durumlarRes, personellerRes, faturalarRes, musterilerRes] =
+  const [durumlarRes, personellerRes, faturalarRes, musterilerRes, gruplarRes] =
     await Promise.all([
       supabase.from("durum").select("id, ad").order("sira"),
       supabase
@@ -92,7 +84,11 @@ export default async function IslerSayfasi({
         .select("id, ad")
         .eq("aktif", true)
         .order("ad"),
+      supabase.from("grup").select("id, ad").eq("aktif", true).order("sira"),
     ])
+
+  const gruplar = gruplarRes.data ?? []
+  const bakilmadiId = durumlarRes.data?.find((d) => d.ad === "BAKILMADI")?.id ?? ""
 
   // Ana sorgu — embed ile ilişkili isimleri çek + toplam say
   let query = supabase
@@ -100,7 +96,8 @@ export default async function IslerSayfasi({
     .select(
       `
         id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
-        fiyat_teklifi, fatura_tutari, garanti_no, kargo_takip_no,
+        fatura_tarihi, fiyat_teklifi, fatura_tutari, garanti_no, kargo_takip_no,
+        musteri_id, durum_id, fatura_durumu_id, grup_id,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
         teknik_personel:teknik_personel_id ( ad ),
@@ -110,6 +107,11 @@ export default async function IslerSayfasi({
     )
 
   if (durum) query = query.eq("durum_id", durum)
+  // Sol menü grubu: "diger" = grupsuz (null), aksi halde grup id
+  if (grupParam === "diger") query = query.is("grup_id", null)
+  else if (grupParam) query = query.eq("grup_id", grupParam)
+  // "Bakılmadı (gelenler)" tuşu
+  if (bakilmadiFiltre && bakilmadiId) query = query.eq("durum_id", bakilmadiId)
   if (personel) query = query.eq("teknik_personel_id", personel)
   if (fatura) query = query.eq("fatura_durumu_id", fatura)
   if (musteri) query = query.eq("musteri_id", musteri)
@@ -160,9 +162,12 @@ export default async function IslerSayfasi({
 
   // Seçili işin fotoğrafları (yan önizleme paneli için)
   type SeciliBilgi = {
+    id: string
     cihaz_adi: string
     servis_no: string | null
     musteriAd: string | null
+    aciklama: string | null
+    kargo_takip_no: string | null
     fatura_durumu_id: string | null
     fiyat_teklifi: number | null
     fatura_tutari: number | null
@@ -174,7 +179,7 @@ export default async function IslerSayfasi({
     const { data: kayit } = await supabase
       .from("is_kaydi")
       .select(
-        "cihaz_adi, servis_no, fatura_durumu_id, fiyat_teklifi, fatura_tutari, garanti_no, musteri:musteri_id ( ad )"
+        "cihaz_adi, servis_no, aciklama, kargo_takip_no, fatura_durumu_id, fiyat_teklifi, fatura_tutari, garanti_no, musteri:musteri_id ( ad )"
       )
       .eq("id", secili)
       .maybeSingle()
@@ -198,9 +203,12 @@ export default async function IslerSayfasi({
         }))
       }
       seciliBilgi = {
+        id: secili,
         cihaz_adi: kayit.cihaz_adi,
         servis_no: kayit.servis_no,
         musteriAd: kayit.musteri?.ad ?? null,
+        aciklama: kayit.aciklama,
+        kargo_takip_no: kayit.kargo_takip_no,
         fatura_durumu_id: kayit.fatura_durumu_id,
         fiyat_teklifi: kayit.fiyat_teklifi,
         fatura_tutari: kayit.fatura_tutari,
@@ -238,21 +246,17 @@ export default async function IslerSayfasi({
   }
   const sayfaLinki = (hedef: number) => linkUret({ sayfa: hedef })
 
-  // Sıralanabilir başlık: tıklayınca yönü değiştirir, ok gösterir
-  function siralaHref(anahtar: string): string {
-    const yeniYon = sirala === anahtar && yon === "asc" ? "desc" : "asc"
-    return linkUret({ sirala: anahtar, yon: yeniYon, sayfa: 1 })
-  }
-  function siralaOk(anahtar: string): string {
-    if (sirala !== anahtar) return ""
-    return yon === "asc" ? " ▲" : " ▼"
-  }
-
   return (
     <div className="grid min-w-0 gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-[21px] font-semibold tracking-tight">İşler</h1>
+          <h1 className="text-[21px] font-semibold tracking-tight">
+            {bakilmadiFiltre
+              ? "Bakılmadı"
+              : grupParam === "diger"
+                ? "Diğer"
+                : gruplar.find((g) => g.id === grupParam)?.ad ?? "Tüm İşler"}
+          </h1>
           <span className="text-sm text-muted-foreground">{toplam} kayıt</span>
         </div>
         <AySecici aylar={sonAylar()} basePath="/" />
@@ -284,202 +288,17 @@ export default async function IslerSayfasi({
         </div>
       ) : (
         <>
-          {/* Masaüstü: tablo + yan önizleme paneli */}
-          <div className="hidden min-w-0 gap-4 md:flex">
-            <div className="min-w-0 flex-1 overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <Link href={siralaHref("servis")} scroll={false} className="hover:underline">
-                        Fiş No{siralaOk("servis")}
-                      </Link>
-                    </TableHead>
-                    <TableHead>Müşteri</TableHead>
-                    <TableHead>
-                      <Link href={siralaHref("cihaz")} scroll={false} className="hover:underline">
-                        Cihaz{siralaOk("cihaz")}
-                      </Link>
-                    </TableHead>
-                    <TableHead>
-                      <Link href={siralaHref("gelis")} scroll={false} className="hover:underline">
-                        Geliş{siralaOk("gelis")}
-                      </Link>
-                    </TableHead>
-                    <TableHead>
-                      <Link href={siralaHref("cikis")} scroll={false} className="hover:underline">
-                        Çıkış{siralaOk("cikis")}
-                      </Link>
-                    </TableHead>
-                    <TableHead>Durum</TableHead>
-                    <TableHead>Personel</TableHead>
-                    {finansal && <TableHead>Fatura</TableHead>}
-                    {finansal && (
-                      <TableHead className="text-right">
-                        <Link href={siralaHref("tutar")} scroll={false} className="hover:underline">
-                          Tutar{siralaOk("tutar")}
-                        </Link>
-                      </TableHead>
-                    )}
-                    <TableHead>Kargo Takip</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {kayitlar.map((k) => (
-                    <OnizleSatiri
-                      key={k.id}
-                      href={linkUret({ secili: k.id })}
-                      secili={k.id === secili}
-                    >
-                      <TableCell className="font-medium">
-                        <Link
-                          href={`/is/${k.id}`}
-                          className="text-primary underline-offset-4 hover:underline"
-                        >
-                          {k.servis_no ?? "Aç"}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        {k.musteri?.ad ?? "—"}
-                        {k.musteri?.sube_sehir ? (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {k.musteri.sube_sehir}
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        {k.cihaz_adi}
-                        {k.seri_no ? (
-                          <span className="block text-xs text-muted-foreground">
-                            SN: {k.seri_no}
-                          </span>
-                        ) : null}
-                        {finansal && k.garanti_no ? (
-                          <span className="block text-xs text-muted-foreground">
-                            Garanti: {k.garanti_no}
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{tarihTR(k.gelis_tarihi)}</TableCell>
-                      <TableCell>{tarihTR(k.cikis_tarihi)}</TableCell>
-                      <TableCell>
-                        {k.durum ? (
-                          <DurumRozeti ad={k.durum.ad} renk={k.durum.renk} />
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>{k.teknik_personel?.ad ?? "—"}</TableCell>
-                      {finansal && (
-                        <TableCell>
-                          <FaturaRozeti ad={k.fatura_durumu?.ad} />
-                        </TableCell>
-                      )}
-                      {finansal && (
-                        <TableCell className="text-right tabular-nums">
-                          {tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
-                        </TableCell>
-                      )}
-                      <TableCell className="text-xs text-muted-foreground">
-                        {k.kargo_takip_no ?? "—"}
-                      </TableCell>
-                    </OnizleSatiri>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Yan önizleme paneli — yalnız bir işe tıklanınca açılır (tablo aksi halde tam genişlik) */}
-            {secili && (
-            <aside className="w-80 shrink-0 lg:w-96">
-              <div className="sticky top-20 rounded-lg border p-3">
-                {seciliBilgi ? (
-                  <>
-                    <div className="text-sm font-medium">
-                      {seciliBilgi.servis_no ?? seciliBilgi.cihaz_adi}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {seciliBilgi.musteriAd ? `${seciliBilgi.musteriAd} · ` : ""}
-                      {seciliBilgi.cihaz_adi}
-                    </div>
-                    {seciliBilgi.fotolar.length > 0 ? (
-                      <div className="mt-3 grid gap-2">
-                        {/* İlk fotoğraf — tam genişlik büyük önizleme */}
-                        <a
-                          href={seciliBilgi.fotolar[0].url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="relative block aspect-square overflow-hidden rounded-md border"
-                        >
-                          <Image
-                            src={seciliBilgi.fotolar[0].url}
-                            alt="Önizleme"
-                            fill
-                            sizes="(min-width:1024px) 360px, 300px"
-                            quality={70}
-                            priority
-                            className="object-cover"
-                          />
-                        </a>
-                        {/* Diğer fotoğraflar — küçük thumbnail */}
-                        {seciliBilgi.fotolar.length > 1 && (
-                          <div className="grid grid-cols-4 gap-2">
-                            {seciliBilgi.fotolar.slice(1).map((f) => (
-                              <a
-                                key={f.id}
-                                href={f.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="relative aspect-square overflow-hidden rounded-md border"
-                              >
-                                <Image
-                                  src={f.url}
-                                  alt="Önizleme"
-                                  fill
-                                  sizes="90px"
-                                  quality={60}
-                                  className="object-cover"
-                                />
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Bu işte fotoğraf yok.
-                      </p>
-                    )}
-                    <Link
-                      href={`/is/${secili}`}
-                      className="mt-3 inline-block text-sm text-primary underline-offset-4 hover:underline"
-                    >
-                      Detayı aç →
-                    </Link>
-                    {finansal && (
-                      <PanelFinansal
-                        key={secili}
-                        isKaydiId={secili}
-                        faturaDurumlari={faturalarRes.data ?? []}
-                        varsayilan={{
-                          fatura_durumu_id: seciliBilgi.fatura_durumu_id,
-                          fiyat_teklifi: seciliBilgi.fiyat_teklifi,
-                          fatura_tutari: seciliBilgi.fatura_tutari,
-                          garanti_no: seciliBilgi.garanti_no,
-                        }}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Önizleme yüklenemedi.
-                  </p>
-                )}
-              </div>
-            </aside>
-            )}
-          </div>
+          {/* Masaüstü: sol menü + Excel-gibi tablo + panel */}
+          <IslerEkrani
+            kayitlar={kayitlar}
+            gruplar={gruplar}
+            durumlar={durumlarRes.data ?? []}
+            faturaDurumlari={faturalarRes.data ?? []}
+            finansal={finansal}
+            seciliId={secili}
+            seciliBilgi={seciliBilgi}
+            aktifGrup={grupParam}
+          />
 
           {/* Mobil: kart görünümü */}
           <div className="grid gap-3 md:hidden">
