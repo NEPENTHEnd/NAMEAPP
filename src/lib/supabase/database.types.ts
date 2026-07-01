@@ -72,7 +72,15 @@ export type Database = {
           rol?: string
           teknik_personel_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "davet_kodu_teknik_personel_id_fkey"
+            columns: ["teknik_personel_id"]
+            isOneToOne: false
+            referencedRelation: "teknik_personel"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       durum: {
         Row: {
@@ -110,6 +118,24 @@ export type Database = {
         }
         Relationships: []
       }
+      fis_sayac: {
+        Row: {
+          donem: string
+          prefix: number
+          sayac: number
+        }
+        Insert: {
+          donem: string
+          prefix: number
+          sayac?: number
+        }
+        Update: {
+          donem?: string
+          prefix?: number
+          sayac?: number
+        }
+        Relationships: []
+      }
       foto: {
         Row: {
           dosya_yolu: string
@@ -139,19 +165,45 @@ export type Database = {
           },
         ]
       }
+      grup: {
+        Row: {
+          ad: string
+          aktif: boolean
+          created_at: string
+          id: string
+          sira: number
+        }
+        Insert: {
+          ad: string
+          aktif?: boolean
+          created_at?: string
+          id?: string
+          sira?: number
+        }
+        Update: {
+          ad?: string
+          aktif?: boolean
+          created_at?: string
+          id?: string
+          sira?: number
+        }
+        Relationships: []
+      }
       is_kaydi: {
         Row: {
           aciklama: string | null
           adres: string | null
           cihaz_adi: string
           cikis_tarihi: string | null
-          garanti_no: string | null
           created_at: string
           durum_id: string
           fatura_durumu_id: string | null
+          fatura_tarihi: string | null
           fatura_tutari: number | null
           fiyat_teklifi: number | null
+          garanti_no: string | null
           gelis_tarihi: string
+          grup_id: string | null
           id: string
           ilgili_kisi: string | null
           kargo_takip_no: string | null
@@ -169,13 +221,15 @@ export type Database = {
           adres?: string | null
           cihaz_adi: string
           cikis_tarihi?: string | null
-          garanti_no?: string | null
           created_at?: string
           durum_id: string
           fatura_durumu_id?: string | null
+          fatura_tarihi?: string | null
           fatura_tutari?: number | null
           fiyat_teklifi?: number | null
+          garanti_no?: string | null
           gelis_tarihi?: string
+          grup_id?: string | null
           id?: string
           ilgili_kisi?: string | null
           kargo_takip_no?: string | null
@@ -193,13 +247,15 @@ export type Database = {
           adres?: string | null
           cihaz_adi?: string
           cikis_tarihi?: string | null
-          garanti_no?: string | null
           created_at?: string
           durum_id?: string
           fatura_durumu_id?: string | null
+          fatura_tarihi?: string | null
           fatura_tutari?: number | null
           fiyat_teklifi?: number | null
+          garanti_no?: string | null
           gelis_tarihi?: string
+          grup_id?: string | null
           id?: string
           ilgili_kisi?: string | null
           kargo_takip_no?: string | null
@@ -225,6 +281,13 @@ export type Database = {
             columns: ["fatura_durumu_id"]
             isOneToOne: false
             referencedRelation: "fatura_durumu"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "is_kaydi_grup_id_fkey"
+            columns: ["grup_id"]
+            isOneToOne: false
+            referencedRelation: "grup"
             referencedColumns: ["id"]
           },
           {
@@ -302,6 +365,33 @@ export type Database = {
         }
         Relationships: []
       }
+      push_abonelik: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          kullanici_id: string
+          p256dh: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          kullanici_id: string
+          p256dh: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          kullanici_id?: string
+          p256dh?: string
+        }
+        Relationships: []
+      }
       teknik_personel: {
         Row: {
           ad: string
@@ -325,19 +415,49 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      yonetici_mi: { Args: never; Returns: boolean }
+      davet_kod_yenile: { Args: { p_kisi_id: string }; Returns: string }
+      fis_no_uret: { Args: never; Returns: string }
+      foto_kullanim: {
+        Args: never
+        Returns: {
+          adet: number
+          toplam_byte: number
+        }[]
+      }
+      gen_takip_no: { Args: never; Returns: string }
+      kayit_tamamla: { Args: { p_kod: string }; Returns: string }
+      kayitli_mi: { Args: never; Returns: boolean }
+      kod_rol: { Args: { p_kod: string }; Returns: string }
+      push_abonelik_temizle: {
+        Args: { p_endpoint: string }
+        Returns: undefined
+      }
+      push_kaydet: {
+        Args: { p_auth: string; p_endpoint: string; p_p256dh: string }
+        Returns: undefined
+      }
+      push_yonetici_abonelikleri: {
+        Args: never
+        Returns: {
+          auth: string
+          endpoint: string
+          p256dh: string
+        }[]
+      }
+      sahip_mi: { Args: never; Returns: boolean }
       takip_sorgula: {
         Args: { p_takip_no: string }
         Returns: {
-          musteri_ad: string | null
           cihaz_adi: string
-          servis_no: string | null
-          durum_ad: string | null
-          durum_renk: string | null
+          cikis_tarihi: string
+          durum_ad: string
+          durum_renk: string
           gelis_tarihi: string
-          cikis_tarihi: string | null
+          musteri_ad: string
+          servis_no: string
         }[]
       }
+      yonetici_mi: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

@@ -27,8 +27,10 @@ export type IsFormVarsayilan = {
   ilgili_kisi?: string | null
   adres?: string | null
   kargo_takip_no?: string | null
+  grup_id?: string | null
   fiyat_teklifi?: number | null
   fatura_tutari?: number | null
+  fatura_tarihi?: string | null
   garanti_no?: string | null
   aciklama?: string | null
 }
@@ -281,12 +283,21 @@ export function IsFormu({
             <Hata alan="fatura_tutari" />
           </div>
           <div className="grid gap-1.5">
+            <label className={labelClass} htmlFor="fatura_tarihi">Fatura tarihi</label>
+            <input id="fatura_tarihi" name="fatura_tarihi" type="date" className={selectClass} defaultValue={varsayilan.fatura_tarihi ?? ""} />
+          </div>
+          <div className="grid gap-1.5">
             <label className={labelClass} htmlFor="garanti_no">Garanti no</label>
             <Input id="garanti_no" name="garanti_no" placeholder="Harf/rakam olabilir" defaultValue={varsayilan.garanti_no ?? ""} />
           </div>
         </div>
       </Bolum>
       )}
+
+      {/* Grup ataması (yeşil + ile gruba hızlı ekleme): gizli alan */}
+      {finansalGoster && varsayilan.grup_id ? (
+        <input type="hidden" name="grup_id" value={varsayilan.grup_id} />
+      ) : null}
 
       <Bolum baslik="Açıklama / Notlar">
         <textarea

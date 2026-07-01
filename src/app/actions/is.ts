@@ -64,8 +64,10 @@ const sema = z
     ilgili_kisi: metin,
     adres: metin,
     kargo_takip_no: metin,
+    grup_id: z.preprocess(bosNull, z.string().uuid().optional()),
     fiyat_teklifi: sayi,
     fatura_tutari: sayi,
+    fatura_tarihi: tarih,
     garanti_no: metin,
     aciklama: metin,
   })
@@ -89,8 +91,10 @@ function formdanOku(formData: FormData) {
     ilgili_kisi: formData.get("ilgili_kisi"),
     adres: formData.get("adres"),
     kargo_takip_no: formData.get("kargo_takip_no"),
+    grup_id: formData.get("grup_id"),
     fiyat_teklifi: formData.get("fiyat_teklifi"),
     fatura_tutari: formData.get("fatura_tutari"),
+    fatura_tarihi: formData.get("fatura_tarihi"),
     garanti_no: formData.get("garanti_no"),
     aciklama: formData.get("aciklama"),
   }
@@ -158,6 +162,8 @@ export async function isOlustur(
     olusturan_id: kullanici.id,
     // Personelin eklediği iş yöneticiye "yeni" görünür; yöneticininki görüldü sayılır.
     yonetici_gordu: finansal,
+    // Grup atamasını yalnız yönetici yapar; personelin işi DİĞER'e (null) düşer.
+    grup_id: finansal ? (parsed.data.grup_id ?? null) : null,
   }
   // Fiş no HERKESE otomatik (ön eki olan kullanıcıda); yoksa form değeri/boş
   const rpc = supabase as unknown as RpcIstemci
@@ -168,6 +174,7 @@ export async function isOlustur(
     ekle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     ekle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
     ekle.fatura_tutari = parsed.data.fatura_tutari ?? null
+    ekle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     ekle.garanti_no = parsed.data.garanti_no ?? null
   }
 
@@ -217,6 +224,7 @@ export async function isGuncelle(
     guncelle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     guncelle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
     guncelle.fatura_tutari = parsed.data.fatura_tutari ?? null
+    guncelle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     guncelle.garanti_no = parsed.data.garanti_no ?? null
   }
 
@@ -268,6 +276,120 @@ export async function isFinansalGuncelle(
   revalidatePath("/")
   revalidatePath(`/is/${id}`)
   return { basari: true }
+}
+
+// Sürükle-bırak: yönetici işi bir gruba (ya da null=DİĞER) atar.
+export async function isGrupAta(id: string, grupId: string | null) {
+  const kullanici = await getKullanici()
+  if (kullanici.rol !== "yonetici") {
+    return { ok: false, error: "Bu işlem için yönetici yetkisi gerekir." }
+  }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("is_kaydi")
+    .update({ grup_id: grupId })
+    .eq("id", id)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/")
+  return { ok: true }
+}
+
+// Excel gibi hücre-içi düzenleme. Yalnız izinli alanlar; finansal alanlar yönetici.
+const FINANSAL_ALAN = new Set([
+  "fatura_durumu_id",
+  "fatura_tarihi",
+  "garanti_no",
+  "fiyat_teklifi",
+  "fatura_tutari",
+])
+
+export async function isHucreGuncelle(
+  id: string,
+  alan: string,
+  deger: string
+): Promise<{ ok: boolean; error?: string }> {
+  const kullanici = await getKullanici()
+  const finansal = kullanici.rol === "yonetici"
+  if (FINANSAL_ALAN.has(alan) && !finansal) {
+    return { ok: false, error: "Bu alan için yönetici yetkisi gerekir." }
+  }
+
+  const supabase = await createClient()
+  const t = deger.trim()
+  const guncelle: TablesUpdate<"is_kaydi"> = {}
+
+  switch (alan) {
+    case "cihaz_adi":
+      if (!t) return { ok: false, error: "Cihaz adı boş olamaz." }
+      guncelle.cihaz_adi = t
+      break
+    case "seri_no":
+    case "kargo_takip_no":
+    case "garanti_no":
+    case "aciklama":
+      guncelle[alan] = t || null
+      break
+    case "gelis_tarihi":
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(t))
+        return { ok: false, error: "Geçerli tarih girin." }
+      guncelle.gelis_tarihi = t
+      break
+    case "cikis_tarihi":
+    case "fatura_tarihi":
+      if (t && !/^\d{4}-\d{2}-\d{2}$/.test(t))
+        return { ok: false, error: "Geçerli tarih girin." }
+      guncelle[alan] = t || null
+      break
+    case "fiyat_teklifi":
+    case "fatura_tutari": {
+      if (!t) {
+        guncelle[alan] = null
+      } else {
+        const n = Number(t.replace(",", "."))
+        if (!Number.isFinite(n) || n < 0)
+          return { ok: false, error: "Geçerli tutar girin." }
+        guncelle[alan] = n
+      }
+      break
+    }
+    case "durum_id":
+      if (!t) return { ok: false, error: "Durum seçin." }
+      guncelle.durum_id = t
+      break
+    case "fatura_durumu_id":
+      guncelle.fatura_durumu_id = t || null
+      break
+    case "musteri": {
+      // İsme göre müşteri bul ya da oluştur (Excel gibi elle firma girişi).
+      if (!t) return { ok: false, error: "Firma adı boş olamaz." }
+      const { data: mevcut } = await supabase
+        .from("musteri")
+        .select("id")
+        .ilike("ad", t)
+        .limit(1)
+        .maybeSingle()
+      let mid = mevcut?.id
+      if (!mid) {
+        const { data: yeni, error: mErr } = await supabase
+          .from("musteri")
+          .insert({ ad: t })
+          .select("id")
+          .single()
+        if (mErr || !yeni) return { ok: false, error: "Firma oluşturulamadı." }
+        mid = yeni.id
+      }
+      guncelle.musteri_id = mid
+      break
+    }
+    default:
+      return { ok: false, error: "Geçersiz alan." }
+  }
+
+  const { error } = await supabase.from("is_kaydi").update(guncelle).eq("id", id)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/")
+  revalidatePath(`/is/${id}`)
+  return { ok: true }
 }
 
 export async function isSil(id: string) {
