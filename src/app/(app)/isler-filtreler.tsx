@@ -4,8 +4,24 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+
+type Oneri = { metin: string; tur: "cihaz" | "firma" | "fiş" }
+
+// Eşleşen kısmı kalın göster (PI → PICANOL...)
+function Vurgula({ metin, q }: { metin: string; q: string }) {
+  const i = metin.toLocaleLowerCase("tr-TR").indexOf(q.toLocaleLowerCase("tr-TR"))
+  if (i < 0) return <>{metin}</>
+  return (
+    <>
+      {metin.slice(0, i)}
+      <strong className="font-bold">{metin.slice(i, i + q.length)}</strong>
+      {metin.slice(i + q.length)}
+    </>
+  )
+}
 
 type Secenek = { id: string; ad: string }
 
@@ -42,6 +58,66 @@ export function IslerFiltreler({
   const urlQ = searchParams.get("q") ?? ""
   const [arama, setArama] = useState(urlQ)
   const kullaniciYazdi = useRef(false)
+
+  // Canlı öneriler (autocomplete): yazdıkça cihaz/firma/fiş eşleşmeleri
+  const [oneriler, setOneriler] = useState<Oneri[]>([])
+  const [oneriAcik, setOneriAcik] = useState(false)
+  const oneriKutu = useRef<HTMLDivElement>(null)
+  const istekNo = useRef(0)
+
+  useEffect(() => {
+    const q = arama.trim()
+    if (!kullaniciYazdi.current || q.length < 2) {
+      setOneriler([])
+      return
+    }
+    const no = ++istekNo.current
+    const t = setTimeout(async () => {
+      const supabase = createClient()
+      const desen = `%${q}%`
+      const [cihazRes, firmaRes, fisRes] = await Promise.all([
+        supabase.from("is_kaydi").select("cihaz_adi").ilike("cihaz_adi", desen).limit(12),
+        supabase.from("musteri").select("ad").ilike("ad", desen).limit(5),
+        supabase.from("is_kaydi").select("servis_no").ilike("servis_no", `${q}%`).not("servis_no", "is", null).limit(4),
+      ])
+      if (no !== istekNo.current) return // eski istek, at
+      const gorulen = new Set<string>()
+      const liste: Oneri[] = []
+      for (const r of cihazRes.data ?? []) {
+        const k = r.cihaz_adi.toLocaleUpperCase("tr-TR")
+        if (!gorulen.has(k)) {
+          gorulen.add(k)
+          liste.push({ metin: r.cihaz_adi, tur: "cihaz" })
+        }
+        if (liste.length >= 6) break
+      }
+      for (const r of firmaRes.data ?? []) {
+        if (liste.length >= 9) break
+        liste.push({ metin: r.ad, tur: "firma" })
+      }
+      for (const r of fisRes.data ?? []) {
+        if (liste.length >= 11 || !r.servis_no) break
+        const k = "F:" + r.servis_no
+        if (!gorulen.has(k)) {
+          gorulen.add(k)
+          liste.push({ metin: r.servis_no, tur: "fiş" })
+        }
+      }
+      setOneriler(liste)
+      setOneriAcik(true)
+    }, 220)
+    return () => clearTimeout(t)
+  }, [arama])
+
+  // Dışarı tıklayınca öneri listesini kapat
+  useEffect(() => {
+    function d(e: MouseEvent) {
+      if (oneriKutu.current && !oneriKutu.current.contains(e.target as Node))
+        setOneriAcik(false)
+    }
+    document.addEventListener("mousedown", d)
+    return () => document.removeEventListener("mousedown", d)
+  }, [])
 
   // Dışarıdan (öteki kopya, geri tuşu) değişen URL'i kutuya yansıt
   useEffect(() => {
@@ -105,17 +181,49 @@ export function IslerFiltreler({
     <div className={cn("grid gap-2.5", isPending && "opacity-70")}>
       {/* Üst satır: arama + Filtre tuşu + hızlı butonlar + ay kutucukları */}
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="search"
-          inputMode="search"
-          placeholder="Ara: cihaz, seri, fiş, takip no…"
-          value={arama}
-          onChange={(e) => {
-            kullaniciYazdi.current = true
-            setArama(e.target.value)
-          }}
-          className="w-full max-w-[250px]"
-        />
+        <div ref={oneriKutu} className="relative w-full max-w-[250px]">
+          <Input
+            type="search"
+            inputMode="search"
+            autoComplete="off"
+            placeholder="Ara: cihaz, seri, fiş, takip no…"
+            value={arama}
+            onChange={(e) => {
+              kullaniciYazdi.current = true
+              setArama(e.target.value)
+            }}
+            onFocus={() => oneriler.length > 0 && setOneriAcik(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setOneriAcik(false)
+              if (e.key === "Enter") setOneriAcik(false)
+            }}
+            className="w-full"
+          />
+          {/* Canlı öneriler — yazdıkça daralır, tıklayınca arar */}
+          {oneriAcik && oneriler.length > 0 && (
+            <div className="absolute left-0 top-full z-40 mt-1 max-h-72 w-[300px] overflow-y-auto rounded-lg border border-border bg-popover py-1 shadow-xl">
+              {oneriler.map((o, i) => (
+                <button
+                  key={o.tur + o.metin + i}
+                  type="button"
+                  onClick={() => {
+                    kullaniciYazdi.current = true
+                    setArama(o.metin)
+                    setOneriAcik(false)
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-muted"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    <Vurgula metin={o.metin} q={arama.trim()} />
+                  </span>
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                    {o.tur}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setFiltreAcik((v) => !v)}
