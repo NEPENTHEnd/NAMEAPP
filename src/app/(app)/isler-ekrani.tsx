@@ -188,8 +188,8 @@ export function IslerEkrani({
     <div className="hidden min-w-0 gap-4 md:flex">
       {/* Sol menü: firmalar */}
       <aside className="w-48 shrink-0">
-        {/* Menü ekrana sığar, uzarsa kendi içinde kayar — tablo boyunu o belirlemesin */}
-        <div className="sticky top-20 grid max-h-[calc(100vh-165px)] gap-1.5 overflow-y-auto pr-0.5">
+        {/* Menü tabloyla aynı hizada biter; uzarsa kendi içinde kayar */}
+        <div className="sticky top-20 grid h-[calc(100vh-116px)] content-start gap-1.5 overflow-y-auto pr-0.5">
           <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Firmalar
           </div>
