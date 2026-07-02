@@ -330,6 +330,32 @@ export default async function IslerSayfasi({
     </div>
   )
 
+  // Kompakt sayfalama — arama satırının sağında (sayfa dikey kaymasın diye üstte)
+  const okBtn =
+    "flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-sm hover:bg-muted"
+  const sayfalama =
+    toplamSayfa > 1 ? (
+      <div className="flex items-center gap-1.5 text-[12.5px]">
+        {sayfa > 1 ? (
+          <Link href={sayfaLinki(sayfa - 1)} scroll={false} className={okBtn} title="Önceki sayfa">
+            ←
+          </Link>
+        ) : (
+          <span className={okBtn + " opacity-35"}>←</span>
+        )}
+        <span className="whitespace-nowrap text-muted-foreground">
+          {sayfa}/{toplamSayfa}
+        </span>
+        {sayfa < toplamSayfa ? (
+          <Link href={sayfaLinki(sayfa + 1)} scroll={false} className={okBtn} title="Sonraki sayfa">
+            →
+          </Link>
+        ) : (
+          <span className={okBtn + " opacity-35"}>→</span>
+        )}
+      </div>
+    ) : null
+
   const filtrelerBlogu = (
     <IslerFiltreler
       durumlar={durumlarRes.data ?? []}
@@ -338,9 +364,12 @@ export default async function IslerSayfasi({
       musteriler={musterilerRes.data ?? []}
       sagSlot={hizliButonlar}
       aySlot={
-        // Geniş ekranda ay kutucukları üst barda; burada yalnız dar ekranda
-        <div className="xl:hidden">
-          <AySecici aylar={sonAylar()} basePath="/" />
+        <div className="flex items-center gap-3">
+          {/* Geniş ekranda ay kutucukları üst barda; burada yalnız dar ekranda */}
+          <div className="xl:hidden">
+            <AySecici aylar={sonAylar()} basePath="/" />
+          </div>
+          {sayfalama}
         </div>
       }
     />
@@ -425,42 +454,6 @@ export default async function IslerSayfasi({
             ))}
           </div>
 
-          {/* Sayfalama */}
-          {toplamSayfa > 1 && (
-            <div className="flex items-center justify-between gap-4 text-sm">
-              <span className="text-muted-foreground">
-                Sayfa {sayfa} / {toplamSayfa}
-              </span>
-              <div className="flex gap-2">
-                {sayfa > 1 ? (
-                  <Link
-                    href={sayfaLinki(sayfa - 1)}
-                    className="rounded-md border px-3 py-1.5 hover:bg-muted"
-                    scroll={false}
-                  >
-                    ← Önceki
-                  </Link>
-                ) : (
-                  <span className="rounded-md border px-3 py-1.5 text-muted-foreground/50">
-                    ← Önceki
-                  </span>
-                )}
-                {sayfa < toplamSayfa ? (
-                  <Link
-                    href={sayfaLinki(sayfa + 1)}
-                    className="rounded-md border px-3 py-1.5 hover:bg-muted"
-                    scroll={false}
-                  >
-                    Sonraki →
-                  </Link>
-                ) : (
-                  <span className="rounded-md border px-3 py-1.5 text-muted-foreground/50">
-                    Sonraki →
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
