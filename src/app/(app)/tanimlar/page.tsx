@@ -10,6 +10,9 @@ import {
   musteriEkle,
   musteriDuzenle,
   musteriAktiflik,
+  grupEkle,
+  grupDuzenle,
+  grupAktiflik,
   personelEkle,
   personelDuzenle,
   personelAktiflik,
@@ -23,6 +26,7 @@ import {
 
 const SEKMELER = [
   { k: "musteri", label: "Müşteriler" },
+  { k: "firmalar", label: "Firmalar (Sol Menü)" },
   { k: "personel", label: "Tekniker" },
   { k: "durum", label: "Durumlar" },
   { k: "fatura", label: "Fatura Durumları" },
@@ -43,7 +47,7 @@ export default async function TanimlarSayfasi({
   const sekme = SEKMELER.some((s) => s.k === sekmeRaw) ? sekmeRaw! : "musteri"
 
   const supabase = await createClient()
-  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler] =
+  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler, gruplar] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
@@ -54,6 +58,7 @@ export default async function TanimlarSayfasi({
         .from("davet_kisi")
         .select("id, ad, fis_prefix, rol, aktif, kod")
         .order("fis_prefix"),
+      supabase.from("grup").select("id, ad, sira, aktif").order("sira"),
     ])
 
   const rolEtiket = (r: string) => (r === "yonetici" ? "Yönetici" : "Personel")
@@ -92,6 +97,56 @@ export default async function TanimlarSayfasi({
           </Link>
         ))}
       </div>
+
+      {/* FİRMALAR — İşler ekranındaki sol menü */}
+      {sekme === "firmalar" && (
+        <section className="grid gap-3">
+          <p className="text-xs text-muted-foreground">
+            İşler ekranının solundaki firma menüsünü buradan yönetirsin.
+            <strong> Gizle</strong> dersen firma menüde görünmez ama işleri
+            silinmez (Tüm İşler'de kalır). DİĞER sabittir: hiçbir firmaya
+            atanmamış işleri gösterir.
+          </p>
+          <form action={grupEkle} className="flex flex-wrap gap-2">
+            <Input name="ad" placeholder="Yeni firma adı" required className="max-w-xs" />
+            <Button type="submit" size="sm">Menüye ekle</Button>
+          </form>
+          <div className="grid gap-2">
+            {(gruplar.data ?? []).map((g) => (
+              <div
+                key={g.id}
+                className={cn(
+                  "flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2",
+                  !g.aktif && "opacity-55"
+                )}
+              >
+                <form action={grupDuzenle} className="flex flex-1 flex-wrap items-center gap-2">
+                  <input type="hidden" name="id" value={g.id} />
+                  <Input name="ad" defaultValue={g.ad} className="max-w-xs" required />
+                  <Button type="submit" size="sm" variant="ghost">Kaydet</Button>
+                </form>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    g.aktif
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {g.aktif ? "Menüde" : "Gizli"}
+                </span>
+                <form action={grupAktiflik}>
+                  <input type="hidden" name="id" value={g.id} />
+                  <input type="hidden" name="aktif" value={g.aktif ? "false" : "true"} />
+                  <Button type="submit" size="sm" variant="outline">
+                    {g.aktif ? "Gizle" : "Göster"}
+                  </Button>
+                </form>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* MÜŞTERİLER */}
       {sekme === "musteri" && (

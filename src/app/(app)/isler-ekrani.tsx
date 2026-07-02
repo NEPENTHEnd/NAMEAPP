@@ -190,6 +190,21 @@ export function IslerEkrani({
           <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Firmalar
           </div>
+          {/* Açılır listeden hızlı firma seçimi */}
+          <select
+            value={aktifGrup}
+            onChange={(e) => git({ grup: e.target.value || null, bakilmadi: null })}
+            aria-label="Firma seç"
+            className="mb-0.5 h-8 w-full rounded-lg border border-input bg-card px-2 text-[12.5px] outline-none transition focus:border-primary"
+          >
+            <option value="">Tüm firmalar</option>
+            <option value="diger">DİĞER</option>
+            {gruplar.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.ad}
+              </option>
+            ))}
+          </select>
           <div className="grid gap-0.5">
             {hedefler.map((h, i) => {
               const aktifMi = aktifGrup === h.anahtar
@@ -220,7 +235,9 @@ export function IslerEkrani({
                         ? "bg-emerald-500 text-white ring-2 ring-emerald-300"
                         : aktifMi
                           ? "bg-accent font-semibold text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          : h.anahtar === "diger"
+                            ? "font-semibold text-amber-600 hover:bg-muted dark:text-amber-400"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
                     {h.ad}
@@ -304,7 +321,7 @@ export function IslerEkrani({
                 style={{ "--satir": durumRenk(k.durum?.ad, k.durum?.renk) } as CSSProperties}
                 className={cn(
                   "border-b transition-colors",
-                  "bg-[color-mix(in_oklab,var(--satir)_9%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_18%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_26%,transparent)]",
+                  "bg-[color-mix(in_oklab,var(--satir)_20%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_30%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_40%,transparent)]",
                   surukle?.id === k.id && "opacity-40"
                 )}
               >

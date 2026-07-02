@@ -54,6 +54,45 @@ export async function musteriAktiflik(formData: FormData) {
   bitir()
 }
 
+// ---- Firmalar (İşler ekranındaki sol menü) ----
+export async function grupEkle(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const ad = metin(formData, "ad")
+  if (!ad) return
+  // Yeni firma listenin sonuna eklenir
+  const { data: son } = await supabase
+    .from("grup")
+    .select("sira")
+    .order("sira", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  await supabase.from("grup").insert({ ad, sira: (son?.sira ?? 0) + 1 })
+  revalidatePath("/")
+  bitir()
+}
+
+export async function grupDuzenle(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const id = metin(formData, "id")
+  const ad = metin(formData, "ad")
+  if (!id || !ad) return
+  await supabase.from("grup").update({ ad }).eq("id", id)
+  revalidatePath("/")
+  bitir()
+}
+
+export async function grupAktiflik(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const id = metin(formData, "id")
+  if (!id) return
+  await supabase
+    .from("grup")
+    .update({ aktif: metin(formData, "aktif") === "true" })
+    .eq("id", id)
+  revalidatePath("/")
+  bitir()
+}
+
 // ---- Teknik personel ----
 export async function personelEkle(formData: FormData) {
   const supabase = await yoneticiSupabase()
