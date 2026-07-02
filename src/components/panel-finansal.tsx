@@ -72,7 +72,7 @@ export function PanelFinansal({
       </div>
       <Input
         name="garanti_no"
-        placeholder="Garanti no (harf/rakam)"
+        placeholder="Takip no (harf/rakam)"
         defaultValue={varsayilan.garanti_no ?? ""}
         className="h-8"
       />

@@ -33,6 +33,7 @@ export type Kayit = {
   durum: { ad: string; renk: string | null } | null
   fatura_durumu_id: string | null
   fatura_durumu: { ad: string } | null
+  teknik_personel_id: string | null
   teknik_personel: { ad: string } | null
   musteri: { ad: string; sube_sehir: string | null } | null
   garanti_no: string | null
@@ -72,6 +73,7 @@ export function IslerEkrani({
   kayitlar,
   gruplar,
   durumlar,
+  personeller,
   faturaDurumlari,
   finansal,
   seciliId,
@@ -81,6 +83,7 @@ export function IslerEkrani({
   kayitlar: Kayit[]
   gruplar: Secenek[]
   durumlar: Secenek[]
+  personeller: Secenek[]
   faturaDurumlari: Secenek[]
   finansal: boolean
   seciliId: string
@@ -117,13 +120,16 @@ export function IslerEkrani({
   }
   const ok = (a: string) => (sirala !== a ? "" : yon === "asc" ? " ▲" : " ▼")
 
-  // ---- Sürükle-bırak (satırı gruba ata) ----
+  // Görünüm modları
+  const grupGorunumu = aktifGrup !== "" && aktifGrup !== "diger" // belirli firma seçili
+  const aktifGrupAd = gruplar.find((g) => g.id === aktifGrup)?.ad ?? null
+  const stokKoduModu = aktifGrupAd === "BOYTEKS" // fiş no yerine firma stok kodu
+
+  // ---- Sürükle-bırak: fiş no'nun solundaki SAPTAN tutulur ----
   const [surukle, setSurukle] = useState<Kayit | null>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [hedef, setHedef] = useState<string | null>(null) // "diger" | grup id | null
   const [pending, startTransition] = useTransition()
-  const holdRef = useRef<{ id: string; x: number; y: number; t: number } | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const ogeRef = useRef<Map<string, HTMLElement>>(new Map())
 
   // "Diğer" + gruplar sürükleme hedefleri
@@ -143,6 +149,7 @@ export function IslerEkrani({
 
   useEffect(() => {
     if (!surukle) return
+    document.body.style.userSelect = "none" // sürüklerken metin seçilmesin
     function move(e: PointerEvent) {
       setPos({ x: e.clientX, y: e.clientY })
       setHedef(hedefBul(e.clientY))
@@ -165,72 +172,20 @@ export function IslerEkrani({
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)
     return () => {
+      document.body.style.userSelect = ""
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
     }
   }, [surukle, hedef, router])
 
-  // Satır basılı tut → sürüklemeye başla (yalnız yönetici)
-  function satirPointerDown(e: React.PointerEvent, k: Kayit) {
-    if (!finansal || e.button !== 0) return
-    holdRef.current = { id: k.id, x: e.clientX, y: e.clientY, t: Date.now() }
-    const baslat = window.setTimeout(() => {
-      if (holdRef.current?.id === k.id) {
-        setSurukle(k)
-        setPos({ x: e.clientX, y: e.clientY })
-      }
-    }, 200)
-    function iptal(ev: PointerEvent) {
-      const h = holdRef.current
-      if (h && (Math.abs(ev.clientX - h.x) > 10 || Math.abs(ev.clientY - h.y) > 10)) {
-        window.clearTimeout(baslat)
-        holdRef.current = null
-        window.removeEventListener("pointermove", iptal)
-      }
-    }
-    function bitir() {
-      window.clearTimeout(baslat)
-      holdRef.current = null
-      window.removeEventListener("pointermove", iptal)
-      window.removeEventListener("pointerup", bitir)
-    }
-    window.addEventListener("pointermove", iptal)
-    window.addEventListener("pointerup", bitir)
-  }
-
   const hedefIndex = hedef ? hedefler.findIndex((h) => h.anahtar === hedef) : -1
 
   return (
-    <div className="hidden gap-4 md:flex">
-      {/* Sol menü: büyük şirketler */}
-      <aside className="w-52 shrink-0">
+    <div className="hidden min-w-0 gap-4 md:flex">
+      {/* Sol menü: firmalar */}
+      <aside className="w-48 shrink-0">
         <div className="sticky top-20 grid gap-1.5">
-          <Link
-            href={url({ grup: null, bakilmadi: null })}
-            scroll={false}
-            className={cn(
-              "rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
-              aktifGrup === "" && !searchParams.get("bakilmadi")
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-foreground hover:bg-muted"
-            )}
-          >
-            Tüm İşler
-          </Link>
-          <Link
-            href={url({ bakilmadi: "1", grup: null })}
-            scroll={false}
-            className={cn(
-              "flex items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-              searchParams.get("bakilmadi")
-                ? "border-amber-400 bg-amber-400/15 text-amber-700 dark:text-amber-300"
-                : "border-border bg-card text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Bakılmadı (gelenler)
-          </Link>
-
-          <div className="mt-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Firmalar
           </div>
           <div className="grid gap-0.5">
@@ -262,7 +217,7 @@ export function IslerEkrani({
                       vurgulu
                         ? "bg-emerald-500 text-white ring-2 ring-emerald-300"
                         : aktifMi
-                          ? "bg-accent text-primary"
+                          ? "bg-accent font-semibold text-primary"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
@@ -284,7 +239,8 @@ export function IslerEkrani({
           </div>
           {finansal && (
             <p className="mt-2 px-1 text-[10.5px] leading-snug text-muted-foreground/80">
-              İpucu: bir satırı basılı tutup buradaki firmaya sürükleyerek atayabilirsin.
+              İpucu: satırın başındaki ⠿ sapından tutup firmaya sürükleyerek atarsın.
+              Çift tıklayınca foto paneli açılır.
             </p>
           )}
         </div>
@@ -295,10 +251,14 @@ export function IslerEkrani({
         <Table>
           <TableHeader>
             <TableRow>
+              {finansal && <TableHead className="w-7 p-0" />}
               <TableHead>
-                <Link href={siralaHref("servis")} scroll={false} className="hover:underline">Fiş No{ok("servis")}</Link>
+                <Link href={siralaHref("servis")} scroll={false} className="hover:underline">
+                  {stokKoduModu ? "Firma Stok Kodu" : "Fiş No"}
+                  {ok("servis")}
+                </Link>
               </TableHead>
-              <TableHead>Müşteri</TableHead>
+              {!grupGorunumu && <TableHead>Müşteri</TableHead>}
               <TableHead>
                 <Link href={siralaHref("cihaz")} scroll={false} className="hover:underline">Cihaz{ok("cihaz")}</Link>
               </TableHead>
@@ -317,7 +277,7 @@ export function IslerEkrani({
                   <Link href={siralaHref("tutar")} scroll={false} className="hover:underline">Tutar{ok("tutar")}</Link>
                 </TableHead>
               )}
-              <TableHead>Kargo Takip</TableHead>
+              {finansal && <TableHead>Takip No</TableHead>}
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -326,22 +286,50 @@ export function IslerEkrani({
               <TableRow
                 key={k.id}
                 data-selected={k.id === seciliId}
-                onPointerDown={(e) => satirPointerDown(e, k)}
+                onDoubleClick={() => git({ secili: k.id })}
                 className={cn(
                   "border-b transition-colors hover:bg-muted/50",
                   k.id === seciliId && "bg-muted",
-                  surukle?.id === k.id && "opacity-40",
-                  finansal && "cursor-grab"
+                  surukle?.id === k.id && "opacity-40"
                 )}
               >
+                {/* Sürükleme sapı — fiş no'nun hemen solunda */}
+                {finansal && (
+                  <TableCell className="w-7 p-0 pl-1">
+                    <button
+                      type="button"
+                      title="Tutup sol menüdeki firmaya sürükle"
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setSurukle(k)
+                        setPos({ x: e.clientX, y: e.clientY })
+                      }}
+                      className="flex h-8 w-5 cursor-grab items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-foreground active:cursor-grabbing"
+                      style={{ touchAction: "none" }}
+                    >
+                      <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                        <circle cx="2.5" cy="2.5" r="1.4" /><circle cx="7.5" cy="2.5" r="1.4" />
+                        <circle cx="2.5" cy="8" r="1.4" /><circle cx="7.5" cy="8" r="1.4" />
+                        <circle cx="2.5" cy="13.5" r="1.4" /><circle cx="7.5" cy="13.5" r="1.4" />
+                      </svg>
+                    </button>
+                  </TableCell>
+                )}
                 <TableCell className="font-medium">
-                  <Link href={`/is/${k.id}`} onPointerDown={(e) => e.stopPropagation()} className="text-primary underline-offset-4 hover:underline">
-                    {k.servis_no ?? "Aç"}
-                  </Link>
+                  {stokKoduModu && finansal ? (
+                    <HucreDuzenle isId={k.id} alan="servis_no" deger={k.servis_no} bosEtiket="Stok kodu gir" className="font-mono text-[13px]" />
+                  ) : (
+                    <Link href={`/is/${k.id}`} onPointerDown={(e) => e.stopPropagation()} className="text-primary underline-offset-4 hover:underline">
+                      {k.servis_no ?? "Aç"}
+                    </Link>
+                  )}
                 </TableCell>
-                <TableCell className="min-w-[140px]">
-                  <HucreDuzenle isId={k.id} alan="musteri" deger={k.musteri?.ad ?? null} placeholder="Firma adı" />
-                </TableCell>
+                {!grupGorunumu && (
+                  <TableCell className="min-w-[130px]">
+                    <HucreDuzenle isId={k.id} alan="musteri" deger={k.musteri?.ad ?? null} placeholder="Firma adı" />
+                  </TableCell>
+                )}
                 <TableCell className="min-w-[180px]">
                   <HucreDuzenle isId={k.id} alan="cihaz_adi" deger={k.cihaz_adi} />
                   <HucreDuzenle isId={k.id} alan="seri_no" deger={k.seri_no} bosEtiket="SN ekle" className="text-xs text-muted-foreground" />
@@ -362,7 +350,17 @@ export function IslerEkrani({
                     goster={() => (k.durum ? <DurumRozeti ad={k.durum.ad} renk={k.durum.renk} /> : "—")}
                   />
                 </TableCell>
-                <TableCell>{k.teknik_personel?.ad ?? "—"}</TableCell>
+                <TableCell className="min-w-[90px]">
+                  <HucreDuzenle
+                    isId={k.id}
+                    alan="teknik_personel_id"
+                    tip="select"
+                    deger={k.teknik_personel_id}
+                    secenekler={personeller}
+                    duzenlenebilir={finansal}
+                    goster={() => k.teknik_personel?.ad ?? <span className="text-muted-foreground">—</span>}
+                  />
+                </TableCell>
                 {finansal && (
                   <TableCell className="min-w-[120px]">
                     <HucreDuzenle
@@ -381,11 +379,25 @@ export function IslerEkrani({
                   </TableCell>
                 )}
                 {finansal && (
-                  <TableCell className="text-right tabular-nums">{tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <HucreDuzenle
+                      isId={k.id}
+                      alan="fatura_tutari"
+                      deger={k.fatura_tutari != null ? String(k.fatura_tutari) : null}
+                      goster={() => tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
+                      placeholder="Tutar ₺"
+                      className="text-right"
+                    />
+                  </TableCell>
                 )}
-                <TableCell className="text-xs text-muted-foreground">{k.kargo_takip_no ?? "—"}</TableCell>
+                {finansal && (
+                  <TableCell className="min-w-[90px]">
+                    {/* Takip no (eski adı garanti no) */}
+                    <HucreDuzenle isId={k.id} alan="garanti_no" deger={k.garanti_no} bosEtiket="—" className="text-xs" />
+                  </TableCell>
+                )}
                 <TableCell className="w-8 p-0 text-center">
-                  {/* Sağdaki ok: foto/açıklama panelini aç */}
+                  {/* Sağdaki ok: foto/açıklama panelini aç (çift tıklama da açar) */}
                   <button
                     type="button"
                     onPointerDown={(e) => e.stopPropagation()}
@@ -461,7 +473,7 @@ export function IslerEkrani({
                   />
                 </div>
 
-                {/* Kargo takip (açıklamanın/fotoğrafın altında) */}
+                {/* Kargo takip (fotoğrafın/açıklamanın altında) */}
                 <div className="mt-3">
                   <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Kargo takip no</div>
                   <HucreDuzenle
@@ -505,7 +517,7 @@ export function IslerEkrani({
           style={{ left: pos.x + 12, top: pos.y + 12 }}
         >
           {surukle.servis_no ?? surukle.cihaz_adi}
-          <span className="ml-1 text-muted-foreground">→ {hedef ? hedefler.find((h) => h.anahtar === hedef)?.ad : "bir firmaya bırak"}</span>
+          <span className="ml-1 text-muted-foreground">→ {hedef ? hedefler.find((h) => h.anahtar === hedef)?.ad : "soldaki firmaya bırak"}</span>
         </div>
       )}
 

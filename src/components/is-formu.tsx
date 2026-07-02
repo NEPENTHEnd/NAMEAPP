@@ -287,7 +287,7 @@ export function IsFormu({
             <input id="fatura_tarihi" name="fatura_tarihi" type="date" className={selectClass} defaultValue={varsayilan.fatura_tarihi ?? ""} />
           </div>
           <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="garanti_no">Garanti no</label>
+            <label className={labelClass} htmlFor="garanti_no">Takip no</label>
             <Input id="garanti_no" name="garanti_no" placeholder="Harf/rakam olabilir" defaultValue={varsayilan.garanti_no ?? ""} />
           </div>
         </div>

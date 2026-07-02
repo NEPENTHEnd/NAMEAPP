@@ -51,6 +51,7 @@
 
 :root {
   /* Name Teknik tasarım paleti (handoff) */
+  color-scheme: light; /* native select/date açılırları temaya uysun */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
@@ -87,6 +88,7 @@
 
 .dark {
   /* Name Teknik karanlık paleti (handoff2) */
+  color-scheme: dark; /* filtre select'leri + tarih girişleri karanlıkta koyu açılsın */
   --background: #0e1626;
   --foreground: #eaf0f8;
   --card: #131c2e;

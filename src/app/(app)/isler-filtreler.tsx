@@ -15,6 +15,7 @@ type Props = {
   faturaDurumlari: Secenek[]
   musteriler: Secenek[]
   basePath?: string
+  sagSlot?: React.ReactNode // arama kutusunun sağına ek düğmeler (Tüm İşler / Bakılmadı)
 }
 
 const selectClass =
@@ -26,6 +27,7 @@ export function IslerFiltreler({
   faturaDurumlari,
   musteriler,
   basePath = "/",
+  sagSlot,
 }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -78,14 +80,17 @@ export function IslerFiltreler({
 
   return (
     <div className={cn("grid gap-3", isPending && "opacity-70")}>
-      <Input
-        type="search"
-        inputMode="search"
-        placeholder="Ara: cihaz, seri no, servis no veya müşteri…"
-        value={arama}
-        onChange={(e) => setArama(e.target.value)}
-        className="max-w-md"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="search"
+          inputMode="search"
+          placeholder="Ara: cihaz, seri no, servis no veya müşteri…"
+          value={arama}
+          onChange={(e) => setArama(e.target.value)}
+          className="w-full max-w-md sm:w-auto sm:flex-1"
+        />
+        {sagSlot}
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <select

@@ -46,7 +46,7 @@ export default async function AppLayout({
     <div className="flex min-h-svh flex-col overflow-x-clip">
       <CevrimdisiUyari />
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-5">
+        <div className="w-full px-4 sm:px-5">
           <div className="flex h-[60px] items-center gap-3">
             <Link href="/" className="flex shrink-0 items-center">
               <Image
@@ -100,7 +100,8 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 sm:px-5 sm:py-6">
+      {/* Ortalamayı kaldırdık: içerik ekranın en solundan başlar (Excel hissi) */}
+      <main className="w-full flex-1 px-4 py-5 sm:px-5 sm:py-6">
         {children}
       </main>
     </div>

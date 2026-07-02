@@ -97,7 +97,7 @@ export default async function IslerSayfasi({
       `
         id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
         fatura_tarihi, fiyat_teklifi, fatura_tutari, garanti_no, kargo_takip_no,
-        musteri_id, durum_id, fatura_durumu_id, grup_id,
+        musteri_id, durum_id, fatura_durumu_id, grup_id, teknik_personel_id,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
         teknik_personel:teknik_personel_id ( ad ),
@@ -197,10 +197,12 @@ export default async function IslerSayfasi({
             fotoR.map((f) => f.dosya_yolu),
             60 * 60
           )
-        fotolar = fotoR.map((f, i) => ({
-          id: f.id,
-          url: imzali?.[i]?.signedUrl ?? "",
-        }))
+        fotolar = fotoR
+          .map((f, i) => ({
+            id: f.id,
+            url: imzali?.[i]?.signedUrl ?? "",
+          }))
+          .filter((f) => f.url) // boş URL next/image'i patlatmasın
       }
       seciliBilgi = {
         id: secili,
@@ -218,9 +220,16 @@ export default async function IslerSayfasi({
     }
   }
 
-  // Mevcut filtreleri koruyarak link üret (sayfa/seçili/sıralama üzerine yazılabilir)
+  // Mevcut filtreleri koruyarak link üret (sayfa/seçili/sıralama/grup üzerine yazılabilir)
   function linkUret(
-    over: { sayfa?: number; secili?: string; sirala?: string; yon?: string } = {}
+    over: {
+      sayfa?: number
+      secili?: string
+      sirala?: string
+      yon?: string
+      grup?: string
+      bakilmadi?: string
+    } = {}
   ): string {
     const params = new URLSearchParams()
     if (q) params.set("q", q)
@@ -231,6 +240,11 @@ export default async function IslerSayfasi({
     if (baslangic) params.set("baslangic", baslangic)
     if (bitis) params.set("bitis", bitis)
     if (ay) params.set("ay", ay)
+    const hedefGrup = over.grup !== undefined ? over.grup : grupParam
+    if (hedefGrup) params.set("grup", hedefGrup)
+    const hedefBakilmadi =
+      over.bakilmadi !== undefined ? over.bakilmadi : bakilmadiFiltre ? "1" : ""
+    if (hedefBakilmadi) params.set("bakilmadi", hedefBakilmadi)
     const hedefSayfa = over.sayfa ?? sayfa
     if (hedefSayfa > 1) params.set("sayfa", String(hedefSayfa))
     const hedefSecili = over.secili !== undefined ? over.secili : secili
@@ -267,6 +281,32 @@ export default async function IslerSayfasi({
         personeller={personellerRes.data ?? []}
         faturaDurumlari={faturalarRes.data ?? []}
         musteriler={musterilerRes.data ?? []}
+        sagSlot={
+          <div className="flex items-center gap-2">
+            <Link
+              href={linkUret({ grup: "", bakilmadi: "", sayfa: 1 })}
+              className={
+                "rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors " +
+                (!grupParam && !bakilmadiFiltre
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-card text-muted-foreground hover:bg-muted")
+              }
+            >
+              Tüm İşler
+            </Link>
+            <Link
+              href={linkUret({ bakilmadi: "1", grup: "", sayfa: 1 })}
+              className={
+                "rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors " +
+                (bakilmadiFiltre
+                  ? "bg-amber-500 text-white"
+                  : "border border-amber-300/60 bg-card text-amber-700 hover:bg-amber-500/10 dark:text-amber-300")
+              }
+            >
+              Bakılmadı
+            </Link>
+          </div>
+        }
       />
 
       {error ? (
@@ -293,6 +333,7 @@ export default async function IslerSayfasi({
             kayitlar={kayitlar}
             gruplar={gruplar}
             durumlar={durumlarRes.data ?? []}
+            personeller={personellerRes.data ?? []}
             faturaDurumlari={faturalarRes.data ?? []}
             finansal={finansal}
             seciliId={secili}
@@ -325,7 +366,7 @@ export default async function IslerSayfasi({
                   <div>Personel: {k.teknik_personel?.ad ?? "—"}</div>
                   <div>Geliş: {tarihTR(k.gelis_tarihi)}</div>
                   <div>Çıkış: {tarihTR(k.cikis_tarihi)}</div>
-                  {finansal && k.garanti_no ? <div>Garanti: {k.garanti_no}</div> : null}
+                  {finansal && k.garanti_no ? <div>Takip no: {k.garanti_no}</div> : null}
                   {k.kargo_takip_no ? <div>Kargo: {k.kargo_takip_no}</div> : null}
                   {finansal && <div>Fatura: {k.fatura_durumu?.ad ?? "—"}</div>}
                   {finansal && (

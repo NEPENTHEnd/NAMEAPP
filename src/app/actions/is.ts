@@ -294,13 +294,15 @@ export async function isGrupAta(id: string, grupId: string | null) {
   return { ok: true }
 }
 
-// Excel gibi hücre-içi düzenleme. Yalnız izinli alanlar; finansal alanlar yönetici.
+// Excel gibi hücre-içi düzenleme. Bu alanlar YALNIZ yönetici tarafından değiştirilir.
 const FINANSAL_ALAN = new Set([
   "fatura_durumu_id",
   "fatura_tarihi",
   "garanti_no",
   "fiyat_teklifi",
   "fatura_tutari",
+  "servis_no", // fiş no / firma stok kodu elle düzeltme
+  "teknik_personel_id", // tekniker atama (personel yapamaz)
 ])
 
 export async function isHucreGuncelle(
@@ -326,8 +328,12 @@ export async function isHucreGuncelle(
     case "seri_no":
     case "kargo_takip_no":
     case "garanti_no":
+    case "servis_no":
     case "aciklama":
       guncelle[alan] = t || null
+      break
+    case "teknik_personel_id":
+      guncelle.teknik_personel_id = t || null
       break
     case "gelis_tarihi":
       if (!/^\d{4}-\d{2}-\d{2}$/.test(t))
