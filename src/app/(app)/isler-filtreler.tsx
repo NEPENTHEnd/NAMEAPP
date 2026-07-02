@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
@@ -35,8 +35,23 @@ export function IslerFiltreler({
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
-  // Arama kutusu için yerel durum (debounce ile URL'e yazılır)
-  const [arama, setArama] = useState(searchParams.get("q") ?? "")
+  // Arama kutusu için yerel durum (debounce ile URL'e yazılır).
+  // Bu bileşen sayfada iki kez monte (masaüstü + mobil kopya); yalnız
+  // KENDİSİNE yazılan kopya URL'e yazar, diğeri URL'i takip eder —
+  // aksi halde iki kopya URL'i kapışıp sayfayı gidip getirir.
+  const urlQ = searchParams.get("q") ?? ""
+  const [arama, setArama] = useState(urlQ)
+  const kullaniciYazdi = useRef(false)
+
+  // Dışarıdan (öteki kopya, geri tuşu) değişen URL'i kutuya yansıt
+  useEffect(() => {
+    if (kullaniciYazdi.current) {
+      // Yazdığımız değer URL'e ulaştıysa bayrağı indir
+      if (urlQ === arama.trim()) kullaniciYazdi.current = false
+      return
+    }
+    setArama(urlQ)
+  }, [urlQ, arama])
 
   // Seçili detay filtre sayısı (arama hariç) — Filtre tuşundaki rozet
   const detayFiltreSayisi = ["durum", "personel", "musteri", "baslangic", "bitis"]
@@ -62,13 +77,13 @@ export function IslerFiltreler({
     [router, searchParams, basePath]
   )
 
-  // Arama kutusunu 350ms debounce ile q parametresine yaz.
+  // Arama kutusunu 350ms debounce ile q parametresine yaz (yalnız yazan kopya).
   useEffect(() => {
-    const mevcut = searchParams.get("q") ?? ""
-    if (arama === mevcut) return
+    if (!kullaniciYazdi.current) return
+    if (arama.trim() === urlQ) return
     const t = setTimeout(() => paramGuncelle("q", arama.trim()), 350)
     return () => clearTimeout(t)
-  }, [arama, searchParams, paramGuncelle])
+  }, [arama, urlQ, paramGuncelle])
 
   const filtreVar =
     !!searchParams.get("q") ||
@@ -95,7 +110,10 @@ export function IslerFiltreler({
           inputMode="search"
           placeholder="Ara: cihaz, seri, fiş, takip no…"
           value={arama}
-          onChange={(e) => setArama(e.target.value)}
+          onChange={(e) => {
+            kullaniciYazdi.current = true
+            setArama(e.target.value)
+          }}
           className="w-full max-w-[250px]"
         />
         <button
