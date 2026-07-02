@@ -189,7 +189,7 @@ export function IslerEkrani({
       {/* Sol menü: firmalar */}
       <aside className="w-48 shrink-0">
         {/* Menü tabloyla aynı hizada biter; uzarsa kendi içinde kayar */}
-        <div className="sticky top-20 grid h-[calc(100vh-116px)] content-start gap-1.5 overflow-y-auto pr-0.5">
+        <div className="sticky top-20 grid h-[calc(100vh-116px)] content-start gap-1.5 overflow-y-auto overflow-x-hidden px-0.5">
           <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Firmalar
           </div>
@@ -227,7 +227,7 @@ export function IslerEkrani({
                     else ogeRef.current.delete(h.anahtar)
                   }}
                   className="group/firma relative flex items-center transition-transform duration-150"
-                  style={{ transform: `translateY(${ty}px) scale(${vurgulu ? 1.06 : 1})` }}
+                  style={{ transform: `translateY(${ty}px)` }}
                 >
                   <Link
                     href={url({ grup: h.anahtar, bakilmadi: null })}
@@ -235,7 +235,7 @@ export function IslerEkrani({
                     className={cn(
                       "flex-1 truncate rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
                       vurgulu
-                        ? "bg-emerald-500 text-white ring-2 ring-emerald-300"
+                        ? "bg-emerald-500 font-bold text-white ring-2 ring-inset ring-emerald-200"
                         : aktifMi
                           ? "bg-accent font-semibold text-primary"
                           : h.anahtar === "diger"
