@@ -362,7 +362,8 @@ export default async function IslerSayfasi({
       personeller={personellerRes.data ?? []}
       faturaDurumlari={faturaDurumlari}
       musteriler={musterilerRes.data ?? []}
-      sagSlot={hizliButonlar}
+      sadeMod={!finansal} // personel: yalnız arama + aylar
+      sagSlot={finansal ? hizliButonlar : undefined}
       aySlot={
         <div className="flex items-center gap-3">
           {/* Geniş ekranda ay kutucukları üst barda; burada yalnız dar ekranda */}

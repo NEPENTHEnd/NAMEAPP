@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useRef, useState } from "react"
+import { useActionState, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -97,6 +97,28 @@ export function IsFormu({
     {}
   )
   const [yeniMusteri, setYeniMusteri] = useState(false)
+  // Aranabilir müşteri seçici (uzun listede tek tek gezmek yerine yazarak bul)
+  const [musteriId, setMusteriId] = useState(varsayilan.musteri_id ?? "")
+  const [musteriAra, setMusteriAra] = useState("")
+  const [musteriAcik, setMusteriAcik] = useState(false)
+  const musteriKutu = useRef<HTMLDivElement>(null)
+  const seciliMusteriAd = musteriler.find((m) => m.id === musteriId)?.ad ?? ""
+  const filtreliMusteriler = useMemo(() => {
+    const q = musteriAra.trim().toLocaleLowerCase("tr-TR")
+    const kaynak = q
+      ? musteriler.filter((m) => m.ad.toLocaleLowerCase("tr-TR").includes(q))
+      : musteriler
+    return kaynak.slice(0, 50)
+  }, [musteriler, musteriAra])
+
+  useEffect(() => {
+    function disari(e: MouseEvent) {
+      if (musteriKutu.current && !musteriKutu.current.contains(e.target as Node))
+        setMusteriAcik(false)
+    }
+    document.addEventListener("mousedown", disari)
+    return () => document.removeEventListener("mousedown", disari)
+  }, [])
   // Değişiklik takibi: edit modunda buton değişiklik olana dek pasif kalır.
   const [degisti, setDegisti] = useState(!degisiklikTakip)
   const [fotoYukleniyor, setFotoYukleniyor] = useState(false)
@@ -149,29 +171,65 @@ export function IsFormu({
         <div className="mb-3.5 grid gap-2">
           <div className="flex items-center justify-between">
             <label className={labelClass}>Müşteri</label>
+            {/* Büyük, kolay basılır düğme (mobilde personel için) */}
             <button
               type="button"
               onClick={() => setYeniMusteri((v) => !v)}
-              className="text-xs font-medium text-primary hover:underline"
+              className="rounded-lg border border-primary/40 bg-accent px-3.5 py-2 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/10"
             >
-              {yeniMusteri ? "Mevcuttan seç" : "+ Yeni müşteri"}
+              {yeniMusteri ? "← Mevcuttan seç" : "+ Yeni müşteri"}
             </button>
           </div>
           {yeniMusteri ? (
             <Input name="yeni_musteri_adi" placeholder="Yeni müşteri adı" autoFocus />
           ) : (
-            <select
-              name="musteri_id"
-              className={selectClass}
-              defaultValue={varsayilan.musteri_id ?? ""}
-            >
-              <option value="">Müşteri seçin…</option>
-              {musteriler.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.ad}
-                </option>
-              ))}
-            </select>
+            <div ref={musteriKutu} className="relative">
+              {/* Yazarak ara — kayıtlı müşteriler süzülür, tıkla seç */}
+              <Input
+                value={musteriAcik ? musteriAra : seciliMusteriAd}
+                placeholder="Müşteri ara…"
+                autoComplete="off"
+                aria-invalid={!!fe.musteri_id}
+                onFocus={() => {
+                  setMusteriAcik(true)
+                  setMusteriAra("")
+                }}
+                onChange={(e) => {
+                  setMusteriAcik(true)
+                  setMusteriAra(e.target.value)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setMusteriAcik(false)
+                }}
+              />
+              <input type="hidden" name="musteri_id" value={musteriId} />
+              {musteriAcik && (
+                <div className="absolute left-0 top-full z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-popover py-1 shadow-xl">
+                  {filtreliMusteriler.length === 0 && (
+                    <div className="px-3 py-2.5 text-sm text-muted-foreground">
+                      Eşleşen müşteri yok — sağ üstteki "+ Yeni müşteri" ile ekleyin.
+                    </div>
+                  )}
+                  {filtreliMusteriler.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setMusteriId(m.id)
+                        setMusteriAcik(false)
+                        if (degisiklikTakip) setDegisti(true)
+                      }}
+                      className={cn(
+                        "block w-full px-3 py-2.5 text-left text-sm hover:bg-muted",
+                        m.id === musteriId && "bg-accent font-semibold text-primary"
+                      )}
+                    >
+                      {m.ad}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <Hata alan="musteri_id" />
         </div>

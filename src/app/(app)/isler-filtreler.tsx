@@ -33,6 +33,7 @@ type Props = {
   basePath?: string
   sagSlot?: React.ReactNode // aramanın sağındaki hızlı butonlar
   aySlot?: React.ReactNode // en sağda ay kutucukları
+  sadeMod?: boolean // personel: yalnız arama (Filtre tuşu ve detay filtreler yok)
 }
 
 const selectClass =
@@ -46,6 +47,7 @@ export function IslerFiltreler({
   basePath = "/",
   sagSlot,
   aySlot,
+  sadeMod = false,
 }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -226,6 +228,7 @@ export function IslerFiltreler({
             </div>
           )}
         </div>
+        {!sadeMod && (
         <button
           type="button"
           onClick={() => setFiltreAcik((v) => !v)}
@@ -247,12 +250,13 @@ export function IslerFiltreler({
             </span>
           )}
         </button>
+        )}
         {sagSlot}
         {aySlot && <div className="ml-auto">{aySlot}</div>}
       </div>
 
-      {/* Detay filtreler — Filtre tuşuyla açılır/kapanır */}
-      {filtreAcik && (
+      {/* Detay filtreler — Filtre tuşuyla açılır/kapanır (sade modda hiç yok) */}
+      {!sadeMod && filtreAcik && (
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Durum"
