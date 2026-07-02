@@ -123,7 +123,7 @@ export default async function IslerSayfasi({
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
         teknik_personel:teknik_personel_id ( ad ),
-        fatura_durumu:fatura_durumu_id ( ad )
+        fatura_durumu:fatura_durumu_id ( ad, renk )
       `,
       { count: "exact" }
     )

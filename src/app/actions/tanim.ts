@@ -161,6 +161,7 @@ export async function faturaEkle(formData: FormData) {
     ad,
     sira,
     hizli: metin(formData, "hizli") === "on",
+    renk: metin(formData, "renk") || null,
   })
   revalidatePath("/")
   bitir()
@@ -174,7 +175,12 @@ export async function faturaDuzenle(formData: FormData) {
   const sira = Number(metin(formData, "sira")) || 100
   await supabase
     .from("fatura_durumu")
-    .update({ ad, sira, hizli: metin(formData, "hizli") === "on" })
+    .update({
+      ad,
+      sira,
+      hizli: metin(formData, "hizli") === "on",
+      renk: metin(formData, "renk") || null,
+    })
     .eq("id", id)
   revalidatePath("/")
   bitir()

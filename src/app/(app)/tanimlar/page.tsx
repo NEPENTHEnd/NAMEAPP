@@ -52,7 +52,7 @@ export default async function TanimlarSayfasi({
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
       supabase.from("durum").select("id, ad, sira, renk").order("sira"),
-      supabase.from("fatura_durumu").select("id, ad, sira, hizli").order("sira"),
+      supabase.from("fatura_durumu").select("id, ad, sira, hizli, renk").order("sira"),
       supabase.from("kullanici_profil").select("id, ad, rol, fis_prefix").order("ad"),
       supabase
         .from("davet_kisi")
@@ -211,10 +211,20 @@ export default async function TanimlarSayfasi({
       {/* DURUMLAR */}
       {sekme === "durum" && (
         <section className="grid gap-3">
+          <p className="text-xs text-muted-foreground">
+            <strong>Sıra</strong> = listedeki diziliş numarası (küçük olan üstte);
+            <strong> renk</strong> tabloda satırın ve rozetin rengini belirler.
+          </p>
           <form action={durumEkle} className="flex flex-wrap items-center gap-2">
             <Input name="ad" placeholder="Durum adı" required className="max-w-xs" />
-            <Input name="sira" type="number" placeholder="Sıra" defaultValue="0" className="w-20" />
-            <input name="renk" type="color" defaultValue="#64748b" className="h-9 w-12 rounded border border-input" />
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              Sıra
+              <Input name="sira" type="number" placeholder="0" defaultValue="0" className="w-16" />
+            </label>
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              Renk
+              <input name="renk" type="color" defaultValue="#64748b" className="h-9 w-12 rounded border border-input" />
+            </label>
             <Button type="submit" size="sm">Ekle</Button>
           </form>
           <div className="grid gap-2">
@@ -223,8 +233,14 @@ export default async function TanimlarSayfasi({
                 <input type="hidden" name="id" value={d.id} />
                 <div className="w-28"><DurumRozeti ad={d.ad} renk={d.renk} /></div>
                 <Input name="ad" defaultValue={d.ad} className="max-w-xs" required />
-                <Input name="sira" type="number" defaultValue={d.sira} className="w-20" />
-                <input name="renk" type="color" defaultValue={d.renk ?? "#64748b"} className="h-9 w-12 rounded border border-input" />
+                <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  Sıra
+                  <Input name="sira" type="number" defaultValue={d.sira} className="w-16" />
+                </label>
+                <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  Renk
+                  <input name="renk" type="color" defaultValue={d.renk ?? "#64748b"} className="h-9 w-12 rounded border border-input" />
+                </label>
                 <Button type="submit" size="sm" variant="outline">Kaydet</Button>
               </form>
             ))}
@@ -237,11 +253,19 @@ export default async function TanimlarSayfasi({
         <section className="grid gap-3">
           <p className="text-xs text-muted-foreground">
             <strong>Hızlı</strong> işaretli durumlar İşler ekranının üstünde buton
-            olarak görünür; <strong>Sıra</strong> butonların dizilişini belirler.
+            olarak görünür; <strong>Sıra</strong> butonların dizilişini belirler;
+            <strong> renk</strong> tablodaki rozetin rengini değiştirir.
           </p>
           <form action={faturaEkle} className="flex flex-wrap items-center gap-2">
             <Input name="ad" placeholder="Fatura durumu adı" required className="max-w-xs" />
-            <Input name="sira" type="number" placeholder="Sıra" className="w-20" />
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              Sıra
+              <Input name="sira" type="number" placeholder="100" className="w-16" />
+            </label>
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              Renk
+              <input name="renk" type="color" defaultValue="#94a3b8" className="h-9 w-12 rounded border border-input" />
+            </label>
             <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <input type="checkbox" name="hizli" className="size-4 accent-primary" />
               Hızlı
@@ -252,9 +276,16 @@ export default async function TanimlarSayfasi({
             {(faturalar.data ?? []).map((f) => (
               <form key={f.id} action={faturaDuzenle} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2">
                 <input type="hidden" name="id" value={f.id} />
-                <div className="w-40"><FaturaRozeti ad={f.ad} /></div>
+                <div className="w-40"><FaturaRozeti ad={f.ad} renk={f.renk} /></div>
                 <Input name="ad" defaultValue={f.ad} className="max-w-xs" required />
-                <Input name="sira" type="number" defaultValue={f.sira} className="w-20" title="Sıra" />
+                <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  Sıra
+                  <Input name="sira" type="number" defaultValue={f.sira} className="w-16" />
+                </label>
+                <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  Renk
+                  <input name="renk" type="color" defaultValue={f.renk ?? "#94a3b8"} className="h-9 w-12 rounded border border-input" />
+                </label>
                 <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <input type="checkbox" name="hizli" defaultChecked={f.hizli} className="size-4 accent-primary" />
                   Hızlı

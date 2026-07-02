@@ -33,7 +33,7 @@ export type Kayit = {
   durum_id: string
   durum: { ad: string; renk: string | null } | null
   fatura_durumu_id: string | null
-  fatura_durumu: { ad: string } | null
+  fatura_durumu: { ad: string; renk: string | null } | null
   teknik_personel_id: string | null
   teknik_personel: { ad: string } | null
   musteri: { ad: string; sube_sehir: string | null } | null
@@ -325,7 +325,7 @@ export function IslerEkrani({
                 style={{ "--satir": durumRenk(k.durum?.ad, k.durum?.renk) } as CSSProperties}
                 className={cn(
                   "border-b transition-colors",
-                  "bg-[color-mix(in_oklab,var(--satir)_32%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_44%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_55%,transparent)]",
+                  "bg-[color-mix(in_oklab,var(--satir)_48%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_60%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_72%,transparent)]",
                   surukle?.id === k.id && "opacity-40"
                 )}
               >
@@ -417,7 +417,7 @@ export function IslerEkrani({
                       tip="select"
                       deger={k.fatura_durumu_id}
                       secenekler={faturaDurumlari}
-                      goster={() => <FaturaRozeti ad={k.fatura_durumu?.ad} />}
+                      goster={() => <FaturaRozeti ad={k.fatura_durumu?.ad} renk={k.fatura_durumu?.renk} />}
                     />
                   </TableCell>
                 )}

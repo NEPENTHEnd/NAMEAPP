@@ -74,9 +74,16 @@ export function DurumRozeti({
   )
 }
 
-export function FaturaRozeti({ ad }: { ad: string | null | undefined }) {
+export function FaturaRozeti({
+  ad,
+  renk,
+}: {
+  ad: string | null | undefined
+  renk?: string | null
+}) {
   if (!ad) return <span className="text-muted-foreground">—</span>
-  const c = FATURA_DOT[ad] ?? "#94a3b8"
+  // Tanımlar'dan seçilen renk önceliklidir; yoksa isim haritası, o da yoksa gri
+  const c = gecerliHex(renk) ?? FATURA_DOT[ad] ?? "#94a3b8"
   return (
     <span
       style={{

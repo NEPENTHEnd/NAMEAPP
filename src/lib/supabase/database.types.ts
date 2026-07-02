@@ -108,18 +108,21 @@ export type Database = {
           ad: string
           hizli: boolean
           id: string
+          renk: string | null
           sira: number
         }
         Insert: {
           ad: string
           hizli?: boolean
           id?: string
+          renk?: string | null
           sira?: number
         }
         Update: {
           ad?: string
           hizli?: boolean
           id?: string
+          renk?: string | null
           sira?: number
         }
         Relationships: []
