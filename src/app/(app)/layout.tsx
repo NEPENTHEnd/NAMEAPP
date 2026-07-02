@@ -115,10 +115,10 @@ export default async function AppLayout({
       <Link
         href="/yeni"
         aria-label="Yeni iş ekle"
-        className="fixed inset-x-0 z-40 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_24px_-6px_rgba(30,64,175,.55)] transition-transform active:scale-95 sm:hidden"
+        className="fixed inset-x-0 z-40 mx-auto flex h-[68px] w-[68px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_12px_28px_-6px_rgba(30,64,175,.6)] transition-transform active:scale-95 sm:hidden"
         style={{ bottom: "calc(1.1rem + env(safe-area-inset-bottom))" }}
       >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
         </svg>
       </Link>
