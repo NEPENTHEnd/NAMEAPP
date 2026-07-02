@@ -153,13 +153,12 @@ export function IslerFiltreler({
     [router, searchParams, basePath]
   )
 
-  // Arama kutusunu 350ms debounce ile q parametresine yaz (yalnız yazan kopya).
-  useEffect(() => {
-    if (!kullaniciYazdi.current) return
-    if (arama.trim() === urlQ) return
-    const t = setTimeout(() => paramGuncelle("q", arama.trim()), 350)
-    return () => clearTimeout(t)
-  }, [arama, urlQ, paramGuncelle])
+  // NOT: Yazarken tablo SORGULANMAZ (her tuşta sayfa kasmasın) — yalnız
+  // öneriler güncellenir. Arama Enter'da ya da öneri seçiminde çalışır.
+  function aramayiCalistir(deger: string) {
+    setOneriAcik(false)
+    if (deger.trim() !== urlQ) paramGuncelle("q", deger.trim())
+  }
 
   const filtreVar =
     !!searchParams.get("q") ||
@@ -186,16 +185,19 @@ export function IslerFiltreler({
             type="search"
             inputMode="search"
             autoComplete="off"
-            placeholder="Ara: cihaz, seri, fiş, takip no…"
+            placeholder="Ara + Enter: cihaz, seri, fiş…"
             value={arama}
             onChange={(e) => {
               kullaniciYazdi.current = true
-              setArama(e.target.value)
+              const v = e.target.value
+              setArama(v)
+              // Kutu tamamen temizlenince filtreyi kaldır (✕ tuşu dahil)
+              if (v === "" && urlQ) paramGuncelle("q", "")
             }}
             onFocus={() => oneriler.length > 0 && setOneriAcik(true)}
             onKeyDown={(e) => {
               if (e.key === "Escape") setOneriAcik(false)
-              if (e.key === "Enter") setOneriAcik(false)
+              if (e.key === "Enter") aramayiCalistir(arama)
             }}
             className="w-full"
           />
@@ -209,7 +211,7 @@ export function IslerFiltreler({
                   onClick={() => {
                     kullaniciYazdi.current = true
                     setArama(o.metin)
-                    setOneriAcik(false)
+                    aramayiCalistir(o.metin)
                   }}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-muted"
                 >
