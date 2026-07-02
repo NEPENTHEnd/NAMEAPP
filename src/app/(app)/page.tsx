@@ -9,7 +9,7 @@ import { AySecici } from "@/components/ay-secici"
 import { IslerFiltreler } from "./isler-filtreler"
 import { IslerEkrani } from "./isler-ekrani"
 
-const SAYFA_BOYUTU = 20
+const SAYFA_BOYUTU = 50
 
 // "YYYY-MM-DD" -> "DD.MM.YYYY" (zaman dilimi kaymasından etkilenmez)
 function tarihTR(s: string | null): string {
