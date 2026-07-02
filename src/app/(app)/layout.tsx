@@ -76,7 +76,7 @@ export default async function AppLayout({
             <div className="ml-auto flex items-center gap-2">
               <Link
                 href="/yeni"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-[9px] bg-primary px-3 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(30,64,175,.35)] transition-colors hover:bg-primary/90 sm:px-3.5"
+                className="hidden shrink-0 items-center gap-1.5 rounded-[9px] bg-primary px-3 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(30,64,175,.35)] transition-colors hover:bg-primary/90 sm:inline-flex sm:px-3.5"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
                   <path d="M12 5v14M5 12h14" />
@@ -101,9 +101,21 @@ export default async function AppLayout({
       </header>
 
       {/* Ortalamayı kaldırdık: içerik ekranın en solundan başlar (Excel hissi) */}
-      <main className="w-full flex-1 px-4 py-5 sm:px-5 sm:py-6">
+      <main className="w-full flex-1 px-4 py-5 pb-24 sm:px-5 sm:py-6 sm:pb-6">
         {children}
       </main>
+
+      {/* Mobil: alt-ortada büyük + (yeni iş) — üstteki buton küçük kalıyordu */}
+      <Link
+        href="/yeni"
+        aria-label="Yeni iş ekle"
+        className="fixed inset-x-0 z-40 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_24px_-6px_rgba(30,64,175,.55)] transition-transform active:scale-95 sm:hidden"
+        style={{ bottom: "calc(1.1rem + env(safe-area-inset-bottom))" }}
+      >
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </Link>
     </div>
   )
 }
