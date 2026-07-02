@@ -106,15 +106,21 @@ export type Database = {
       fatura_durumu: {
         Row: {
           ad: string
+          hizli: boolean
           id: string
+          sira: number
         }
         Insert: {
           ad: string
+          hizli?: boolean
           id?: string
+          sira?: number
         }
         Update: {
           ad?: string
+          hizli?: boolean
           id?: string
+          sira?: number
         }
         Relationships: []
       }

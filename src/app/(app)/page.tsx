@@ -84,7 +84,7 @@ export default async function IslerSayfasi({
         .select("id, ad")
         .eq("aktif", true)
         .order("ad"),
-      supabase.from("fatura_durumu").select("id, ad").order("ad"),
+      supabase.from("fatura_durumu").select("id, ad, sira, hizli").order("sira"),
       supabase
         .from("musteri")
         .select("id, ad")
@@ -96,6 +96,21 @@ export default async function IslerSayfasi({
 
   const gruplar = gruplarRes.data ?? []
   const bakilmadiId = durumlarRes.data?.find((d) => d.ad === "BAKILMADI")?.id ?? ""
+  const faturaDurumlari = faturalarRes.data ?? []
+  // Bu fatura durumları "kapanmış" sayılır: çıkış tarihi olmasa da sonraki aya devretmez
+  const KAPALI_FATURA = new Set([
+    "BEDELSİZ",
+    "FATURA EDİLDİ",
+    "GARANTİ",
+    "İADE",
+    "PEŞİN ALINDI",
+    "ÇALIŞMADI",
+  ])
+  const kapaliFaturaIdler = faturaDurumlari
+    .filter((f) => KAPALI_FATURA.has(f.ad))
+    .map((f) => f.id)
+  // Üst şeritteki hızlı fatura-durumu butonları (Tanımlar'dan yönetilir)
+  const hizliFaturalar = faturaDurumlari.filter((f) => f.hizli)
 
   // Ana sorgu — embed ile ilişkili isimleri çek + toplam say
   let query = supabase
@@ -127,9 +142,14 @@ export default async function IslerSayfasi({
   // Arama yapılırken ay filtresi devre dışı — sonuç hangi aydaysa o gelsin.
   const ayAralik = ay && !q ? ayAraligi(ay) : null
   if (ayAralik) {
-    // O ayın gelenleri VEYA hâlâ açık (çıkışsız) işler — açıklar her ay görünür
+    // O ayın gelenleri VEYA hâlâ açık işler. "Açık" = çıkış tarihi yok VE fatura
+    // durumu kapanmış (bedelsiz/fatura edildi/garanti/iade/peşin/çalışmadı) değil.
+    const acikKosul =
+      kapaliFaturaIdler.length > 0
+        ? `and(cikis_tarihi.is.null,or(fatura_durumu_id.is.null,fatura_durumu_id.not.in.(${kapaliFaturaIdler.join(",")})))`
+        : `cikis_tarihi.is.null`
     query = query.or(
-      `and(gelis_tarihi.gte.${ayAralik.baslangic},gelis_tarihi.lte.${ayAralik.bitis}),cikis_tarihi.is.null`
+      `and(gelis_tarihi.gte.${ayAralik.baslangic},gelis_tarihi.lte.${ayAralik.bitis}),${acikKosul}`
     )
   }
 
@@ -243,13 +263,15 @@ export default async function IslerSayfasi({
       yon?: string
       grup?: string
       bakilmadi?: string
+      fatura?: string
     } = {}
   ): string {
     const params = new URLSearchParams()
     if (q) params.set("q", q)
     if (durum) params.set("durum", durum)
     if (personel) params.set("personel", personel)
-    if (fatura) params.set("fatura", fatura)
+    const hedefFatura = over.fatura !== undefined ? over.fatura : fatura
+    if (hedefFatura) params.set("fatura", hedefFatura)
     if (musteri) params.set("musteri", musteri)
     if (baslangic) params.set("baslangic", baslangic)
     if (bitis) params.set("bitis", bitis)
@@ -274,54 +296,55 @@ export default async function IslerSayfasi({
   }
   const sayfaLinki = (hedef: number) => linkUret({ sayfa: hedef })
 
-  return (
-    <div className="grid min-w-0 gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-[21px] font-semibold tracking-tight">
-            {bakilmadiFiltre
-              ? "Bakılmadı"
-              : grupParam === "diger"
-                ? "Diğer"
-                : gruplar.find((g) => g.id === grupParam)?.ad ?? "Tüm İşler"}
-          </h1>
-          <span className="text-sm text-muted-foreground">{toplam} kayıt</span>
-        </div>
-        <AySecici aylar={sonAylar()} basePath="/" />
-      </div>
-
-      <IslerFiltreler
-        durumlar={durumlarRes.data ?? []}
-        personeller={personellerRes.data ?? []}
-        faturaDurumlari={faturalarRes.data ?? []}
-        musteriler={musterilerRes.data ?? []}
-        sagSlot={
-          <div className="flex items-center gap-2">
-            <Link
-              href={linkUret({ grup: "", bakilmadi: "", sayfa: 1 })}
-              className={
-                "rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors " +
-                (!grupParam && !bakilmadiFiltre
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border bg-card text-muted-foreground hover:bg-muted")
-              }
-            >
-              Tüm İşler
-            </Link>
-            <Link
-              href={linkUret({ bakilmadi: "1", grup: "", sayfa: 1 })}
-              className={
-                "rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors " +
-                (bakilmadiFiltre
-                  ? "bg-amber-500 text-white"
-                  : "border border-amber-300/60 bg-card text-amber-700 hover:bg-amber-500/10 dark:text-amber-300")
-              }
-            >
-              Bakılmadı
-            </Link>
-          </div>
+  // Üst şerit: Bakılmadı + hızlı fatura-durumu butonları (tıkla=filtrele, tekrar tıkla=kaldır)
+  const hizliButonlar = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Link
+        href={linkUret({ bakilmadi: bakilmadiFiltre ? "" : "1", sayfa: 1 })}
+        className={
+          "rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors " +
+          (bakilmadiFiltre
+            ? "bg-amber-500 text-white"
+            : "border border-amber-300/60 bg-card text-amber-700 hover:bg-amber-500/10 dark:text-amber-300")
         }
-      />
+      >
+        Bakılmadı
+      </Link>
+      {hizliFaturalar.map((f) => {
+        const aktifMi = fatura === f.id
+        return (
+          <Link
+            key={f.id}
+            href={linkUret({ fatura: aktifMi ? "" : f.id, sayfa: 1 })}
+            className={
+              "rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium transition-colors " +
+              (aktifMi
+                ? "bg-primary font-semibold text-primary-foreground"
+                : "border border-border bg-card text-muted-foreground hover:bg-muted")
+            }
+          >
+            {f.ad}
+          </Link>
+        )
+      })}
+    </div>
+  )
+
+  const filtrelerBlogu = (
+    <IslerFiltreler
+      durumlar={durumlarRes.data ?? []}
+      personeller={personellerRes.data ?? []}
+      faturaDurumlari={faturaDurumlari}
+      musteriler={musterilerRes.data ?? []}
+      sagSlot={hizliButonlar}
+      aySlot={<AySecici aylar={sonAylar()} basePath="/" />}
+    />
+  )
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      {/* Mobil: arama + filtreler (masaüstünde tablo sütununun üstünde) */}
+      <div className="md:hidden">{filtrelerBlogu}</div>
 
       {error ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -351,11 +374,12 @@ export default async function IslerSayfasi({
             gruplar={gruplar}
             durumlar={durumlarRes.data ?? []}
             personeller={personellerRes.data ?? []}
-            faturaDurumlari={faturalarRes.data ?? []}
+            faturaDurumlari={faturaDurumlari}
             finansal={finansal}
             seciliId={secili}
             seciliBilgi={seciliBilgi}
             aktifGrup={grupParam}
+            ustSlot={filtrelerBlogu}
           />
 
           {/* Mobil: kart görünümü */}

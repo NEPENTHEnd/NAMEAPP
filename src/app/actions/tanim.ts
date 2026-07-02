@@ -156,7 +156,13 @@ export async function faturaEkle(formData: FormData) {
   const supabase = await yoneticiSupabase()
   const ad = metin(formData, "ad")
   if (!ad) return
-  await supabase.from("fatura_durumu").insert({ ad })
+  const sira = Number(metin(formData, "sira")) || 100
+  await supabase.from("fatura_durumu").insert({
+    ad,
+    sira,
+    hizli: metin(formData, "hizli") === "on",
+  })
+  revalidatePath("/")
   bitir()
 }
 
@@ -165,7 +171,12 @@ export async function faturaDuzenle(formData: FormData) {
   const id = metin(formData, "id")
   const ad = metin(formData, "ad")
   if (!id || !ad) return
-  await supabase.from("fatura_durumu").update({ ad }).eq("id", id)
+  const sira = Number(metin(formData, "sira")) || 100
+  await supabase
+    .from("fatura_durumu")
+    .update({ ad, sira, hizli: metin(formData, "hizli") === "on" })
+    .eq("id", id)
+  revalidatePath("/")
   bitir()
 }
 

@@ -81,6 +81,7 @@ export function IslerEkrani({
   seciliId,
   seciliBilgi,
   aktifGrup,
+  ustSlot,
 }: {
   kayitlar: Kayit[]
   gruplar: Secenek[]
@@ -91,6 +92,7 @@ export function IslerEkrani({
   seciliId: string
   seciliBilgi: SeciliBilgi | null
   aktifGrup: string // "" (tümü) | "diger" | grup id
+  ustSlot?: React.ReactNode // arama+filtreler — tablo sütununun üstünde
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -265,9 +267,11 @@ export function IslerEkrani({
         </div>
       </aside>
 
-      {/* Tablo */}
-      <div className="min-w-0 flex-1 overflow-x-auto rounded-lg border">
-        <Table>
+      {/* Orta sütun: filtreler + tablo */}
+      <div className="min-w-0 flex-1">
+        {ustSlot && <div className="mb-3">{ustSlot}</div>}
+        <div className="min-w-0 overflow-x-auto rounded-lg border">
+        <Table className="text-[13px] [&_td]:px-2 [&_td]:py-1.5 [&_th]:h-9 [&_th]:px-2">
           <TableHeader>
             <TableRow>
               {finansal && <TableHead className="w-7 p-0" />}
@@ -277,6 +281,7 @@ export function IslerEkrani({
                   {ok("servis")}
                 </Link>
               </TableHead>
+              {finansal && <TableHead>Takip No</TableHead>}
               {!grupGorunumu && <TableHead>Müşteri</TableHead>}
               <TableHead>
                 <Link href={siralaHref("cihaz")} scroll={false} className="hover:underline">Cihaz{ok("cihaz")}</Link>
@@ -296,7 +301,6 @@ export function IslerEkrani({
                   <Link href={siralaHref("tutar")} scroll={false} className="hover:underline">Tutar{ok("tutar")}</Link>
                 </TableHead>
               )}
-              {finansal && <TableHead>Takip No</TableHead>}
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -321,7 +325,7 @@ export function IslerEkrani({
                 style={{ "--satir": durumRenk(k.durum?.ad, k.durum?.renk) } as CSSProperties}
                 className={cn(
                   "border-b transition-colors",
-                  "bg-[color-mix(in_oklab,var(--satir)_20%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_30%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_40%,transparent)]",
+                  "bg-[color-mix(in_oklab,var(--satir)_32%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_44%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_55%,transparent)]",
                   surukle?.id === k.id && "opacity-40"
                 )}
               >
@@ -363,14 +367,20 @@ export function IslerEkrani({
                     </span>
                   )}
                 </TableCell>
-                {!grupGorunumu && (
-                  <TableCell className="min-w-[130px]">
-                    <HucreDuzenle isId={k.id} alan="musteri" deger={k.musteri?.ad ?? null} placeholder="Firma adı" />
+                {finansal && (
+                  <TableCell className="min-w-[80px]">
+                    {/* Takip no (eski adı garanti no) — fiş no'nun hemen yanında */}
+                    <HucreDuzenle isId={k.id} alan="garanti_no" deger={k.garanti_no} bosEtiket="—" className="text-xs" />
                   </TableCell>
                 )}
-                <TableCell className="min-w-[180px]">
-                  <HucreDuzenle isId={k.id} alan="cihaz_adi" deger={k.cihaz_adi} />
-                  <HucreDuzenle isId={k.id} alan="seri_no" deger={k.seri_no} bosEtiket="SN ekle" className="text-xs text-muted-foreground" />
+                {!grupGorunumu && (
+                  <TableCell className="min-w-[120px] max-w-[170px]">
+                    <HucreDuzenle isId={k.id} alan="musteri" deger={k.musteri?.ad ?? null} placeholder="Firma adı" className="truncate" />
+                  </TableCell>
+                )}
+                <TableCell className="min-w-[130px] max-w-[210px]">
+                  <HucreDuzenle isId={k.id} alan="cihaz_adi" deger={k.cihaz_adi} className="truncate" />
+                  <HucreDuzenle isId={k.id} alan="seri_no" deger={k.seri_no} bosEtiket="SN ekle" className="truncate text-xs text-muted-foreground" />
                 </TableCell>
                 <TableCell>
                   <HucreDuzenle isId={k.id} alan="gelis_tarihi" tip="tarih" deger={k.gelis_tarihi} goster={() => tarihTR(k.gelis_tarihi)} />
@@ -428,12 +438,6 @@ export function IslerEkrani({
                     />
                   </TableCell>
                 )}
-                {finansal && (
-                  <TableCell className="min-w-[90px]">
-                    {/* Takip no (eski adı garanti no) */}
-                    <HucreDuzenle isId={k.id} alan="garanti_no" deger={k.garanti_no} bosEtiket="—" className="text-xs" />
-                  </TableCell>
-                )}
                 <TableCell className="w-8 p-0 text-center">
                   {/* Sağdaki ok: foto/açıklama panelini aç (çift tıklama da açar) */}
                   <button
@@ -452,6 +456,7 @@ export function IslerEkrani({
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Yan panel: foto + açıklama + kargo, × ile kapanır */}

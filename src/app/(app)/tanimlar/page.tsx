@@ -52,7 +52,7 @@ export default async function TanimlarSayfasi({
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
       supabase.from("durum").select("id, ad, sira, renk").order("sira"),
-      supabase.from("fatura_durumu").select("id, ad").order("ad"),
+      supabase.from("fatura_durumu").select("id, ad, sira, hizli").order("sira"),
       supabase.from("kullanici_profil").select("id, ad, rol, fis_prefix").order("ad"),
       supabase
         .from("davet_kisi")
@@ -235,16 +235,30 @@ export default async function TanimlarSayfasi({
       {/* FATURA */}
       {sekme === "fatura" && (
         <section className="grid gap-3">
-          <form action={faturaEkle} className="flex flex-wrap gap-2">
+          <p className="text-xs text-muted-foreground">
+            <strong>Hızlı</strong> işaretli durumlar İşler ekranının üstünde buton
+            olarak görünür; <strong>Sıra</strong> butonların dizilişini belirler.
+          </p>
+          <form action={faturaEkle} className="flex flex-wrap items-center gap-2">
             <Input name="ad" placeholder="Fatura durumu adı" required className="max-w-xs" />
+            <Input name="sira" type="number" placeholder="Sıra" className="w-20" />
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <input type="checkbox" name="hizli" className="size-4 accent-primary" />
+              Hızlı
+            </label>
             <Button type="submit" size="sm">Ekle</Button>
           </form>
           <div className="grid gap-2">
             {(faturalar.data ?? []).map((f) => (
-              <form key={f.id} action={faturaDuzenle} className="flex items-center gap-3 rounded-xl border border-border bg-card p-2">
+              <form key={f.id} action={faturaDuzenle} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-2">
                 <input type="hidden" name="id" value={f.id} />
                 <div className="w-40"><FaturaRozeti ad={f.ad} /></div>
                 <Input name="ad" defaultValue={f.ad} className="max-w-xs" required />
+                <Input name="sira" type="number" defaultValue={f.sira} className="w-20" title="Sıra" />
+                <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <input type="checkbox" name="hizli" defaultChecked={f.hizli} className="size-4 accent-primary" />
+                  Hızlı
+                </label>
                 <Button type="submit" size="sm" variant="outline">Kaydet</Button>
               </form>
             ))}

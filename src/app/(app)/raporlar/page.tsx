@@ -73,6 +73,38 @@ export default async function RaporlarSayfasi({
     return g ? g >= ayAralik.baslangic && g <= ayAralik.bitis : false
   }).length
 
+  // Firma-ay grafiği: seçili ayda (yoksa bu ay) firma başına iş adedi + kazanç
+  const [{ data: grupListe }, { data: firmaIsleri }] = await Promise.all([
+    supabase.from("grup").select("id, ad").order("sira"),
+    supabase
+      .from("is_kaydi")
+      .select("grup_id, gelis_tarihi, fatura_tutari")
+      .range(0, 99999),
+  ])
+  const simdi = new Date()
+  const grafikAyKey = ayAralik
+    ? ayAralik.baslangic.slice(0, 7)
+    : `${simdi.getFullYear()}-${String(simdi.getMonth() + 1).padStart(2, "0")}`
+  const grafikAyEtiketi = ayAralik
+    ? sonAylar(12).find((a) => a.key === ay)?.label ?? "Seçili ay"
+    : "Bu ay"
+  const firmaMap = new Map<string | null, { adet: number; tutar: number }>()
+  for (const j of firmaIsleri ?? []) {
+    if (!j.gelis_tarihi?.startsWith(grafikAyKey)) continue
+    const v = firmaMap.get(j.grup_id) ?? { adet: 0, tutar: 0 }
+    v.adet++
+    v.tutar += j.fatura_tutari ?? 0
+    firmaMap.set(j.grup_id, v)
+  }
+  const firmaSatirlari = [
+    ...(grupListe ?? []).map((g) => ({
+      ad: g.ad,
+      ...(firmaMap.get(g.id) ?? { adet: 0, tutar: 0 }),
+    })),
+    { ad: "DİĞER", ...(firmaMap.get(null) ?? { adet: 0, tutar: 0 }) },
+  ].sort((a, b) => b.tutar - a.tutar || b.adet - a.adet)
+  const firmaAdetMaks = Math.max(1, ...firmaSatirlari.map((f) => f.adet))
+
   let sorgu = supabase.from("is_kaydi").select(
     `
       id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
@@ -166,6 +198,41 @@ export default async function RaporlarSayfasi({
       </div>
 
       <AySecici aylar={sonAylar()} basePath="/raporlar" />
+
+      {/* Firma-ay grafiği: her firma o ay ne kadar iş / kazanç getirdi */}
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
+        <div className="mb-1 text-[13.5px] font-semibold">
+          Firma bazında — {grafikAyEtiketi}
+        </div>
+        <p className="mb-4 text-[11.5px] text-muted-foreground">
+          O ay gelen iş adedi ve fatura toplamı (ayı yukarıdaki kutucuklardan değiştir)
+        </p>
+        <div className="grid gap-2">
+          {firmaSatirlari.map((f) => (
+            <div
+              key={f.ad}
+              className={
+                "flex items-center gap-3 text-[12.5px]" +
+                (f.adet === 0 ? " opacity-40" : "")
+              }
+            >
+              <span className="w-36 shrink-0 truncate font-medium">{f.ad}</span>
+              <div className="h-[9px] flex-1 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${Math.round((f.adet / firmaAdetMaks) * 100)}%` }}
+                />
+              </div>
+              <span className="w-10 shrink-0 text-right font-mono font-semibold">
+                {f.adet}
+              </span>
+              <span className="w-24 shrink-0 text-right font-mono text-emerald-700 dark:text-emerald-400">
+                {f.tutar > 0 ? tutarTR(f.tutar) : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Fotoğraf deposu: bar + arşivle (ZIP) + sil */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
