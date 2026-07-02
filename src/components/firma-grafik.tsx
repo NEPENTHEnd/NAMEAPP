@@ -41,7 +41,7 @@ export function FirmaGrafik({
   aylar: { key: string; ad: string }[]
 }) {
   const [firma, setFirma] = useState<string>("") // "" = tüm firmalar
-  const [tip, setTip] = useState<Tip>("sutun")
+  const [tip, setTip] = useState<Tip>("balon") // varsayılan: balon
   const [metrik, setMetrik] = useState<Metrik>("adet")
 
   const deger = (n: { adet: number; tutar: number }) =>

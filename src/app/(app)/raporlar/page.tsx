@@ -84,14 +84,24 @@ export default async function RaporlarSayfasi({
   ])
   const AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
   const simdi = new Date()
+  // Üst bardaki ay seçimi grafiği de yönetir: ay seçiliyse yalnız o ay,
+  // "Tümü"deyse son 6 aylık pencere gösterilir.
   const ayPencere: { key: string; ad: string }[] = []
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(simdi.getFullYear(), simdi.getMonth() - i, 1)
-    ayPencere.push({
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      ad: AY_KISA[d.getMonth()],
-    })
+  if (ayAralik) {
+    const key = ayAralik.baslangic.slice(0, 7)
+    ayPencere.push({ key, ad: AY_KISA[Number(key.split("-")[1]) - 1] })
+  } else {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(simdi.getFullYear(), simdi.getMonth() - i, 1)
+      ayPencere.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+        ad: AY_KISA[d.getMonth()],
+      })
+    }
   }
+  const grafikDonem = ayAralik
+    ? sonAylar(12).find((a) => a.key === ay)?.label ?? ayPencere[0].ad
+    : "son 6 ay"
   const grupAdMap = new Map((grupListe ?? []).map((g) => [g.id, g.ad]))
   const noktaMap = new Map<string, { adet: number; tutar: number }>()
   for (const j of firmaIsleri ?? []) {
@@ -213,9 +223,9 @@ export default async function RaporlarSayfasi({
 
       {/* Firma grafiği: firma seç + sütun/çizgi/pasta + adet/kazanç (son 6 ay) */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
-        <div className="mb-1 text-[13.5px] font-semibold">Firma grafiği — son 6 ay</div>
+        <div className="mb-1 text-[13.5px] font-semibold">Firma grafiği — {grafikDonem}</div>
         <p className="mb-4 text-[11.5px] text-muted-foreground">
-          Firma seç, grafik tipini ve ölçüyü (iş adedi / kazanç) değiştir.
+          Dönemi üst bardaki ay kutucuklarından, firmayı/tipi/ölçüyü buradan değiştir.
         </p>
         <FirmaGrafik
           noktalar={grafikNoktalar}
