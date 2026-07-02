@@ -46,6 +46,7 @@ type Props = {
   iptalHref?: string
   finansalGoster?: boolean
   servisNoGoster?: boolean
+  servisNoEtiket?: string // BOYTEKS için "Firma stok kodu"
   degisiklikTakip?: boolean
   fotoSecimi?: boolean
   personelMod?: boolean // tekniker/durum/çıkış/geliş gizli; geliş & durum sabit
@@ -85,6 +86,7 @@ export function IsFormu({
   iptalHref = "/",
   finansalGoster = true,
   servisNoGoster = false, // fiş no otomatik üretilir; alan salt-okunur gösterilir
+  servisNoEtiket = "Servis (fiş) no",
   degisiklikTakip = false,
   fotoSecimi = false,
   personelMod = false,
@@ -180,7 +182,7 @@ export function IsFormu({
           </div>
           {servisNoGoster ? (
             <div className="grid gap-1.5">
-              <label className={labelClass} htmlFor="servis_no">Servis (fiş) no</label>
+              <label className={labelClass} htmlFor="servis_no">{servisNoEtiket}</label>
               <Input id="servis_no" name="servis_no" placeholder="Örn. 9577" defaultValue={varsayilan.servis_no ?? ""} />
             </div>
           ) : (

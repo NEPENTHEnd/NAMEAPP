@@ -23,6 +23,14 @@ function gecerliHex(r: string | null | undefined): string | null {
   return r && /^#[0-9a-fA-F]{6}$/.test(r) ? r : null
 }
 
+// Satır boyama için durumun ana rengi (Excel'deki satır dolgusu gibi).
+export function durumRenk(
+  ad?: string | null,
+  renk?: string | null
+): string {
+  return (ad ? DURUM_DOT[ad] : null) ?? gecerliHex(renk) ?? "#94a3b8"
+}
+
 // Tema-bağımsız tint: card/foreground değişkenleriyle karışır →
 // açık temada koyu metin + açık zemin, koyu temada açık metin + koyu zemin.
 function tint(c: string) {

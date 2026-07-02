@@ -70,8 +70,14 @@ export default async function IslerSayfasi({
   const finansal = kullanici.rol === "yonetici" // teknisyen finansal sütunları görmez
 
   // Filtre seçenekleri (dropdown'lar için)
-  const [durumlarRes, personellerRes, faturalarRes, musterilerRes, gruplarRes] =
-    await Promise.all([
+  const [
+    durumlarRes,
+    personellerRes,
+    faturalarRes,
+    musterilerRes,
+    gruplarRes,
+    profillerRes,
+  ] = await Promise.all([
       supabase.from("durum").select("id, ad").order("sira"),
       supabase
         .from("teknik_personel")
@@ -85,6 +91,7 @@ export default async function IslerSayfasi({
         .eq("aktif", true)
         .order("ad"),
       supabase.from("grup").select("id, ad").eq("aktif", true).order("sira"),
+      supabase.from("kullanici_profil").select("id, ad"),
     ])
 
   const gruplar = gruplarRes.data ?? []
@@ -97,7 +104,7 @@ export default async function IslerSayfasi({
       `
         id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
         fatura_tarihi, fiyat_teklifi, fatura_tutari, garanti_no, kargo_takip_no,
-        musteri_id, durum_id, fatura_durumu_id, grup_id, teknik_personel_id,
+        musteri_id, durum_id, fatura_durumu_id, grup_id, teknik_personel_id, olusturan_id,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
         teknik_personel:teknik_personel_id ( ad ),
@@ -158,7 +165,14 @@ export default async function IslerSayfasi({
 
   const toplam = count ?? 0
   const toplamSayfa = Math.max(1, Math.ceil(toplam / SAYFA_BOYUTU))
-  const kayitlar = data ?? []
+  // Fiş no altında "kim kaydetti" için profil adlarını iliştir
+  const profilAd = new Map(
+    (profillerRes.data ?? []).map((p) => [p.id, p.ad ?? "—"])
+  )
+  const kayitlar = (data ?? []).map((k) => ({
+    ...k,
+    olusturan_ad: k.olusturan_id ? profilAd.get(k.olusturan_id) ?? null : null,
+  }))
 
   // Seçili işin fotoğrafları (yan önizleme paneli için)
   type SeciliBilgi = {
@@ -313,21 +327,24 @@ export default async function IslerSayfasi({
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           Kayıtlar yüklenirken bir hata oluştu: {error.message}
         </div>
-      ) : kayitlar.length === 0 ? (
-        <div className="grid justify-items-center gap-3 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-          {toplam === 0 && !q && !durum && !personel && !fatura && !musteri ? (
-            <>
-              <span>Henüz iş kaydı yok.</span>
-              <Link href="/yeni" className={buttonVariants({ size: "sm" })}>
-                + İlk işi ekle
-              </Link>
-            </>
-          ) : (
-            "Aramanıza/filtrenize uyan kayıt bulunamadı."
-          )}
-        </div>
       ) : (
         <>
+          {/* Mobil boş durum (masaüstünde sol menü hep kalır, tablo kendi mesajını basar) */}
+          {kayitlar.length === 0 && (
+            <div className="grid justify-items-center gap-3 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground md:hidden">
+              {toplam === 0 && !q && !durum && !personel && !fatura && !musteri ? (
+                <>
+                  <span>Henüz iş kaydı yok.</span>
+                  <Link href="/yeni" className={buttonVariants({ size: "sm" })}>
+                    + İlk işi ekle
+                  </Link>
+                </>
+              ) : (
+                "Aramanıza/filtrenize uyan kayıt bulunamadı."
+              )}
+            </div>
+          )}
+
           {/* Masaüstü: sol menü + Excel-gibi tablo + panel */}
           <IslerEkrani
             kayitlar={kayitlar}

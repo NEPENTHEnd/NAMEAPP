@@ -52,6 +52,8 @@ export default async function YeniIsSayfasi({
         gonderEtiketi="İşi oluştur"
         finansalGoster={!personel}
         personelMod={personel}
+        servisNoGoster={grup?.ad === "BOYTEKS"} // BOYTEKS: fiş no otomatik değil, stok kodu elle
+        servisNoEtiket="Firma stok kodu"
         fotoSecimi
       />
     </div>

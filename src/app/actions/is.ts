@@ -165,11 +165,26 @@ export async function isOlustur(
     // Grup atamasını yalnız yönetici yapar; personelin işi DİĞER'e (null) düşer.
     grup_id: finansal ? (parsed.data.grup_id ?? null) : null,
   }
-  // Fiş no HERKESE otomatik (ön eki olan kullanıcıda); yoksa form değeri/boş
-  const rpc = supabase as unknown as RpcIstemci
-  const { data: fis } = await rpc.rpc("fis_no_uret")
-  ekle.servis_no =
-    (typeof fis === "string" ? fis : null) ?? parsed.data.servis_no ?? null
+  // Fiş no HERKESE otomatik (ön eki olan kullanıcıda); yoksa form değeri/boş.
+  // İSTİSNA: BOYTEKS grubuna girilen işlerde fiş no üretilmez — firmaya özel
+  // stok kodu elle girilir.
+  let otomatikFis = true
+  if (ekle.grup_id) {
+    const { data: g } = await supabase
+      .from("grup")
+      .select("ad")
+      .eq("id", ekle.grup_id)
+      .maybeSingle()
+    if (g?.ad === "BOYTEKS") otomatikFis = false
+  }
+  if (otomatikFis) {
+    const rpc = supabase as unknown as RpcIstemci
+    const { data: fis } = await rpc.rpc("fis_no_uret")
+    ekle.servis_no =
+      (typeof fis === "string" ? fis : null) ?? parsed.data.servis_no ?? null
+  } else {
+    ekle.servis_no = parsed.data.servis_no ?? null
+  }
   if (finansal) {
     ekle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     ekle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
@@ -405,6 +420,14 @@ export async function isSil(id: string) {
   }
 
   const supabase = await createClient()
+  // Önce depodaki fotoğrafları temizle (kota boşuna dolmasın)
+  const { data: fotolar } = await supabase
+    .from("foto")
+    .select("dosya_yolu")
+    .eq("is_kaydi_id", id)
+  if (fotolar && fotolar.length > 0) {
+    await supabase.storage.from("foto").remove(fotolar.map((f) => f.dosya_yolu))
+  }
   const { error } = await supabase.from("is_kaydi").delete().eq("id", id)
   if (error) {
     throw new Error("Kayıt silinemedi: " + error.message)

@@ -1,12 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import type { CSSProperties } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
-import { isGrupAta } from "@/app/actions/is"
+import { isGrupAta, isSil } from "@/app/actions/is"
 import {
   Table,
   TableBody,
@@ -15,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
+import { DurumRozeti, FaturaRozeti, durumRenk } from "@/components/rozet"
 import { HucreDuzenle } from "@/components/hucre-duzenle"
 import { PanelFinansal } from "@/components/panel-finansal"
 
@@ -41,6 +42,7 @@ export type Kayit = {
   fiyat_teklifi: number | null
   fatura_tutari: number | null
   grup_id: string | null
+  olusturan_ad: string | null
 }
 
 export type SeciliBilgi = {
@@ -282,14 +284,27 @@ export function IslerEkrani({
             </TableRow>
           </TableHeader>
           <TableBody>
+            {kayitlar.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={7 + (grupGorunumu ? 0 : 1) + (finansal ? 5 : 0)}
+                  className="p-10 text-center text-sm text-muted-foreground"
+                >
+                  Bu görünümde kayıt yok. Soldaki firma adının yanındaki yeşil +
+                  ile iş ekleyebilirsin.
+                </TableCell>
+              </TableRow>
+            )}
             {kayitlar.map((k) => (
               <TableRow
                 key={k.id}
                 data-selected={k.id === seciliId}
                 onDoubleClick={() => git({ secili: k.id })}
+                // Satırın tamamı durum rengine boyanır (Excel'deki dolgu gibi)
+                style={{ "--satir": durumRenk(k.durum?.ad, k.durum?.renk) } as CSSProperties}
                 className={cn(
-                  "border-b transition-colors hover:bg-muted/50",
-                  k.id === seciliId && "bg-muted",
+                  "border-b transition-colors",
+                  "bg-[color-mix(in_oklab,var(--satir)_9%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_18%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_26%,transparent)]",
                   surukle?.id === k.id && "opacity-40"
                 )}
               >
@@ -323,6 +338,12 @@ export function IslerEkrani({
                     <Link href={`/is/${k.id}`} onPointerDown={(e) => e.stopPropagation()} className="text-primary underline-offset-4 hover:underline">
                       {k.servis_no ?? "Aç"}
                     </Link>
+                  )}
+                  {/* Kim kaydetti — küçük */}
+                  {k.olusturan_ad && (
+                    <span className="block text-[10px] font-normal leading-tight text-muted-foreground">
+                      {k.olusturan_ad}
+                    </span>
                   )}
                 </TableCell>
                 {!grupGorunumu && (
@@ -485,6 +506,20 @@ export function IslerEkrani({
                   />
                 </div>
 
+                {/* Fiş no / stok kodu — yönetici düzeltebilir */}
+                {finansal && (
+                  <div className="mt-3">
+                    <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fiş no / stok kodu</div>
+                    <HucreDuzenle
+                      isId={seciliBilgi.id}
+                      alan="servis_no"
+                      deger={seciliBilgi.servis_no}
+                      bosEtiket="Fiş no gir…"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                )}
+
                 <Link href={`/is/${seciliBilgi.id}`} className="mt-3 inline-block text-sm text-primary underline-offset-4 hover:underline">
                   Detayı aç →
                 </Link>
@@ -501,6 +536,28 @@ export function IslerEkrani({
                       garanti_no: seciliBilgi.garanti_no,
                     }}
                   />
+                )}
+
+                {/* İşi sil — yalnız yönetici, onaylı */}
+                {finansal && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "Bu işi ve fotoğraflarını KALICI olarak silmek istediğine emin misin?"
+                        )
+                      ) {
+                        startTransition(async () => {
+                          await isSil(seciliBilgi.id)
+                        })
+                      }
+                    }}
+                    className="mt-3 w-full rounded-lg border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    İşi sil
+                  </button>
                 )}
               </>
             ) : (
