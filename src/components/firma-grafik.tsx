@@ -28,7 +28,7 @@ const kisaSayi = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 1,
 })
 
-type Tip = "sutun" | "cizgi" | "pasta"
+type Tip = "sutun" | "cizgi" | "pasta" | "firmalar" | "balon"
 type Metrik = "adet" | "tutar"
 
 export function FirmaGrafik({
@@ -88,6 +88,18 @@ export function FirmaGrafik({
   }, [noktalar, seri, firma, deger])
   const dilimToplam = Math.max(1, dilimler.reduce((t, d) => t + d.deger, 0))
 
+  // Firma bazlı toplamlar (Firmalar sütunu + Balon için; 6 aylık pencere)
+  const firmaToplam = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const n of noktalar) m.set(n.firma, (m.get(n.firma) ?? 0) + deger(n))
+    return [...m.entries()]
+      .map(([ad, d]) => ({ ad, deger: d }))
+      .filter((x) => x.deger > 0)
+      .sort((a, b) => b.deger - a.deger)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noktalar, metrik])
+  const firmaMaks = Math.max(1, ...firmaToplam.map((f) => f.deger))
+
   // Pasta conic-gradient
   let acc = 0
   const stops: string[] = []
@@ -124,8 +136,9 @@ export function FirmaGrafik({
         <select
           value={firma}
           onChange={(e) => setFirma(e.target.value)}
+          disabled={tip === "firmalar" || tip === "balon"}
           aria-label="Firma seç"
-          className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm outline-none transition focus:border-primary"
+          className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm outline-none transition focus:border-primary disabled:opacity-50"
         >
           <option value="">Tüm firmalar</option>
           {firmalar.map((f) => (
@@ -134,10 +147,12 @@ export function FirmaGrafik({
             </option>
           ))}
         </select>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <button type="button" onClick={() => setTip("sutun")} className={secBtn(tip === "sutun")}>Sütun</button>
           <button type="button" onClick={() => setTip("cizgi")} className={secBtn(tip === "cizgi")}>Çizgi</button>
           <button type="button" onClick={() => setTip("pasta")} className={secBtn(tip === "pasta")}>Pasta</button>
+          <button type="button" onClick={() => setTip("firmalar")} className={secBtn(tip === "firmalar")}>Firmalar</button>
+          <button type="button" onClick={() => setTip("balon")} className={secBtn(tip === "balon")}>Balon</button>
         </div>
         <div className="ml-auto flex items-center gap-1">
           <button type="button" onClick={() => setMetrik("adet")} className={secBtn(metrik === "adet")}>İş adedi</button>
@@ -177,6 +192,89 @@ export function FirmaGrafik({
             ))}
           </div>
         </div>
+      ) : tip === "balon" ? (
+        /* Balon: kazancı (ya da adedi) büyük olanın balonu büyük */
+        <div className="flex flex-wrap items-end justify-center gap-x-5 gap-y-4 py-2">
+          {firmaToplam.length === 0 && (
+            <p className="text-sm text-muted-foreground">Bu aralıkta veri yok.</p>
+          )}
+          {firmaToplam.map((f, i) => {
+            const boyut = Math.round(36 + 96 * Math.sqrt(f.deger / firmaMaks))
+            return (
+              <div
+                key={f.ad}
+                className="flex flex-col items-center gap-1"
+                title={`${f.ad}: ${uzunEtiket(f.deger)}`}
+              >
+                <div
+                  className="flex items-center justify-center rounded-full text-white shadow-[inset_0_0_0_2px_rgba(255,255,255,.15)]"
+                  style={{
+                    width: boyut,
+                    height: boyut,
+                    background: PALET[i % PALET.length],
+                  }}
+                >
+                  {boyut >= 52 && (
+                    <span className="px-1 text-center font-mono text-[11px] font-bold leading-tight">
+                      {etiket(f.deger)}
+                    </span>
+                  )}
+                </div>
+                <span className="max-w-[90px] truncate text-center text-[10.5px] text-muted-foreground">
+                  {f.ad}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      ) : tip === "firmalar" ? (
+        /* Tüm firmalar yan yana ince sütunlar — hepsinin değeri görünür */
+        <svg viewBox="0 0 760 320" className="h-auto w-full">
+          <line x1="8" y1="240" x2="752" y2="240" stroke="currentColor" strokeOpacity="0.15" />
+          {firmaToplam.length === 0 && (
+            <text x="380" y="130" textAnchor="middle" fontSize="13" fill="currentColor" opacity="0.5">
+              Bu aralıkta veri yok
+            </text>
+          )}
+          {firmaToplam.map((f, i) => {
+            const adim = 744 / Math.max(1, firmaToplam.length)
+            const bw = Math.min(26, adim * 0.6)
+            const x = 8 + adim * i + (adim - bw) / 2
+            const bh = Math.round((f.deger / firmaMaks) * 195)
+            const y = 240 - bh
+            return (
+              <g key={f.ad}>
+                <rect x={x} y={y} width={bw} height={Math.max(bh, 3)} rx={4} fill={PALET[i % PALET.length]}>
+                  <title>{`${f.ad}: ${uzunEtiket(f.deger)}`}</title>
+                </rect>
+                {/* Değer — sütunun üstünde eğik */}
+                <text
+                  transform={`rotate(-45 ${x + bw / 2} ${y - 6})`}
+                  x={x + bw / 2}
+                  y={y - 6}
+                  textAnchor="start"
+                  fontSize="10"
+                  fontWeight="700"
+                  fill="currentColor"
+                >
+                  {etiket(f.deger)}
+                </text>
+                {/* Firma adı — altta eğik */}
+                <text
+                  transform={`rotate(-45 ${x + bw / 2} 254)`}
+                  x={x + bw / 2}
+                  y={254}
+                  textAnchor="end"
+                  fontSize="9.5"
+                  fill="currentColor"
+                  opacity="0.65"
+                >
+                  {f.ad.length > 14 ? f.ad.slice(0, 13) + "…" : f.ad}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
       ) : (
         <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full">
           {/* taban çizgisi */}

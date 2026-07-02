@@ -1,24 +1,26 @@
 "use client"
 
 import { useTransition } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import type { AyOgesi } from "@/lib/aylar"
 
-// İşler/Pano/Raporlar başlığının sağında kayan ay kutucukları.
+// Ay kutucukları. basePath verilmezse bulunduğu sayfada çalışır (üst bar).
 // Güncel ay altın sarısı, diğer aylar mavi. Seçili kutu dolu gösterilir.
 export function AySecici({
   aylar,
-  basePath = "/",
+  basePath,
 }: {
   aylar: AyOgesi[]
   basePath?: string
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
   const aktif = searchParams.get("ay") ?? ""
+  const hedefYol = basePath ?? pathname ?? "/"
 
   function sec(key: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -27,7 +29,7 @@ export function AySecici({
     params.delete("sayfa")
     const qs = params.toString()
     startTransition(() => {
-      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+      router.replace(qs ? `${hedefYol}?${qs}` : hedefYol, { scroll: false })
     })
   }
 

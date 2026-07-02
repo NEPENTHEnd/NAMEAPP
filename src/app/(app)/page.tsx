@@ -337,7 +337,12 @@ export default async function IslerSayfasi({
       faturaDurumlari={faturaDurumlari}
       musteriler={musterilerRes.data ?? []}
       sagSlot={hizliButonlar}
-      aySlot={<AySecici aylar={sonAylar()} basePath="/" />}
+      aySlot={
+        // Geniş ekranda ay kutucukları üst barda; burada yalnız dar ekranda
+        <div className="xl:hidden">
+          <AySecici aylar={sonAylar()} basePath="/" />
+        </div>
+      }
     />
   )
 

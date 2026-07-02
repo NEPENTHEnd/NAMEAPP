@@ -86,6 +86,19 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Native select açılır listesi her temada uyumlu (bazı tarayıcılar
+   color-scheme'i yok sayabiliyor — option'a rengi doğrudan veriyoruz) */
+select {
+  color-scheme: light;
+}
+.dark select {
+  color-scheme: dark;
+}
+select option {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
 .dark {
   /* Name Teknik karanlık paleti (handoff2) */
   color-scheme: dark; /* filtre select'leri + tarih girişleri karanlıkta koyu açılsın */

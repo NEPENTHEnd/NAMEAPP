@@ -3,6 +3,8 @@ import Link from "next/link"
 
 import { getKullanici } from "@/lib/auth"
 import { cikisYap } from "@/app/actions/auth"
+import { sonAylar } from "@/lib/aylar"
+import { AySecici } from "@/components/ay-secici"
 import { AppNav } from "@/components/app-nav"
 import { UserMenu } from "@/components/user-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -74,6 +76,10 @@ export default async function AppLayout({
             </div>
 
             <div className="ml-auto flex items-center gap-2">
+              {/* Ay kutucukları — bulunduğu sayfanın ay filtresini değiştirir */}
+              <div className="hidden xl:block">
+                <AySecici aylar={sonAylar()} />
+              </div>
               <Link
                 href="/yeni"
                 className="hidden shrink-0 items-center gap-1.5 rounded-[9px] bg-primary px-3 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(30,64,175,.35)] transition-colors hover:bg-primary/90 sm:inline-flex sm:px-3.5"

@@ -218,7 +218,9 @@ export default async function PanoSayfasi({
             {seciliAyEtiketi === "Bu ay" ? "Genel bakış" : `${seciliAyEtiketi} özeti`}
           </p>
         </div>
-        <AySecici aylar={sonAylar()} basePath="/pano" />
+        <div className="xl:hidden">
+          <AySecici aylar={sonAylar()} basePath="/pano" />
+        </div>
       </div>
 
       {/* KPI */}

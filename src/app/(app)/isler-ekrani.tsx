@@ -270,9 +270,10 @@ export function IslerEkrani({
       {/* Orta sütun: filtreler + tablo */}
       <div className="min-w-0 flex-1">
         {ustSlot && <div className="mb-3">{ustSlot}</div>}
-        <div className="min-w-0 overflow-x-auto rounded-lg border">
+        {/* Dikey kaydırma bu kutuda: başlıklar sticky kalır */}
+        <div className="min-w-0 max-h-[calc(100vh-165px)] overflow-auto rounded-lg border">
         <Table className="text-[13px] [&_td]:px-2 [&_td]:py-1.5 [&_th]:h-9 [&_th]:px-2">
-          <TableHeader>
+          <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
             <TableRow>
               {finansal && <TableHead className="w-7 p-0" />}
               <TableHead>
