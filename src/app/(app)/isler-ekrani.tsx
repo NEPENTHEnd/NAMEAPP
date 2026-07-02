@@ -188,7 +188,8 @@ export function IslerEkrani({
     <div className="hidden min-w-0 gap-4 md:flex">
       {/* Sol menü: firmalar */}
       <aside className="w-48 shrink-0">
-        <div className="sticky top-20 grid gap-1.5">
+        {/* Menü ekrana sığar, uzarsa kendi içinde kayar — tablo boyunu o belirlemesin */}
+        <div className="sticky top-20 grid max-h-[calc(100vh-96px)] gap-1.5 overflow-y-auto pr-0.5">
           <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Firmalar
           </div>
@@ -272,7 +273,7 @@ export function IslerEkrani({
         {ustSlot && <div className="mb-3">{ustSlot}</div>}
         {/* Kaydırma tablonun KENDİ kabında: başlıklar buna yapışır; kutu ekranın altına kadar uzar */}
         <Table
-          containerClassName="h-[calc(100vh-160px)] overflow-auto rounded-lg border"
+          containerClassName="h-[calc(100vh-208px)] overflow-auto rounded-lg border"
           className="text-[13px] [&_td]:px-2 [&_td]:py-1.5 [&_th]:h-9 [&_th]:px-2"
         >
           <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
