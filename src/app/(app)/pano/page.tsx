@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getYonetici } from "@/lib/auth"
 import { sonAylar, ayAraligi } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
+import { durumRenk } from "@/components/rozet"
 
 function ymd(d: Date): string {
   const y = d.getFullYear()
@@ -135,17 +136,43 @@ export default async function PanoSayfasi({
     (j) => j.gelis_tarihi >= ayBasi && j.gelis_tarihi <= aySonu
   )
 
-  // ASIL: kim daha çok iş kaydetti (olusturan) — seçili ay
-  const kaydedenMap = new Map<string, number>()
+  // ASIL: kim daha çok iş kaydetti (olusturan) — seçili ay + durum kırılımı (pasta)
+  const kaydedenGrup = new Map<
+    string,
+    { adet: number; durumAdet: Map<string, number> }
+  >()
   for (const j of aydakiIsler) {
     const key = j.olusturan_id ?? "yok"
-    kaydedenMap.set(key, (kaydedenMap.get(key) ?? 0) + 1)
+    const g = kaydedenGrup.get(key) ?? { adet: 0, durumAdet: new Map() }
+    g.adet++
+    g.durumAdet.set(j.durum_id, (g.durumAdet.get(j.durum_id) ?? 0) + 1)
+    kaydedenGrup.set(key, g)
   }
-  const kaydedenAdet = [...kaydedenMap.entries()]
-    .map(([id, adet]) => ({
-      ad: id === "yok" ? "Bilinmiyor" : profilAd.get(id) ?? "—",
-      adet,
-    }))
+  const kaydedenAdet = [...kaydedenGrup.entries()]
+    .map(([id, g]) => {
+      const dilimler = durumlar
+        .map((d) => ({
+          ad: d.ad,
+          renk: durumRenk(d.ad, d.renk),
+          adet: g.durumAdet.get(d.id) ?? 0,
+        }))
+        .filter((x) => x.adet > 0)
+      // Kişiye özel mini pasta (conic-gradient)
+      let pAcc = 0
+      const pStops: string[] = []
+      for (const x of dilimler) {
+        const from = (pAcc / g.adet) * 360
+        pAcc += x.adet
+        pStops.push(`${x.renk} ${from}deg ${(pAcc / g.adet) * 360}deg`)
+      }
+      return {
+        ad: id === "yok" ? "Bilinmiyor" : profilAd.get(id) ?? "—",
+        adet: g.adet,
+        pasta: pStops.length ? `conic-gradient(${pStops.join(",")})` : null,
+        ozet: dilimler.map((x) => `${x.ad}: ${x.adet}`).join(" · "),
+        onarildi: dilimler.find((x) => x.ad === "ONARILDI")?.adet ?? 0,
+      }
+    })
     .sort((a, b) => b.adet - a.adet)
   const kaydedenMaks = Math.max(1, ...kaydedenAdet.map((k) => k.adet))
 
@@ -217,19 +244,34 @@ export default async function PanoSayfasi({
           ) : (
             <div className="flex flex-col gap-[15px]">
               {kaydedenAdet.map((k, i) => (
-                <div key={k.ad + i}>
-                  <div className="mb-1.5 flex justify-between text-[13px]">
-                    <span className="font-medium">
-                      {i === 0 ? "🏆 " : ""}
-                      {k.ad}
-                    </span>
-                    <span className="font-mono font-semibold">{k.adet}</span>
+                <div key={k.ad + i} className="flex items-center gap-3.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1.5 flex justify-between text-[13px]">
+                      <span className="truncate font-medium">
+                        {i === 0 ? "🏆 " : ""}
+                        {k.ad}
+                      </span>
+                      <span className="font-mono font-semibold">{k.adet}</span>
+                    </div>
+                    <div className="h-[11px] overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${Math.round((k.adet / kaydedenMaks) * 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-[11px] overflow-hidden rounded-full bg-muted">
+                  {/* Kişinin kayıtlarının durum kırılımı — mini pasta (hover: döküm) */}
+                  <div
+                    className="flex shrink-0 flex-col items-center gap-1"
+                    title={k.ozet}
+                  >
                     <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${Math.round((k.adet / kaydedenMaks) * 100)}%` }}
+                      className="size-10 rounded-full shadow-[inset_0_0_0_1px_rgba(148,163,184,.3)]"
+                      style={{ background: k.pasta ?? "var(--muted)" }}
                     />
+                    <span className="text-[10px] leading-none text-muted-foreground">
+                      {k.onarildi} onarıldı
+                    </span>
                   </div>
                 </div>
               ))}
