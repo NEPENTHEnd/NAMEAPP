@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nesdrive-site",
+      "runtimeExecutable": "C:\\Users\\MUSTAF~1\\Desktop\\NESDRIVEWEB\\nesdrive-site\\dev.cmd",
+      "runtimeArgs": [],
+      "port": 4321
+    }
+  ]
+}

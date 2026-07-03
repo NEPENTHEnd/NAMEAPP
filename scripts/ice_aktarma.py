@@ -33,7 +33,9 @@ FOTO_DIZIN = os.path.join(CIKTI, "fotolar")
 
 ATLA = {"DURUM", "SAYFA6"}
 
-# Excel başlığı (normalize) -> şema alanı
+# Excel başlığı (normalize) -> şema alanı.
+# YALNIZ sistemde gerçek karşılığı olan başlıklar eşlenir; gerisi ya nota
+# düşülür (NOT_ESLEME) ya da atlanır. "KART NO" fiş no DEĞİLDİR (eski hata).
 BASLIK_ESLEME = {
     "URUNUN ADI VEYA KODU": "cihaz_adi",
     "KARTIN ADI": "cihaz_adi",
@@ -50,13 +52,14 @@ BASLIK_ESLEME = {
     "FATURA": "fatura_durumu",
     "TEKNIK SERVIS NO": "servis_no",
     "FIS NO": "servis_no",
-    "KART NO": "servis_no",
+    "FIRMA STOK KODU": "stok_kodu",  # BOYTEKS: fiş yerine firma stok kodu
     "ACIKLAMA": "aciklama",
     "ACIKLAMA / SERI NO": "aciklama",
     "ILGILI KISI": "ilgili_kisi",
     "FIYAT TEKLIFI": "fiyat_teklifi",
     "TEKLIF FIYATI": "fiyat_teklifi",
     "TEKLIF FIYAT": "fiyat_teklifi",
+    "TEKLIF BIRIM FIYAT": "fiyat_teklifi",
     "TEKLIF BIRIM FIYATI": "fiyat_teklifi",
     "FATURA BIRIM TUTARI": "fatura_tutari",
     "FATURA BIRIM TUTAR": "fatura_tutari",
@@ -67,7 +70,18 @@ BASLIK_ESLEME = {
     "RESIM-2": "resim",
     "RESIM 1": "resim",
     "RESIM 2": "resim",
+    "RESIM ON": "resim",
+    "RESIM ARKA": "resim",
     "RESIM": "resim",
+}
+
+# Sistemde alanı olmayan ama değeri KAYBOLMASIN istenen başlıklar:
+# açıklamanın sonuna "BAŞLIK: değer" olarak eklenir.
+NOT_ESLEME = {
+    "KART NO": "KART NO",
+    "TALEP NO": "TALEP NO",
+    "TEKLIF NO": "TEKLİF NO",
+    "TEKNIK ETIKET": "TEKNİK ETİKET",
 }
 
 # Bilinen yazım/normalize düzeltmeleri (genişletilebilir)
@@ -184,12 +198,16 @@ def main():
             atlanan_sayfa.append(ws.title + " (başlık yok)")
             continue
 
-        # sütun index -> alan
+        # sütun index -> alan (yalnız bilinen başlıklar; ilk eşleşen sütun kazanır)
         sutun_alan = {}
+        not_sutunlar = []  # sistemde alanı olmayanlar -> açıklamaya not
         for idx, hucre in enumerate(ws[baslik_satir]):
-            alan = BASLIK_ESLEME.get(norm_baslik(hucre.value))
+            nb = norm_baslik(hucre.value)
+            alan = BASLIK_ESLEME.get(nb)
             if alan:
-                sutun_alan.setdefault(alan, idx)  # ilk eşleşen sütun
+                sutun_alan.setdefault(alan, idx)
+            elif nb in NOT_ESLEME:
+                not_sutunlar.append((NOT_ESLEME[nb], idx))
 
         sayfa_musterisi = None if "musteri" in sutun_alan else temizle(ws.title)
 
@@ -210,6 +228,23 @@ def main():
             if not seri:
                 seri, aciklama = seri_no_ayikla(aciklama)
 
+            # Fiş: BOYTEKS'te FİRMA STOK KODU fiş yerine geçer;
+            # o sayfadaki TEKNİK SERVİS NO değeri kaybolmasın diye nota düşer.
+            stok = temizle(al("stok_kodu"))
+            servis = temizle(al("servis_no"))
+            notlar = []
+            if stok:
+                if servis:
+                    notlar.append("SERVİS NO: " + servis)
+                servis = stok
+            # Karşılığı olmayan sütunlar (KART NO, TALEP NO, ...) açıklamaya not
+            for etiket, idx in not_sutunlar:
+                v = temizle(satir[idx] if idx < len(satir) else None)
+                if v:
+                    notlar.append(v if norm_baslik(v).startswith(norm_baslik(etiket)) else f"{etiket}: {v}")
+            if notlar:
+                aciklama = " · ".join(([aciklama] if aciklama else []) + notlar)
+
             # Grup = sayfa adı (DİĞER → grupsuz/null)
             grup = None if norm_baslik(ws.title) == "DIGER" else temizle(ws.title)
 
@@ -225,7 +260,7 @@ def main():
                 "musteri": musteri,
                 "cihaz_adi": cihaz,
                 "seri_no": seri,
-                "servis_no": temizle(al("servis_no")),
+                "servis_no": servis,
                 "gelis_tarihi": tarih_cevir(al("gelis_tarihi")),
                 "cikis_tarihi": tarih_cevir(al("cikis_tarihi")),
                 "durum": durum,
