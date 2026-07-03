@@ -76,11 +76,22 @@ export function IslerFiltreler({
     const no = ++istekNo.current
     const t = setTimeout(async () => {
       const supabase = createClient()
-      const desen = `%${q}%`
+      // Türkçe İ/i–I/ı: ilike bunları eşleştiremiyor; hem TR-büyük hem TR-küçük
+      // varyantla ara ki İNVERTER de inverter de aynı sonucu getirsin.
+      const temiz = q.replace(/[%,()*\\]/g, " ").trim()
+      const varyantlar = [
+        ...new Set([
+          temiz,
+          temiz.toLocaleUpperCase("tr-TR"),
+          temiz.toLocaleLowerCase("tr-TR"),
+        ]),
+      ]
+      const orIfade = (kolon: string) =>
+        varyantlar.map((v) => `${kolon}.ilike.*${v}*`).join(",")
       const [cihazRes, firmaRes, fisRes] = await Promise.all([
-        supabase.from("is_kaydi").select("cihaz_adi").ilike("cihaz_adi", desen).limit(12),
-        supabase.from("musteri").select("ad").ilike("ad", desen).limit(5),
-        supabase.from("is_kaydi").select("servis_no").ilike("servis_no", `${q}%`).not("servis_no", "is", null).limit(4),
+        supabase.from("is_kaydi").select("cihaz_adi").or(orIfade("cihaz_adi")).limit(12),
+        supabase.from("musteri").select("ad").or(orIfade("ad")).limit(5),
+        supabase.from("is_kaydi").select("servis_no").ilike("servis_no", `${temiz}%`).not("servis_no", "is", null).limit(4),
       ])
       if (no !== istekNo.current) return // eski istek, at
       const gorulen = new Set<string>()

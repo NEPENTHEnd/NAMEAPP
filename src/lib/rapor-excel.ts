@@ -1,7 +1,9 @@
 import ExcelJS from "exceljs"
 
-// İş kaydı rapor/yedek Excel'i — ORİJİNAL çalışma dosyasının düzeninde:
-// her firma (grup) ayrı sayfa, satırlar SONUÇ/DURUM değerine göre boyalı.
+// İş kaydı rapor/yedek Excel'i — ORİJİNAL çalışma dosyasıyla birebir:
+// her firma kendi sayfasında, sayfaların sütun düzenleri orijinaldeki gibi
+// (BOYTEKS: FİRMA STOK KODU, TCDD: ŞEHİR/KART NO/TEKNİK ETİKET, ...),
+// satırlar SONUÇ (yoksa DURUM) değerine göre orijinal renklerle boyalı.
 export type RaporSatir = {
   servis_no: string | null
   takip_no: string | null
@@ -34,14 +36,10 @@ export const RAPOR_SELECT = `
   grup:grup_id ( ad, sira )
 `
 
-// Orijinal dosyadaki koşullu biçim kuralları (DİĞER sayfasından, öncelik
-// sırasıyla): önce SONUÇ (fatura durumu), araya BAKILMADI, sonra kalanlar.
-type RenkKural = {
-  kaynak: "fatura" | "durum"
-  deger: string
-  bg: string // ARGB
-  yazi: string // ARGB
-}
+// ---------------------------------------------------------------------------
+// Renkler: orijinal dosyadaki koşullu biçim kuralları (öncelik sırasıyla)
+// ---------------------------------------------------------------------------
+type RenkKural = { kaynak: "fatura" | "durum"; deger: string; bg: string; yazi: string }
 
 const RENK_KURALLARI: RenkKural[] = [
   { kaynak: "fatura", deger: "FATURA EDİLDİ", bg: "FF00FF00", yazi: "FF000000" },
@@ -66,20 +64,211 @@ const RENK_KURALLARI: RenkKural[] = [
   { kaynak: "durum", deger: "SAĞLAM", bg: "FF6FA8DC", yazi: "FF000000" },
 ]
 
-function satirRengi(k: RaporSatir): RenkKural | null {
-  const fatura = k.fatura_durumu?.ad ?? ""
-  const durum = k.durum?.ad ?? ""
-  for (const kural of RENK_KURALLARI) {
-    if (kural.kaynak === "fatura" && fatura === kural.deger) return kural
-    if (kural.kaynak === "durum" && durum === kural.deger) return kural
+function satirRengi(fatura: string, durum: string): RenkKural | null {
+  for (const k of RENK_KURALLARI) {
+    if (k.kaynak === "fatura" && fatura === k.deger) return k
+    if (k.kaynak === "durum" && durum === k.deger) return k
   }
   return null
+}
+
+// ---------------------------------------------------------------------------
+// Sayfa şablonları: orijinal dosyadaki başlık dizilişleri (fotoğraflar hariç)
+// ---------------------------------------------------------------------------
+type Alan =
+  | "musteri" | "cihaz" | "gelis" | "cikis" | "durum" | "personel" | "sonuc"
+  | "servis" | "seri" | "aciklama" | "teklif" | "tutar" | "ilgili"
+  | "kartno" | "talepno" | "teklifno" | "etiket" | "tsnNot"
+
+type Kolon = [baslik: string, alan: Alan]
+
+const SABLONLAR: Record<string, Kolon[]> = {
+  "DİĞER": [
+    ["FİRMA ADI", "musteri"], ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["SONUÇ", "sonuc"], ["İLGİLİ KİŞİ", "ilgili"], ["FİYAT TEKLİFİ", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["FİŞ NO", "servis"], ["AÇIKLAMA / SERİ NO", "aciklama"],
+  ],
+  "ŞİRKİŞOĞLU": [
+    ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"], ["SONUÇ", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["FİYAT TEKLİFİ", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["SERİ NO", "seri"],
+  ],
+  "BOYTEKS": [
+    ["FİRMA STOK KODU", "servis"], ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["SONUÇ", "sonuc"], ["TEKNİK SERVİS NO", "tsnNot"], ["TEKLİF NO", "teklifno"],
+    ["TEKLİF BİRİM FİYAT", "teklif"], ["FATURA BİRİM TUTARI", "tutar"],
+  ],
+  "BOYDAK GRUP": [
+    ["FİRMA ADI", "musteri"], ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["SONUÇ", "sonuc"], ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"],
+    ["TEKLİF FİYATI", "teklif"], ["FATURA BİRİM TUTARI", "tutar"],
+  ],
+  "BOYTAŞ-3": [
+    ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"], ["SONUÇ", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYAT", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"],
+  ],
+  "HASÇELİK KABLO": [
+    ["ŞUBE ADI", "musteri"], ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["SONUÇ", "sonuc"], ["TEKNİK SERVİS NO", "servis"], ["ÜRÜN SERİ NO", "seri"],
+    ["TEKLİF FİYATI", "teklif"], ["FATURA BİRİM TUTARI", "tutar"], ["AÇIKLAMA", "aciklama"],
+  ],
+  "HASÇELİK HALAT": [
+    ["ŞUBE ADI", "musteri"], ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["SONUÇ", "sonuc"], ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"],
+    ["TEKLİF FİYATI", "teklif"], ["FATURA BİRİM TUTARI", "tutar"], ["ÜRÜN SERİ NO", "seri"],
+  ],
+  "TEXHONG": [
+    ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"], ["SONUÇ", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYATI", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"],
+  ],
+  "MEGA METAL": [
+    ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"], ["SONUÇ", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYATI", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["TALEP NO", "talepno"],
+  ],
+  "ŞALT": [
+    ["KARTIN ADI", "cihaz"], ["SERİ NO", "seri"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM", "durum"], ["FİŞ NO", "servis"],
+    ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"], ["FİYAT TEKLİFİ", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["AÇIKLAMA / SERİ NO", "aciklama"],
+  ],
+  "TCDD": [
+    ["ŞEHİR", "musteri"], ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["FATURA", "sonuc"], ["KART NO", "kartno"], ["SERİ NO", "seri"],
+    ["TEKNİK ETİKET", "etiket"], ["TEKLİF FİYAT", "teklif"], ["FATURA BİRİM TUTARI", "tutar"],
+  ],
+  "KİH": [
+    ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["KART NO", "kartno"], ["AÇIKLAMA", "aciklama"],
+    ["TEKLİF FİYATI", "teklif"], ["FATURA BİRİM TUTARI", "tutar"], ["SERİ NUMARASI", "seri"],
+  ],
+  "SERSİM": [
+    ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"],
+    ["KART NO", "kartno"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYAT", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["SERİ NO", "seri"],
+  ],
+  "BORSAN": [
+    ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"],
+    ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYAT", "teklif"], ["FATURA BİRİM TUTARI", "tutar"],
+    ["TALEP NO", "talepno"],
+  ],
+  "BAŞYAZICIOĞLU": [
+    ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"], ["SONUÇ", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYATI", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["ÜRÜN SERİ NO", "seri"],
+  ],
+  "MES ET": [
+    ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"], ["SONUÇ", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYATI", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"],
+  ],
+  "DOĞUŞ": [
+    ["ŞUBE", "musteri"], ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["FATURA", "sonuc"], ["KART NO", "kartno"], ["AÇIKLAMA", "aciklama"],
+    ["TEKLİF FİYAT", "teklif"], ["FATURA BİRİM TUTARI", "tutar"],
+  ],
+  "SİTAŞ": [
+    ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"],
+    ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYAT", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["SERİ NUMARASI", "seri"],
+  ],
+  "RES": [
+    ["ŞUBE ADI", "musteri"], ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+    ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"],
+    ["SONUÇ", "sonuc"], ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"],
+    ["TEKLİF FİYATI", "teklif"], ["FATURA BİRİM TUTARI", "tutar"], ["ÜRÜN SERİ NO", "seri"],
+  ],
+  "K.B.Ş.B.": [
+    ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
+    ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"],
+    ["KART NO", "kartno"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYAT", "teklif"],
+    ["FATURA BİRİM TUTARI", "tutar"], ["SERİ NO", "seri"],
+  ],
+}
+
+// Orijinalde olmayan (sonradan eklenen) firmalar için genel düzen
+const VARSAYILAN_SABLON: Kolon[] = [
+  ["FİRMA ADI", "musteri"], ["ÜRÜNÜN ADI VEYA KODU", "cihaz"], ["GELİŞ TARİHİ", "gelis"],
+  ["ÇIKIŞ TARİHİ", "cikis"], ["DURUM  BİLGİSİ", "durum"], ["TEKNİK PERSONEL", "personel"],
+  ["SONUÇ", "sonuc"], ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"],
+  ["TEKLİF FİYATI", "teklif"], ["FATURA BİRİM TUTARI", "tutar"], ["SERİ NO", "seri"],
+]
+
+const GENISLIK: Record<Alan, number> = {
+  musteri: 22, cihaz: 38, gelis: 13, cikis: 13, durum: 13, personel: 17,
+  sonuc: 17, servis: 15, seri: 16, aciklama: 42, teklif: 13, tutar: 15,
+  ilgili: 22, kartno: 14, talepno: 17, teklifno: 12, etiket: 14, tsnNot: 15,
 }
 
 function tarihTR(s: string | null): string {
   if (!s) return ""
   const [y, m, g] = s.split("-")
   return `${g}.${m}.${y}`
+}
+
+// İçe aktarmada açıklamaya " · " ile eklenen etiketli notları geri ayıkla
+// (KART NO / TALEP NO / TEKLİF NO / TEKNİK ETİKET / SERVİS NO) — böylece
+// orijinaldeki gibi kendi sütunlarına yazılabilirler.
+function notlariAyikla(aciklama: string | null): {
+  aciklama: string
+  notlar: Record<string, string>
+} {
+  const notlar: Record<string, string> = {}
+  const kalan: string[] = []
+  for (const parca of (aciklama ?? "").split(" · ")) {
+    const t = parca.trim()
+    if (!t) continue
+    const m = t.match(/^(KART NO|TALEP NO|TEKLİF NO|TEKNİK ETİKET|SERVİS NO)\s*:?\s*(.+)$/)
+    if (m) notlar[m[1]] = m[2].trim()
+    else kalan.push(t)
+  }
+  return { aciklama: kalan.join(" · "), notlar }
+}
+
+function hucreDegeri(
+  alan: Alan,
+  k: RaporSatir,
+  ayiklanmis: { aciklama: string; notlar: Record<string, string> }
+): string | number | null {
+  switch (alan) {
+    case "musteri": return k.musteri?.ad ?? ""
+    case "cihaz": return k.cihaz_adi
+    case "gelis": return tarihTR(k.gelis_tarihi)
+    case "cikis": return tarihTR(k.cikis_tarihi)
+    case "durum": return k.durum?.ad ?? ""
+    case "personel": return k.teknik_personel?.ad ?? ""
+    case "sonuc": return k.fatura_durumu?.ad ?? ""
+    case "servis": return k.servis_no ?? ""
+    case "seri": return k.seri_no ?? ""
+    case "aciklama": return ayiklanmis.aciklama
+    case "teklif": return k.fiyat_teklifi ?? null
+    case "tutar": return k.fatura_tutari ?? null
+    case "ilgili": return k.ilgili_kisi ?? ""
+    case "kartno": return ayiklanmis.notlar["KART NO"] ?? ""
+    case "talepno": return ayiklanmis.notlar["TALEP NO"] ?? ""
+    case "teklifno": return ayiklanmis.notlar["TEKLİF NO"] ?? ""
+    case "etiket": return ayiklanmis.notlar["TEKNİK ETİKET"] ?? ""
+    case "tsnNot": return ayiklanmis.notlar["SERVİS NO"] ?? ""
+  }
 }
 
 // Excel sayfa adı kuralları: 31 karakter, []:*?/\ yasak
@@ -91,80 +280,55 @@ export async function raporExcelBuffer(satirlar: RaporSatir[]): Promise<Buffer> 
   const wb = new ExcelJS.Workbook()
   wb.creator = "Name Teknik"
 
-  // Firma (grup) bazında böl — orijinaldeki gibi: önce DİĞER, sonra sıraya göre
+  // Firma (grup) bazında böl — önce DİĞER, sonra menü sırası
   const gruplu = new Map<string, { sira: number; satirlar: RaporSatir[] }>()
   for (const k of satirlar) {
     const ad = k.grup?.ad ?? "DİĞER"
-    const sira = k.grup ? (k.grup.sira ?? 999) : -1 // DİĞER en başta
+    const sira = k.grup ? (k.grup.sira ?? 999) : -1
     const g = gruplu.get(ad) ?? { sira, satirlar: [] }
     g.satirlar.push(k)
     gruplu.set(ad, g)
   }
   const sayfalar = [...gruplu.entries()].sort((a, b) => a[1].sira - b[1].sira)
 
+  const kullanilanAdlar = new Set<string>()
   for (const [grupAd, { satirlar: rows }] of sayfalar) {
-    const ws = wb.addWorksheet(sayfaAdi(grupAd), {
-      views: [{ state: "frozen", ySplit: 1 }],
-    })
-    const boyteks = grupAd === "BOYTEKS"
+    let ad = sayfaAdi(grupAd)
+    while (kullanilanAdlar.has(ad)) ad = (ad + " 2").slice(0, 31)
+    kullanilanAdlar.add(ad)
 
-    // Orijinal DİĞER sayfası düzeni (fotoğraf sütunları hariç)
-    ws.columns = [
-      { header: "FİRMA ADI", key: "musteri", width: 24 },
-      { header: "ÜRÜNÜN ADI VEYA KODU", key: "cihaz", width: 38 },
-      { header: "GELİŞ TARİHİ", key: "gelis", width: 13 },
-      { header: "ÇIKIŞ TARİHİ", key: "cikis", width: 13 },
-      { header: "DURUM", key: "durum", width: 13 },
-      { header: "TEKNİK PERSONEL", key: "personel", width: 17 },
-      { header: "SONUÇ", key: "sonuc", width: 17 },
-      { header: "İLGİLİ KİŞİ", key: "ilgili", width: 22 },
-      { header: "FİYAT TEKLİFİ", key: "teklif", width: 13 },
-      { header: "FATURA BİRİM TUTARI", key: "tutar", width: 14 },
-      { header: boyteks ? "FİRMA STOK KODU" : "FİŞ NO", key: "servis", width: 15 },
-      { header: "SERİ NO", key: "seri", width: 16 },
-      { header: "AÇIKLAMA", key: "aciklama", width: 44 },
-    ]
+    const ws = wb.addWorksheet(ad, { views: [{ state: "frozen", ySplit: 1 }] })
+    const sablon = SABLONLAR[grupAd] ?? VARSAYILAN_SABLON
+
+    ws.columns = sablon.map(([baslik, alan]) => ({
+      header: baslik,
+      width: GENISLIK[alan],
+    }))
 
     for (const k of rows) {
-      const satir = ws.addRow({
-        musteri: k.musteri?.ad ?? "",
-        cihaz: k.cihaz_adi,
-        gelis: tarihTR(k.gelis_tarihi),
-        cikis: tarihTR(k.cikis_tarihi),
-        durum: k.durum?.ad ?? "",
-        personel: k.teknik_personel?.ad ?? "",
-        sonuc: k.fatura_durumu?.ad ?? "",
-        ilgili: k.ilgili_kisi ?? "",
-        teklif: k.fiyat_teklifi ?? null,
-        tutar: k.fatura_tutari ?? null,
-        servis: k.servis_no ?? "",
-        seri: k.seri_no ?? "",
-        aciklama: k.aciklama ?? "",
-      })
-      // Orijinaldeki koşullu renk: SONUÇ öncelikli, yoksa DURUM
-      const renk = satirRengi(k)
+      const ayiklanmis = notlariAyikla(k.aciklama)
+      const satir = ws.addRow(sablon.map(([, alan]) => hucreDegeri(alan, k, ayiklanmis)))
+      const renk = satirRengi(k.fatura_durumu?.ad ?? "", k.durum?.ad ?? "")
       if (renk) {
-        for (let c = 1; c <= 13; c++) {
+        for (let c = 1; c <= sablon.length; c++) {
           const hucre = satir.getCell(c)
-          hucre.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: renk.bg },
-          }
-          hucre.font = { ...hucre.font, color: { argb: renk.yazi } }
+          hucre.fill = { type: "pattern", pattern: "solid", fgColor: { argb: renk.bg } }
+          hucre.font = { color: { argb: renk.yazi } }
         }
       }
     }
 
-    // Başlık satırı: orijinaldeki gibi kalın (dolgu yok)
+    // Başlık satırı: orijinaldeki gibi kalın, dolgu yok
     const baslik = ws.getRow(1)
-    baslik.font = { bold: true, size: 11, name: "Montserrat" }
+    baslik.font = { bold: true, size: 11 }
     baslik.alignment = { vertical: "middle" }
     baslik.height = 20
-    ;["teklif", "tutar"].forEach((key) => {
-      ws.getColumn(key).numFmt = "#,##0"
+    // Para sütunları
+    sablon.forEach(([, alan], i) => {
+      if (alan === "teklif" || alan === "tutar") {
+        ws.getColumn(i + 1).numFmt = "#,##0"
+      }
     })
-    ws.autoFilter = { from: "A1", to: "M1" }
   }
 
   const ab = await wb.xlsx.writeBuffer()

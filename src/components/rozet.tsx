@@ -31,6 +31,15 @@ export function durumRenk(
   return (ad ? DURUM_DOT[ad] : null) ?? gecerliHex(renk) ?? "#94a3b8"
 }
 
+// Fatura (SONUÇ) rengi — eşleşme yoksa null döner, çağıran duruma düşer.
+export function faturaRenk(
+  ad?: string | null,
+  renk?: string | null
+): string | null {
+  if (!ad) return null
+  return gecerliHex(renk) ?? FATURA_DOT[ad] ?? null
+}
+
 // Tema-bağımsız tint: card/foreground değişkenleriyle karışır →
 // açık temada koyu metin + açık zemin, koyu temada açık metin + koyu zemin.
 function tint(c: string) {

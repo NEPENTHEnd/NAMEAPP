@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { DurumRozeti, FaturaRozeti, durumRenk } from "@/components/rozet"
+import { DurumRozeti, FaturaRozeti, durumRenk, faturaRenk } from "@/components/rozet"
 import { HucreDuzenle } from "@/components/hucre-duzenle"
 import { PanelFinansal } from "@/components/panel-finansal"
 
@@ -319,8 +319,12 @@ export function IslerEkrani({
                 key={k.id}
                 data-selected={k.id === seciliId}
                 onDoubleClick={() => git({ secili: k.id })}
-                // Satırın tamamı durum rengine boyanır (Excel'deki dolgu gibi)
-                style={{ "--satir": durumRenk(k.durum?.ad, k.durum?.renk) } as CSSProperties}
+                // Satır rengi Excel'deki gibi: önce FATURA (SONUÇ), yoksa DURUM
+                style={{
+                  "--satir":
+                    faturaRenk(k.fatura_durumu?.ad, k.fatura_durumu?.renk) ??
+                    durumRenk(k.durum?.ad, k.durum?.renk),
+                } as CSSProperties}
                 className={cn(
                   "border-b transition-colors",
                   "bg-[color-mix(in_oklab,var(--satir)_48%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_60%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_72%,transparent)]",

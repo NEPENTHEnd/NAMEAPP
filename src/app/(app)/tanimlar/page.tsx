@@ -6,13 +6,11 @@ import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
+import { FirmaListesi } from "@/components/firma-listesi"
 import {
   musteriEkle,
   musteriDuzenle,
   musteriAktiflik,
-  grupEkle,
-  grupDuzenle,
-  grupAktiflik,
   personelEkle,
   personelDuzenle,
   personelAktiflik,
@@ -102,49 +100,17 @@ export default async function TanimlarSayfasi({
       {sekme === "firmalar" && (
         <section className="grid gap-3">
           <p className="text-xs text-muted-foreground">
-            İşler ekranının solundaki firma menüsünü buradan yönetirsin.
-            <strong> Gizle</strong> dersen firma menüde görünmez ama işleri
-            silinmez (Tüm İşler'de kalır). DİĞER sabittir: hiçbir firmaya
-            atanmamış işleri gösterir.
+            İşler ekranının solundaki firma menüsü. Satırı ⠿ sapından tutup
+            <strong> sürükleyerek sırala</strong>; <strong>Sil</strong> firmayı
+            menüden kalıcı kaldırır (işleri silinmez, DİĞER'e taşınır).
           </p>
-          <form action={grupEkle} className="flex flex-wrap gap-2">
-            <Input name="ad" placeholder="Yeni firma adı" required className="max-w-xs" />
-            <Button type="submit" size="sm">Menüye ekle</Button>
-          </form>
-          <div className="grid gap-2">
-            {(gruplar.data ?? []).map((g) => (
-              <div
-                key={g.id}
-                className={cn(
-                  "flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2",
-                  !g.aktif && "opacity-55"
-                )}
-              >
-                <form action={grupDuzenle} className="flex flex-1 flex-wrap items-center gap-2">
-                  <input type="hidden" name="id" value={g.id} />
-                  <Input name="ad" defaultValue={g.ad} className="max-w-xs" required />
-                  <Button type="submit" size="sm" variant="ghost">Kaydet</Button>
-                </form>
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                    g.aktif
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {g.aktif ? "Menüde" : "Gizli"}
-                </span>
-                <form action={grupAktiflik}>
-                  <input type="hidden" name="id" value={g.id} />
-                  <input type="hidden" name="aktif" value={g.aktif ? "false" : "true"} />
-                  <Button type="submit" size="sm" variant="outline">
-                    {g.aktif ? "Gizle" : "Göster"}
-                  </Button>
-                </form>
-              </div>
-            ))}
-          </div>
+          <FirmaListesi
+            gruplar={(gruplar.data ?? []).map((g) => ({
+              id: g.id,
+              ad: g.ad,
+              sira: g.sira,
+            }))}
+          />
         </section>
       )}
 

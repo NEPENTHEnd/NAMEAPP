@@ -35,20 +35,32 @@ export async function aramaOrIfadesi(
   q: string
 ): Promise<string | null> {
   if (!q) return null
+  // Türkçe İ/i–I/ı için hem TR-büyük hem TR-küçük varyantla ara
+  const qTemiz = q.replace(/[%,()*\\]/g, " ").trim()
+  const varyantlar = [
+    ...new Set([
+      qTemiz,
+      qTemiz.toLocaleUpperCase("tr-TR"),
+      qTemiz.toLocaleLowerCase("tr-TR"),
+    ]),
+  ]
   const { data: eslesenMusteri } = await supabase
     .from("musteri")
     .select("id")
-    .ilike("ad", `%${q}%`)
-  const orParcalari = [
-    `cihaz_adi.ilike.*${q}*`,
-    `seri_no.ilike.*${q}*`,
-    `servis_no.ilike.*${q}*`,
-    `garanti_no.ilike.*${q}*`,
-    `kargo_takip_no.ilike.*${q}*`,
-    `takip_no.ilike.*${q}*`,
-    `ilgili_kisi.ilike.*${q}*`,
-    `adres.ilike.*${q}*`,
+    .or(varyantlar.map((v) => `ad.ilike.*${v}*`).join(","))
+  const alanlar = [
+    "cihaz_adi",
+    "seri_no",
+    "servis_no",
+    "garanti_no",
+    "kargo_takip_no",
+    "takip_no",
+    "ilgili_kisi",
+    "adres",
   ]
+  const orParcalari = alanlar.flatMap((a) =>
+    varyantlar.map((v) => `${a}.ilike.*${v}*`)
+  )
   if (eslesenMusteri && eslesenMusteri.length > 0) {
     orParcalari.push(
       `musteri_id.in.(${eslesenMusteri.map((m) => m.id).join(",")})`

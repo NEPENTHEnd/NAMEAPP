@@ -93,6 +93,25 @@ export async function grupAktiflik(formData: FormData) {
   bitir()
 }
 
+// Firmayı kalıcı sil — işleri silinmez, DİĞER'e düşer (FK on delete set null)
+export async function grupSil(id: string) {
+  const supabase = await yoneticiSupabase()
+  if (!id) return
+  await supabase.from("grup").delete().eq("id", id)
+  revalidatePath("/")
+  bitir()
+}
+
+// Sürükle-bırak sıralama: verilen id dizisine göre sira = 1..n
+export async function grupSirala(ids: string[]) {
+  const supabase = await yoneticiSupabase()
+  await Promise.all(
+    ids.map((id, i) => supabase.from("grup").update({ sira: i + 1 }).eq("id", id))
+  )
+  revalidatePath("/")
+  bitir()
+}
+
 // ---- Teknik personel ----
 export async function personelEkle(formData: FormData) {
   const supabase = await yoneticiSupabase()
