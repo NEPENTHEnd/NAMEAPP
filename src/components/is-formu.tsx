@@ -97,6 +97,7 @@ export function IsFormu({
     {}
   )
   const [yeniMusteri, setYeniMusteri] = useState(false)
+  const [yeniMusteriAd, setYeniMusteriAd] = useState("") // yazdığı isim buraya taşınır
   // Aranabilir müşteri seçici (uzun listede tek tek gezmek yerine yazarak bul)
   const [musteriId, setMusteriId] = useState(varsayilan.musteri_id ?? "")
   const [musteriAra, setMusteriAra] = useState("")
@@ -181,7 +182,13 @@ export function IsFormu({
             </button>
           </div>
           {yeniMusteri ? (
-            <Input name="yeni_musteri_adi" placeholder="Yeni müşteri adı" autoFocus />
+            <Input
+              name="yeni_musteri_adi"
+              placeholder="Yeni müşteri adı"
+              autoFocus
+              value={yeniMusteriAd}
+              onChange={(e) => setYeniMusteriAd(e.target.value)}
+            />
           ) : (
             <div ref={musteriKutu} className="relative">
               {/* Yazarak ara — kayıtlı müşteriler süzülür, tıkla seç */}
@@ -206,9 +213,30 @@ export function IsFormu({
               {musteriAcik && (
                 <div className="absolute left-0 top-full z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-popover py-1 shadow-xl">
                   {filtreliMusteriler.length === 0 && (
-                    <div className="px-3 py-2.5 text-sm text-muted-foreground">
-                      Eşleşen müşteri yok — sağ üstteki "+ Yeni müşteri" ile ekleyin.
-                    </div>
+                    musteriAra.trim() ? (
+                      // Eşleşme yoksa: tıkla → yazdığı ismi yeni müşteri olarak ekle
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setYeniMusteriAd(musteriAra.trim())
+                          setYeniMusteri(true)
+                          setMusteriAcik(false)
+                          if (degisiklikTakip) setDegisti(true)
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-muted"
+                      >
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                        </span>
+                        <span>
+                          <strong>&quot;{musteriAra.trim()}&quot;</strong> adıyla yeni müşteri ekle
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="px-3 py-2.5 text-sm text-muted-foreground">
+                        Aramak için yazın…
+                      </div>
+                    )
                   )}
                   {filtreliMusteriler.map((m) => (
                     <button

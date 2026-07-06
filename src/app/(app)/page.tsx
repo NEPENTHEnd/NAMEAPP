@@ -388,8 +388,22 @@ export default async function IslerSayfasi({
     />
   )
 
+  const ilkAd = (kullanici.ad ?? "").trim().split(/\s+/)[0]
+
   return (
     <div className="grid min-w-0 gap-4">
+      {/* Personele kişisel karşılama */}
+      {!finansal && ilkAd && (
+        <div className="rounded-xl border border-primary/20 bg-accent/60 px-4 py-3">
+          <div className="text-[15px] font-semibold text-primary">
+            Hoş geldin, {ilkAd} 👋
+          </div>
+          <div className="text-[12px] text-muted-foreground">
+            Aşağıdaki + ile yeni iş ekleyebilir, kendi kayıtlarını görebilirsin.
+          </div>
+        </div>
+      )}
+
       {/* Mobil: arama + filtreler (masaüstünde tablo sütununun üstünde) */}
       <div className="md:hidden">{filtrelerBlogu}</div>
 

@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/aylik-rapor", "schedule": "0 6 1 * *" }
+    { "path": "/api/rapor-gunluk", "schedule": "0 18 * * *" },
+    { "path": "/api/rapor-haftalik", "schedule": "0 7 * * 1" }
   ]
 }
