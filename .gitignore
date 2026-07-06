@@ -54,3 +54,7 @@ next-env.d.ts
 
 # Yedek klasoru ayari (kisiye/makineye ozel)
 yedek-hedef.txt
+
+# Sunucu yedek: doldurulmus ayar dosyasi (anahtar icerir) commitlenmez
+sunucu-yedek/AYARLAR-dolu.txt
+sunucu-yedek/yedekler/

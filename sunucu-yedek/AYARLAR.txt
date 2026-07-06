@@ -1,0 +1,18 @@
+# ============================================================
+#  Name Teknik - Yedek Ayarlari
+#  Asagidaki 3 satiri doldur, dosyayi kaydet. Baska yeri degistirme.
+#  (# ile baslayan satirlar aciklamadir, onlara dokunma.)
+# ============================================================
+
+# 1) Supabase adresi (Supabase > Settings > API > Project URL):
+URL=https://kjlfqgkmarekqtwsvryu.supabase.co
+
+# 2) Gizli anahtar (Supabase > Settings > API > service_role):
+KEY=BURAYA_SERVICE_ROLE_ANAHTARINI_YAPISTIR
+
+# 3) Yedeklerin kaydedilecegi klasor (bu SUNUCUDA bir klasor olsun, or. D:\Yedek\NameTeknik).
+#    Bos birakirsan bu klasorun icinde "yedekler" adli klasore kaydeder.
+HEDEF=D:\Yedek\NameTeknik
+
+# Kac gunluk yedek tutulsun (varsayilan 90):
+TUT=90

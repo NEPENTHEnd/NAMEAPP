@@ -1,0 +1,48 @@
+========================================================================
+  NAME TEKNIK - SUNUCUDA OTOMATIK YEDEK  (bilgisayarin kapaliyken de calisir)
+========================================================================
+
+AMAC: Yedekler, hep acik olan yedek sunucusunda her gun kendiliginden alinsin.
+      Boylece senin bilgisayarin kapali olsa bile yedek durmaz.
+
+Gereken: Sunucuda Python (bir kez kurulur) + bu klasor.
+
+------------------------------------------------------------------------
+ADIM 1 - Bu klasoru sunucuya kopyala
+------------------------------------------------------------------------
+Bu "sunucu-yedek" klasorunu komple, sunucudaki bir yere kopyala.
+Ornek: sunucuda   D:\NameTeknikYedek\   diye bir klasor ac, icine kopyala.
+
+------------------------------------------------------------------------
+ADIM 2 - Sunucuda Python kur (bir kez)
+------------------------------------------------------------------------
+1. Sunucuda tarayici ac:  https://www.python.org/downloads/
+2. Sari "Download Python" dugmesine bas, indir.
+3. Kurulumu ac. ONEMLI: ilk ekranda "Add python.exe to PATH" kutusunu ISARETLE
+   ve "Install for all users" secenegini sec, sonra Install.
+
+------------------------------------------------------------------------
+ADIM 3 - AYARLAR.txt dosyasini doldur
+------------------------------------------------------------------------
+AYARLAR.txt dosyasina SAG TIKLA > Duzenle (Not Defteri). 3 satiri doldur:
+  URL   = zaten dolu (senin Supabase adresin)
+  KEY   = Supabase > Settings > API > "service_role" anahtarini yapistir
+  HEDEF = yedeklerin gidecegi klasor, ornek:  D:\Yedek\NameTeknik
+Kaydet, kapat.
+
+------------------------------------------------------------------------
+ADIM 4 - Test et
+------------------------------------------------------------------------
+"1-YEDEK-AL.bat" dosyasina cift tikla. "YEDEK: ..." yazip bitmeli.
+HEDEF klasorune git; icinde nameteknik-yedek-...json dosyasi olusmus olmali.
+
+------------------------------------------------------------------------
+ADIM 5 - Otomatige bagla
+------------------------------------------------------------------------
+"2-OTOMATIK-KUR.bat" dosyasina SAG TIKLA > "Yonetici olarak calistir".
+"TAMAM" yazacak. Artik her gun 18:00'de, sunucu acik oldugu surece,
+kimse giris yapmasa bile otomatik yedek alinir.
+
+========================================================================
+Sorun olursa siyah penceredeki yazinin ekran goruntusunu al, ilet.
+========================================================================
