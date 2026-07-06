@@ -51,10 +51,30 @@ def istek(yontem, yol, govde=None, ekbaslik=None):
         return e.code, e.read()
 
 
+def yedek_al():
+    """Silmeden önce is_kaydi + musteri + foto tablolarını JSON'a döker."""
+    import datetime
+    hedef = os.path.join(KOK, "scripts", "_cikti")
+    os.makedirs(hedef, exist_ok=True)
+    damga = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    yol = os.path.join(hedef, f"yedek-{damga}.json")
+    paket = {}
+    for tablo in ("is_kaydi", "musteri", "foto"):
+        s, b = istek("GET", f"/rest/v1/{tablo}?select=*",
+                     ekbaslik={"Range": "0-99999"})
+        paket[tablo] = json.loads(b) if s < 300 else []
+    with open(yol, "w", encoding="utf-8") as f:
+        json.dump(paket, f, ensure_ascii=False)
+    print(f"YEDEK: {yol} (is_kaydi={len(paket['is_kaydi'])}, musteri={len(paket['musteri'])}, foto={len(paket['foto'])})")
+
+
 def main():
     if "--onay" not in sys.argv:
         print("Güvenlik: --onay bayrağı olmadan çalışmaz.")
         sys.exit(1)
+
+    # 0) Her ihtimale karşı: silmeden önce otomatik JSON yedeği
+    yedek_al()
 
     # 1) Foto deposunu boşalt (klasörlü listeleme: her is_kaydi id'si bir klasör)
     silinen_dosya = 0
