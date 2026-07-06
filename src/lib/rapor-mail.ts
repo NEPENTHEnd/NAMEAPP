@@ -17,6 +17,23 @@ async function raporExceliUret(): Promise<{ buffer: Buffer; adet: number }> {
   return { buffer, adet: satirlar.length }
 }
 
+// Tüm tabloların tam kopyası (JSON) — günlük yedek maili eki; geri yüklenebilir.
+const YEDEK_TABLOLARI = [
+  "is_kaydi", "foto", "musteri", "grup", "durum", "fatura_durumu",
+  "teknik_personel", "kullanici_profil", "davet_kisi", "fis_sayac",
+]
+async function tumVeriYedekJson(): Promise<Buffer> {
+  const supabase = createAdminClient()
+  const paket: Record<string, unknown> = {
+    _meta: { tarih: new Date().toISOString() },
+  }
+  for (const t of YEDEK_TABLOLARI) {
+    const { data } = await supabase.from(t as never).select("*").range(0, 99999)
+    paket[t] = data ?? []
+  }
+  return Buffer.from(JSON.stringify(paket), "utf-8")
+}
+
 function aliciListesi(env: string | undefined): string[] {
   return (env ?? "")
     .split(",")
@@ -60,7 +77,6 @@ export async function raporMailGonder(
 
   const { buffer, adet } = await raporExceliUret()
   const bugun = new Date().toISOString().slice(0, 10)
-  const dosyaAdi = `name-teknik-${bugun}.xlsx`
 
   const konu =
     tip === "gunluk"
@@ -68,15 +84,26 @@ export async function raporMailGonder(
       : `Name Teknik — Haftalık Rapor (${bugun})`
   const metin =
     tip === "gunluk"
-      ? `Ekte tüm iş kayıtlarının güncel Excel yedeği bulunuyor.\nToplam kayıt: ${adet}\n\nBu e-posta her gün otomatik gönderilir.`
+      ? `Ekte tüm iş kayıtlarının güncel Excel yedeği + tam veri yedeği (JSON) bulunuyor.\nToplam kayıt: ${adet}\n\nBu e-posta her gün otomatik gönderilir. JSON dosyası geri yükleme içindir; bu kutuyu saklamanız yeterli.`
       : `Ekte bu haftanın tüm iş kayıtları Excel raporu bulunuyor.\nToplam kayıt: ${adet}\n\nBu e-posta her hafta otomatik gönderilir.`
+
+  const ekler: { filename: string; content: Buffer }[] = [
+    { filename: `name-teknik-${bugun}.xlsx`, content: buffer },
+  ]
+  // Günlük yedek maili: tam veri yedeği JSON'unu da ekle (geri yüklenebilir)
+  if (tip === "gunluk") {
+    ekler.push({
+      filename: `name-teknik-yedek-${bugun}.json`,
+      content: await tumVeriYedekJson(),
+    })
+  }
 
   await transporter().sendMail({
     from: gonderen,
     to: alicilar,
     subject: konu,
     text: metin,
-    attachments: [{ filename: dosyaAdi, content: buffer }],
+    attachments: ekler,
   })
 
   return { ok: true, kayit: adet, alicilar }
