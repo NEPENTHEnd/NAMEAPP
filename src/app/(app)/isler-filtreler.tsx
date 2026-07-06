@@ -91,7 +91,8 @@ export function IslerFiltreler({
       const [cihazRes, firmaRes, fisRes] = await Promise.all([
         supabase.from("is_kaydi").select("cihaz_adi").or(orIfade("cihaz_adi")).limit(12),
         supabase.from("musteri").select("ad").or(orIfade("ad")).limit(5),
-        supabase.from("is_kaydi").select("servis_no").ilike("servis_no", `${temiz}%`).not("servis_no", "is", null).limit(4),
+        // Fiş no: "içinde geçen" eşleşme (8004 → 0720268004 de bulunsun)
+        supabase.from("is_kaydi").select("servis_no").ilike("servis_no", `%${temiz}%`).not("servis_no", "is", null).limit(6),
       ])
       if (no !== istekNo.current) return // eski istek, at
       const gorulen = new Set<string>()
