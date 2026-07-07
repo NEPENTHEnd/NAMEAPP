@@ -58,3 +58,6 @@ yedek-hedef.txt
 # Sunucu yedek: doldurulmus ayar dosyasi (anahtar icerir) commitlenmez
 sunucu-yedek/AYARLAR-dolu.txt
 sunucu-yedek/yedekler/
+
+# Gerçek service_role anahtarı içerir — asla commit edilmez
+sunucu-yedek/AYARLAR.txt

@@ -1,6 +1,6 @@
 # ============================================================
-#  Name Teknik - Yedek Ayarlari
-#  Asagidaki 3 satiri doldur, dosyayi kaydet. Baska yeri degistirme.
+#  Name Teknik - Yedek Ayarlari (SABLON)
+#  Bu dosyanin adini AYARLAR.txt yap, asagidaki 3 satiri doldur, kaydet.
 #  (# ile baslayan satirlar aciklamadir, onlara dokunma.)
 # ============================================================
 
