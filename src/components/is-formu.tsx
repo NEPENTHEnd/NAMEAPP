@@ -284,10 +284,13 @@ export function IsFormu({
             </div>
           )}
         </div>
-        <div className="mt-3.5 grid gap-1.5">
-          <label className={labelClass} htmlFor="adres">Adres</label>
-          <Input id="adres" name="adres" placeholder="Müşteri / cihaz adresi" defaultValue={varsayilan.adres ?? ""} />
-        </div>
+        {/* Adres personelde gizli (yalnız yönetici) */}
+        {!personelMod && (
+          <div className="mt-3.5 grid gap-1.5">
+            <label className={labelClass} htmlFor="adres">Adres</label>
+            <Input id="adres" name="adres" placeholder="Müşteri / cihaz adresi" defaultValue={varsayilan.adres ?? ""} />
+          </div>
+        )}
       </Bolum>
 
       <Bolum baslik="Cihaz Bilgileri">
