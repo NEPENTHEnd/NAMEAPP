@@ -23,6 +23,9 @@ export function KameraYakala({
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const trackRef = useRef<MediaStreamTrack | null>(null)
+  const kutuRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef(1)
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null)
 
   // Dijital zoom (donanım desteklemezse): min 1, max 4
   const dijital = zoomYetenek == null
@@ -42,6 +45,7 @@ export function KameraYakala({
 
   function zoomUygula(deger: number) {
     setZoom(deger)
+    zoomRef.current = deger
     if (!dijital && trackRef.current) {
       // Gerçek kamera zoom'u
       trackRef.current
@@ -50,6 +54,40 @@ export function KameraYakala({
     }
     // dijital modda önizleme CSS transform ile büyür (aşağıda)
   }
+
+  // İki parmakla aç/kapat (pinch) → yakınlaştır/uzaklaştır
+  useEffect(() => {
+    const el = kutuRef.current
+    if (!acik || hata || !el) return
+    const uzaklik = (t: TouchList) =>
+      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    function baslat(e: TouchEvent) {
+      if (e.touches.length === 2)
+        pinchRef.current = { dist: uzaklik(e.touches), zoom: zoomRef.current }
+    }
+    function hareket(e: TouchEvent) {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault()
+        const oran = uzaklik(e.touches) / pinchRef.current.dist
+        const yeni = Math.min(zMax, Math.max(zMin, +(pinchRef.current.zoom * oran).toFixed(2)))
+        zoomUygula(yeni)
+      }
+    }
+    function bitir(e: TouchEvent) {
+      if (e.touches.length < 2) pinchRef.current = null
+    }
+    el.addEventListener("touchstart", baslat, { passive: false })
+    el.addEventListener("touchmove", hareket, { passive: false })
+    el.addEventListener("touchend", bitir)
+    el.addEventListener("touchcancel", bitir)
+    return () => {
+      el.removeEventListener("touchstart", baslat)
+      el.removeEventListener("touchmove", hareket)
+      el.removeEventListener("touchend", bitir)
+      el.removeEventListener("touchcancel", bitir)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acik, hata, dijital, zMin, zMax])
 
   async function ac() {
     setHata(null)
@@ -137,7 +175,11 @@ export function KameraYakala({
             </div>
           ) : (
             <>
-              <div className="max-h-[64vh] overflow-hidden rounded-xl bg-black">
+              <div
+                ref={kutuRef}
+                className="max-h-[64vh] overflow-hidden rounded-xl bg-black"
+                style={{ touchAction: "none" }}
+              >
                 <video
                   ref={videoRef}
                   autoPlay
