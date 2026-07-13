@@ -517,18 +517,6 @@ export function IslerEkrani({
                   />
                 </div>
 
-                {/* Kargo takip (fotoğrafın/açıklamanın altında) */}
-                <div className="mt-3">
-                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Kargo takip no</div>
-                  <HucreDuzenle
-                    isId={seciliBilgi.id}
-                    alan="kargo_takip_no"
-                    deger={seciliBilgi.kargo_takip_no}
-                    bosEtiket="Kargo no ekle…"
-                    className="text-sm"
-                  />
-                </div>
-
                 {/* Fiş no / stok kodu — yönetici düzeltebilir */}
                 {finansal && (
                   <div className="mt-3">

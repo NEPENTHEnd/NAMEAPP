@@ -120,6 +120,40 @@ export function IsFormu({
     document.addEventListener("mousedown", disari)
     return () => document.removeEventListener("mousedown", disari)
   }, [])
+
+  // İlgili kişi & telefon — telefon rehberinden seçme (Contact Picker API)
+  const [ilgiliKisi, setIlgiliKisi] = useState(varsayilan.ilgili_kisi ?? "")
+  const [rehberVar, setRehberVar] = useState(false)
+  useEffect(() => {
+    const nav = navigator as Navigator & { contacts?: { select?: unknown } }
+    setRehberVar(!!nav.contacts && typeof nav.contacts.select === "function")
+  }, [])
+  async function rehberdenSec() {
+    try {
+      const nav = navigator as Navigator & {
+        contacts?: {
+          select: (
+            props: string[],
+            opts?: { multiple?: boolean }
+          ) => Promise<Array<{ name?: string[]; tel?: string[] }>>
+        }
+      }
+      if (!nav.contacts) return
+      const secilenler = await nav.contacts.select(["name", "tel"], { multiple: false })
+      const c = secilenler?.[0]
+      if (c) {
+        const ad = Array.isArray(c.name) ? c.name[0] : c.name
+        const tel = Array.isArray(c.tel) ? c.tel[0] : c.tel
+        const metin = [ad, tel].filter(Boolean).join(" · ")
+        if (metin) {
+          setIlgiliKisi(metin)
+          if (degisiklikTakip) setDegisti(true)
+        }
+      }
+    } catch {
+      /* kullanıcı iptal etti ya da desteklenmiyor — elle yazabilir */
+    }
+  }
   // Değişiklik takibi: edit modunda buton değişiklik olana dek pasif kalır.
   const [degisti, setDegisti] = useState(!degisiklikTakip)
   const [fotoYukleniyor, setFotoYukleniyor] = useState(false)
@@ -263,8 +297,31 @@ export function IsFormu({
         </div>
         <div className="grid gap-3.5 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="ilgili_kisi">İlgili kişi & telefon</label>
-            <Input id="ilgili_kisi" name="ilgili_kisi" placeholder="Ad Soyad · 05xx…" defaultValue={varsayilan.ilgili_kisi ?? ""} />
+            <div className="flex items-center justify-between gap-2">
+              <label className={labelClass} htmlFor="ilgili_kisi">İlgili kişi & telefon</label>
+              {rehberVar && (
+                <button
+                  type="button"
+                  onClick={rehberdenSec}
+                  className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-accent px-2.5 py-1 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 8v6M18 11h6"/></svg>
+                  Rehberden seç
+                </button>
+              )}
+            </div>
+            <Input
+              id="ilgili_kisi"
+              name="ilgili_kisi"
+              placeholder="Ad Soyad · 05xx…"
+              value={ilgiliKisi}
+              onChange={(e) => setIlgiliKisi(e.target.value)}
+            />
+            {rehberVar && (
+              <span className="text-[11px] text-muted-foreground">
+                Rehberde yoksa buraya elle yaz.
+              </span>
+            )}
           </div>
           {servisNoGoster ? (
             <div className="grid gap-1.5">
@@ -299,15 +356,9 @@ export function IsFormu({
           <Input id="cihaz_adi" name="cihaz_adi" placeholder="Örn. SIEMENS 6SE3221 7.5KW SÜRÜCÜ" defaultValue={varsayilan.cihaz_adi ?? ""} aria-invalid={!!fe.cihaz_adi} />
           <Hata alan="cihaz_adi" />
         </div>
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="seri_no">Seri no</label>
-            <Input id="seri_no" name="seri_no" defaultValue={varsayilan.seri_no ?? ""} />
-          </div>
-          <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="kargo_takip_no">Kargo takip no</label>
-            <Input id="kargo_takip_no" name="kargo_takip_no" placeholder="Kargo gönderi/takip no" defaultValue={varsayilan.kargo_takip_no ?? ""} />
-          </div>
+        <div className="grid gap-1.5">
+          <label className={labelClass} htmlFor="seri_no">Seri no</label>
+          <Input id="seri_no" name="seri_no" defaultValue={varsayilan.seri_no ?? ""} />
         </div>
       </Bolum>
 

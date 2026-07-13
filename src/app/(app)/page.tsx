@@ -469,7 +469,6 @@ export default async function IslerSayfasi({
                   <div>Geliş: {tarihTR(k.gelis_tarihi)}</div>
                   <div>Çıkış: {tarihTR(k.cikis_tarihi)}</div>
                   {finansal && k.garanti_no ? <div>Takip no: {k.garanti_no}</div> : null}
-                  {k.kargo_takip_no ? <div>Kargo: {k.kargo_takip_no}</div> : null}
                   {finansal && <div>Fatura: {k.fatura_durumu?.ad ?? "—"}</div>}
                   {finansal && (
                     <div className="font-medium text-foreground">
