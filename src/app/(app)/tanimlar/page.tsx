@@ -45,7 +45,7 @@ export default async function TanimlarSayfasi({
   const sekme = SEKMELER.some((s) => s.k === sekmeRaw) ? sekmeRaw! : "musteri"
 
   const supabase = await createClient()
-  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler, gruplar] =
+  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler, gruplar, isKisiler] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
@@ -57,7 +57,26 @@ export default async function TanimlarSayfasi({
         .select("id, ad, fis_prefix, rol, aktif, kod")
         .order("fis_prefix"),
       supabase.from("grup").select("id, ad, sira, aktif").order("sira"),
+      // Müşteri başına biriken ilgili kişi + telefon (işlerden otomatik toplanır)
+      supabase.from("is_kaydi").select("musteri_id, ilgili_kisi, telefon"),
     ])
+
+  // Her müşterinin işlerinden benzersiz (ad · telefon) iletişimlerini + iş sayısını çıkar
+  const musteriIletisim = new Map<string, { ad: string | null; telefon: string | null }[]>()
+  const musteriIsSayisi = new Map<string, number>()
+  for (const r of isKisiler.data ?? []) {
+    if (!r.musteri_id) continue
+    musteriIsSayisi.set(r.musteri_id, (musteriIsSayisi.get(r.musteri_id) ?? 0) + 1)
+    const ad = r.ilgili_kisi?.trim() || null
+    const tel = r.telefon?.trim() || null
+    if (!ad && !tel) continue
+    const liste = musteriIletisim.get(r.musteri_id) ?? []
+    const anahtar = `${ad ?? ""}|${tel ?? ""}`
+    if (!liste.some((x) => `${x.ad ?? ""}|${x.telefon ?? ""}` === anahtar)) {
+      liste.push({ ad, telefon: tel })
+      musteriIletisim.set(r.musteri_id, liste)
+    }
+  }
 
   const rolEtiket = (r: string) => (r === "yonetici" ? "Yönetici" : "Personel")
   // Bir davet kodu "kullanılmış" sayılır: o ön eke sahip kayıtlı bir profil varsa.
@@ -117,30 +136,70 @@ export default async function TanimlarSayfasi({
       {/* MÜŞTERİLER */}
       {sekme === "musteri" && (
         <section className="grid gap-3">
+          <p className="text-xs text-muted-foreground">
+            Bu liste <strong>otomatik büyür</strong>: personel ya da yönetici bir işe
+            firma yazdığında buraya eklenir. Her firmanın altında, o firmaya girilmiş
+            <strong> ilgili kişi + telefonlar</strong> otomatik birikir.
+          </p>
           <form action={musteriEkle} className="flex flex-wrap gap-2">
             <Input name="ad" placeholder="Müşteri adı" required className="max-w-xs" />
             <Input name="sube_sehir" placeholder="Şube/şehir (ops.)" className="max-w-xs" />
             <Button type="submit" size="sm">Ekle</Button>
           </form>
+          <div className="text-xs text-muted-foreground">
+            Toplam {(musteriler.data ?? []).length} müşteri
+          </div>
           <div className="grid gap-2">
-            {(musteriler.data ?? []).map((m) => (
-              <div key={m.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2">
-                <form action={musteriDuzenle} className="flex flex-1 flex-wrap items-center gap-2">
-                  <input type="hidden" name="id" value={m.id} />
-                  <Input name="ad" defaultValue={m.ad} className="max-w-xs" required />
-                  <Input name="sube_sehir" defaultValue={m.sube_sehir ?? ""} placeholder="Şube/şehir" className="max-w-[10rem]" />
-                  <Button type="submit" size="sm" variant="outline">Kaydet</Button>
-                </form>
-                <form action={musteriAktiflik}>
-                  <input type="hidden" name="id" value={m.id} />
-                  <input type="hidden" name="aktif" value={m.aktif ? "false" : "true"} />
-                  <Button type="submit" size="sm" variant={m.aktif ? "ghost" : "secondary"}>
-                    {m.aktif ? "Pasifleştir" : "Aktifleştir"}
-                  </Button>
-                </form>
-                {!m.aktif && <span className="text-xs text-muted-foreground">(pasif)</span>}
+            {(musteriler.data ?? []).map((m) => {
+              const iletisimler = musteriIletisim.get(m.id) ?? []
+              const isSayisi = musteriIsSayisi.get(m.id) ?? 0
+              return (
+              <div key={m.id} className="grid gap-2 rounded-xl border border-border bg-card p-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <form action={musteriDuzenle} className="flex flex-1 flex-wrap items-center gap-2">
+                    <input type="hidden" name="id" value={m.id} />
+                    <Input name="ad" defaultValue={m.ad} className="max-w-xs" required />
+                    <Input name="sube_sehir" defaultValue={m.sube_sehir ?? ""} placeholder="Şube/şehir" className="max-w-[10rem]" />
+                    <Button type="submit" size="sm" variant="outline">Kaydet</Button>
+                  </form>
+                  {isSayisi > 0 && (
+                    <Link
+                      href={`/?musteri=${m.id}`}
+                      className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                      title="Bu firmanın işlerini gör"
+                    >
+                      {isSayisi} iş
+                    </Link>
+                  )}
+                  <form action={musteriAktiflik}>
+                    <input type="hidden" name="id" value={m.id} />
+                    <input type="hidden" name="aktif" value={m.aktif ? "false" : "true"} />
+                    <Button type="submit" size="sm" variant={m.aktif ? "ghost" : "secondary"}>
+                      {m.aktif ? "Pasifleştir" : "Aktifleştir"}
+                    </Button>
+                  </form>
+                  {!m.aktif && <span className="text-xs text-muted-foreground">(pasif)</span>}
+                </div>
+                {iletisimler.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-t border-border/60 pt-2">
+                    {iletisimler.map((c, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-[12px]"
+                      >
+                        {c.ad && <span className="font-medium">{c.ad}</span>}
+                        {c.telefon && (
+                          <a href={`tel:${c.telefon}`} className="text-primary hover:underline">
+                            {c.telefon}
+                          </a>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       )}
