@@ -563,11 +563,12 @@ export function IsFormu({
                 name="teklif_birim"
                 defaultValue={varsayilan.teklif_birim ?? "TL"}
                 aria-label="Para birimi"
-                className={cn(selectClass, "w-[76px] shrink-0")}
+                className={cn(selectClass, "w-[80px] shrink-0")}
               >
                 <option value="TL">TL</option>
-                <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="CHF">CHF</option>
               </select>
             </div>
             <Hata alan="fiyat_teklifi" />

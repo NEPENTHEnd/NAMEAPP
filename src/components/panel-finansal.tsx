@@ -69,8 +69,9 @@ export function PanelFinansal({
             className="h-8 w-[64px] shrink-0 rounded-lg border border-input bg-card px-1.5 text-sm outline-none focus:border-primary"
           >
             <option value="TL">TL</option>
-            <option value="EUR">EUR</option>
             <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="CHF">CHF</option>
           </select>
         </div>
         <Input

@@ -85,7 +85,7 @@ const sema = z
     grup_id: z.preprocess(bosNull, z.string().uuid().optional()),
     sube_id: z.preprocess(bosNull, z.string().uuid().optional()),
     fiyat_teklifi: sayi,
-    teklif_birim: z.preprocess(bosNull, z.enum(["TL", "EUR", "USD"]).optional()),
+    teklif_birim: z.preprocess(bosNull, z.enum(["TL", "USD", "EUR", "CHF"]).optional()),
     fatura_tutari: sayi,
     fatura_tarihi: tarih,
     garanti_no: metinBuyuk,
@@ -329,9 +329,9 @@ export async function isFinansalGuncelle(
     return Number.isFinite(n) && n >= 0 ? n : null
   }
 
-  const birimSec = (v: FormDataEntryValue | null): "TL" | "EUR" | "USD" => {
+  const birimSec = (v: FormDataEntryValue | null): "TL" | "USD" | "EUR" | "CHF" => {
     const s = String(v ?? "").toUpperCase()
-    return s === "EUR" || s === "USD" ? s : "TL"
+    return s === "USD" || s === "EUR" || s === "CHF" ? s : "TL"
   }
   const tarihSec = (v: FormDataEntryValue | null): string | null => {
     const s = String(v ?? "").trim()
@@ -453,7 +453,7 @@ export async function isHucreGuncelle(
       break
     case "teklif_birim": {
       const b = t.toUpperCase()
-      if (b !== "TL" && b !== "EUR" && b !== "USD")
+      if (b !== "TL" && b !== "USD" && b !== "EUR" && b !== "CHF")
         return { ok: false, error: "Geçersiz para birimi." }
       guncelle.teklif_birim = b
       break
