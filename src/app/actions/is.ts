@@ -375,6 +375,28 @@ export async function isGrupAta(id: string, grupId: string | null) {
   return { ok: true }
 }
 
+// Sürükle-bırak (çoklu): yönetici bir veya çok işi firmaya + şubeye taşır.
+// grupId=null → DİĞER; subeId=null → ana firma (şubesiz).
+export async function isTasima(
+  ids: string[],
+  grupId: string | null,
+  subeId: string | null
+) {
+  const kullanici = await getKullanici()
+  if (kullanici.rol !== "yonetici") {
+    return { ok: false, error: "Bu işlem için yönetici yetkisi gerekir." }
+  }
+  if (ids.length === 0) return { ok: true }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("is_kaydi")
+    .update({ grup_id: grupId, sube_id: subeId })
+    .in("id", ids)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/")
+  return { ok: true }
+}
+
 // Excel gibi hücre-içi düzenleme. Bu alanlar YALNIZ yönetici tarafından değiştirilir.
 const FINANSAL_ALAN = new Set([
   "fatura_durumu_id",

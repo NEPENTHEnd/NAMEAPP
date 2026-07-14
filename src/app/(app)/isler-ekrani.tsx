@@ -7,7 +7,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
-import { isGrupAta, isSil } from "@/app/actions/is"
+import { isTasima, isSil } from "@/app/actions/is"
 import {
   Table,
   TableBody,
@@ -161,10 +161,31 @@ export function IslerEkrani({
     })
   }
 
+  // ---- Çoklu seçim (işaretle → birlikte sürükle) ----
+  const [secili, setSecili] = useState<Set<string>>(new Set())
+  function seciliDegistir(id: string) {
+    setSecili((prev) => {
+      const y = new Set(prev)
+      if (y.has(id)) y.delete(id)
+      else y.add(id)
+      return y
+    })
+  }
+  const gorunenIdler = kayitlar.map((k) => k.id)
+  const hepsiSecili =
+    gorunenIdler.length > 0 && gorunenIdler.every((id) => secili.has(id))
+  function hepsiniDegistir() {
+    setSecili((prev) => {
+      if (gorunenIdler.every((id) => prev.has(id))) return new Set()
+      return new Set(gorunenIdler)
+    })
+  }
+
   // ---- Sürükle-bırak: fiş no'nun solundaki SAPTAN tutulur ----
   const [surukle, setSurukle] = useState<Kayit | null>(null)
+  const [surukleIdler, setSurukleIdler] = useState<string[]>([])
   const [pos, setPos] = useState({ x: 0, y: 0 })
-  const [hedef, setHedef] = useState<string | null>(null) // "diger" | grup id | null
+  const [hedef, setHedef] = useState<string | null>(null) // "diger" | grup id | "sube:<id>"
   const [pending, startTransition] = useTransition()
   const ogeRef = useRef<Map<string, HTMLElement>>(new Map())
 
@@ -173,6 +194,14 @@ export function IslerEkrani({
     { anahtar: "diger", ad: "DİĞER" },
     ...gruplar.map((g) => ({ anahtar: g.id, ad: g.ad })),
   ]
+  // Şube id → üst firma (grup) id — bırakınca firmayı da doğru ayarlamak için
+  const subeUst = new Map(subeler.map((s) => [s.id, s.grup_id]))
+  // Hedef anahtarını okunur ada çevir (etiket için)
+  function hedefAd(key: string | null): string {
+    if (!key) return ""
+    if (key.startsWith("sube:")) return subeler.find((s) => s.id === key.slice(5))?.ad ?? "şube"
+    return hedefler.find((h) => h.anahtar === key)?.ad ?? ""
+  }
 
   function hedefBul(y: number): string | null {
     let bulunan: string | null = null
@@ -192,17 +221,26 @@ export function IslerEkrani({
     }
     function up() {
       const h = hedef
-      const sr = surukle
+      const idler = surukleIdler
       setSurukle(null)
+      setSurukleIdler([])
       setHedef(null)
-      if (sr && h) {
-        const grupId = h === "diger" ? null : h
-        if (grupId !== sr.grup_id) {
-          startTransition(async () => {
-            await isGrupAta(sr.id, grupId)
-            router.refresh()
-          })
+      if (h && idler.length > 0) {
+        let grupId: string | null
+        let subeId: string | null = null
+        if (h === "diger") {
+          grupId = null
+        } else if (h.startsWith("sube:")) {
+          subeId = h.slice(5)
+          grupId = subeUst.get(subeId) ?? null
+        } else {
+          grupId = h
         }
+        startTransition(async () => {
+          await isTasima(idler, grupId, subeId)
+          setSecili(new Set())
+          router.refresh()
+        })
       }
     }
     window.addEventListener("pointermove", move)
@@ -212,7 +250,8 @@ export function IslerEkrani({
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
     }
-  }, [surukle, hedef, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surukle, surukleIdler, hedef, router])
 
   const hedefIndex = hedef ? hedefler.findIndex((h) => h.anahtar === hedef) : -1
 
@@ -320,24 +359,34 @@ export function IslerEkrani({
                       </svg>
                     </Link>
                   </div>
-                  {/* Şubeler (açıkken alt alta) */}
+                  {/* Şubeler (açıkken alt alta) — sürükle-bırak hedefi */}
                   {acik && hSubeler.length > 0 && (
                     <div className="mb-0.5 ml-[18px] grid gap-0.5 border-l border-border pl-1.5">
-                      {hSubeler.map((s) => (
-                        <Link
-                          key={s.id}
-                          href={url({ grup: h.anahtar, sube: s.id, bakilmadi: null })}
-                          scroll={false}
-                          className={cn(
-                            "truncate rounded-lg px-2.5 py-1 text-[12.5px] transition-colors",
-                            aktifSube === s.id
-                              ? "bg-accent font-semibold text-primary"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                          )}
-                        >
-                          {s.ad}
-                        </Link>
-                      ))}
+                      {hSubeler.map((s) => {
+                        const subeVurgulu = surukle != null && hedef === `sube:${s.id}`
+                        return (
+                          <Link
+                            key={s.id}
+                            ref={(el) => {
+                              const anahtar = `sube:${s.id}`
+                              if (el) ogeRef.current.set(anahtar, el)
+                              else ogeRef.current.delete(anahtar)
+                            }}
+                            href={url({ grup: h.anahtar, sube: s.id, bakilmadi: null })}
+                            scroll={false}
+                            className={cn(
+                              "truncate rounded-lg px-2.5 py-1 text-[12.5px] transition-colors",
+                              subeVurgulu
+                                ? "bg-emerald-500 font-bold text-white ring-2 ring-inset ring-emerald-200"
+                                : aktifSube === s.id
+                                  ? "bg-accent font-semibold text-primary"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )}
+                          >
+                            {s.ad}
+                          </Link>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -357,7 +406,17 @@ export function IslerEkrani({
         >
           <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
             <TableRow>
-              {finansal && <TableHead className="w-7 p-0" />}
+              {finansal && (
+                <TableHead className="w-11 p-0 pl-1">
+                  <input
+                    type="checkbox"
+                    checked={hepsiSecili}
+                    onChange={hepsiniDegistir}
+                    title="Görünenlerin hepsini seç"
+                    className="size-3.5 accent-primary"
+                  />
+                </TableHead>
+              )}
               <TableHead>
                 <Link href={siralaHref("servis")} scroll={false} className="hover:underline">
                   {stokKoduModu ? "Firma Stok Kodu" : "Fiş No"}
@@ -413,30 +472,48 @@ export function IslerEkrani({
                 className={cn(
                   "border-b transition-colors",
                   "bg-[color-mix(in_oklab,var(--satir)_48%,transparent)] hover:bg-[color-mix(in_oklab,var(--satir)_60%,transparent)] data-[selected=true]:bg-[color-mix(in_oklab,var(--satir)_72%,transparent)]",
-                  surukle?.id === k.id && "opacity-40"
+                  surukleIdler.includes(k.id) && "opacity-40",
+                  secili.has(k.id) && "ring-2 ring-inset ring-primary/70"
                 )}
               >
-                {/* Sürükleme sapı — fiş no'nun hemen solunda */}
+                {/* Seçim kutusu + sürükleme sapı — fiş no'nun hemen solunda */}
                 {finansal && (
-                  <TableCell className="w-7 p-0 pl-1">
-                    <button
-                      type="button"
-                      title="Tutup sol menüdeki firmaya sürükle"
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setSurukle(k)
-                        setPos({ x: e.clientX, y: e.clientY })
-                      }}
-                      className="flex h-8 w-5 cursor-grab items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-foreground active:cursor-grabbing"
-                      style={{ touchAction: "none" }}
-                    >
-                      <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-                        <circle cx="2.5" cy="2.5" r="1.4" /><circle cx="7.5" cy="2.5" r="1.4" />
-                        <circle cx="2.5" cy="8" r="1.4" /><circle cx="7.5" cy="8" r="1.4" />
-                        <circle cx="2.5" cy="13.5" r="1.4" /><circle cx="7.5" cy="13.5" r="1.4" />
-                      </svg>
-                    </button>
+                  <TableCell className="w-11 p-0 pl-1">
+                    <div className="flex items-center gap-0.5">
+                      <input
+                        type="checkbox"
+                        checked={secili.has(k.id)}
+                        onChange={() => seciliDegistir(k.id)}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Seç (çoklu sürükleme için)"
+                        className="size-3.5 shrink-0 accent-primary"
+                      />
+                      <button
+                        type="button"
+                        title="Tutup sol menüdeki firmaya/şubeye sürükle"
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          // Seçili satırlardan biri tutulduysa hepsini taşı; değilse yalnız bunu
+                          const idler =
+                            secili.has(k.id) && secili.size > 0
+                              ? Array.from(secili)
+                              : [k.id]
+                          setSurukle(k)
+                          setSurukleIdler(idler)
+                          setPos({ x: e.clientX, y: e.clientY })
+                        }}
+                        className="flex h-8 w-5 cursor-grab items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-foreground active:cursor-grabbing"
+                        style={{ touchAction: "none" }}
+                      >
+                        <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                          <circle cx="2.5" cy="2.5" r="1.4" /><circle cx="7.5" cy="2.5" r="1.4" />
+                          <circle cx="2.5" cy="8" r="1.4" /><circle cx="7.5" cy="8" r="1.4" />
+                          <circle cx="2.5" cy="13.5" r="1.4" /><circle cx="7.5" cy="13.5" r="1.4" />
+                        </svg>
+                      </button>
+                    </div>
                   </TableCell>
                 )}
                 <TableCell className="font-medium">
@@ -693,8 +770,12 @@ export function IslerEkrani({
           className="pointer-events-none fixed z-50 rounded-lg border border-emerald-400 bg-card px-3 py-1.5 text-xs font-medium shadow-lg"
           style={{ left: pos.x + 12, top: pos.y + 12 }}
         >
-          {surukle.servis_no ?? surukle.cihaz_adi}
-          <span className="ml-1 text-muted-foreground">→ {hedef ? hedefler.find((h) => h.anahtar === hedef)?.ad : "soldaki firmaya bırak"}</span>
+          {surukleIdler.length > 1
+            ? `${surukleIdler.length} iş`
+            : surukle.servis_no ?? surukle.cihaz_adi}
+          <span className="ml-1 text-muted-foreground">
+            → {hedef ? hedefAd(hedef) : "soldaki firmaya/şubeye bırak"}
+          </span>
         </div>
       )}
 
