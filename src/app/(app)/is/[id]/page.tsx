@@ -33,7 +33,7 @@ export default async function IsDetaySayfasi({
     .select(
       `
         id, cihaz_adi, seri_no, servis_no, takip_no, gelis_tarihi, cikis_tarihi,
-        ilgili_kisi, adres, kargo_takip_no, grup_id, fiyat_teklifi, fatura_tutari, fatura_tarihi, garanti_no, aciklama,
+        ilgili_kisi, telefon, adres, kargo_takip_no, grup_id, fiyat_teklifi, fatura_tutari, fatura_tarihi, garanti_no, aciklama,
         yonetici_gordu,
         created_at, updated_at,
         musteri_id, durum_id, teknik_personel_id, fatura_durumu_id,
@@ -125,6 +125,7 @@ export default async function IsDetaySayfasi({
           teknik_personel_id: kayit.teknik_personel_id,
           fatura_durumu_id: kayit.fatura_durumu_id,
           ilgili_kisi: kayit.ilgili_kisi,
+          telefon: kayit.telefon,
           adres: kayit.adres,
           kargo_takip_no: kayit.kargo_takip_no,
           grup_id: kayit.grup_id,

@@ -51,6 +51,7 @@ export default async function IslerSayfasi({
   const secili = tek(sp.secili) ?? ""
   const grupParam = tek(sp.grup) ?? "" // "" | "diger" | grup id
   const bakilmadiFiltre = tek(sp.bakilmadi) === "1"
+  const cikissizFiltre = tek(sp.cikissiz) === "1" // çıkış tarihi olmayanlar
   const sayfa = Math.max(1, Number(tek(sp.sayfa) ?? "1") || 1)
 
   // Sıralama
@@ -97,7 +98,9 @@ export default async function IslerSayfasi({
   const gruplar = gruplarRes.data ?? []
   const bakilmadiId = durumlarRes.data?.find((d) => d.ad === "BAKILMADI")?.id ?? ""
   const faturaDurumlari = faturalarRes.data ?? []
-  // Bu fatura durumları "kapanmış" sayılır: çıkış tarihi olmasa da sonraki aya devretmez
+  // "Kapanmış" fatura durumları. Bir iş yalnızca ÇIKIŞ TARİHİ VAR **ve** fatura
+  // durumu bu listedeyse ayında kalır (devretmez). Çıkışı olmayan her iş —
+  // durum ne olursa olsun — sonraki aya devreder.
   const KAPALI_FATURA = new Set([
     "BEDELSİZ",
     "FATURA EDİLDİ",
@@ -105,6 +108,7 @@ export default async function IslerSayfasi({
     "İADE",
     "PEŞİN ALINDI",
     "ÇALIŞMADI",
+    "SAĞLAM",
   ])
   const kapaliFaturaIdler = faturaDurumlari
     .filter((f) => KAPALI_FATURA.has(f.ad))
@@ -134,6 +138,8 @@ export default async function IslerSayfasi({
   else if (grupParam) query = query.eq("grup_id", grupParam)
   // "Bakılmadı (gelenler)" tuşu
   if (bakilmadiFiltre && bakilmadiId) query = query.eq("durum_id", bakilmadiId)
+  // "Çıkış tarihi olmayanlar" tuşu
+  if (cikissizFiltre) query = query.is("cikis_tarihi", null)
   if (personel) query = query.eq("teknik_personel_id", personel)
   if (fatura) query = query.eq("fatura_durumu_id", fatura)
   if (musteri) query = query.eq("musteri_id", musteri)
@@ -142,11 +148,11 @@ export default async function IslerSayfasi({
   // Arama yapılırken ay filtresi devre dışı — sonuç hangi aydaysa o gelsin.
   const ayAralik = ay && !q ? ayAraligi(ay) : null
   if (ayAralik) {
-    // O ayın gelenleri VEYA hâlâ açık işler. "Açık" = çıkış tarihi yok VE fatura
-    // durumu kapanmış (bedelsiz/fatura edildi/garanti/iade/peşin/çalışmadı) değil.
+    // O ayın gelenleri VEYA hâlâ "açık" işler. Açık = çıkış tarihi yok (durum ne
+    // olursa olsun) VEYA fatura durumu kapanmış listede değil (null dahil).
     const acikKosul =
       kapaliFaturaIdler.length > 0
-        ? `and(cikis_tarihi.is.null,or(fatura_durumu_id.is.null,fatura_durumu_id.not.in.(${kapaliFaturaIdler.join(",")})))`
+        ? `or(cikis_tarihi.is.null,fatura_durumu_id.is.null,fatura_durumu_id.not.in.(${kapaliFaturaIdler.join(",")}))`
         : `cikis_tarihi.is.null`
     query = query.or(
       `and(gelis_tarihi.gte.${ayAralik.baslangic},gelis_tarihi.lte.${ayAralik.bitis}),${acikKosul}`
@@ -176,6 +182,7 @@ export default async function IslerSayfasi({
       "kargo_takip_no",
       "takip_no",
       "ilgili_kisi",
+      "telefon",
       "adres",
     ]
     const orParcalari = alanlar.flatMap((a) =>
@@ -275,6 +282,7 @@ export default async function IslerSayfasi({
       yon?: string
       grup?: string
       bakilmadi?: string
+      cikissiz?: string
       fatura?: string
     } = {}
   ): string {
@@ -293,6 +301,9 @@ export default async function IslerSayfasi({
     const hedefBakilmadi =
       over.bakilmadi !== undefined ? over.bakilmadi : bakilmadiFiltre ? "1" : ""
     if (hedefBakilmadi) params.set("bakilmadi", hedefBakilmadi)
+    const hedefCikissiz =
+      over.cikissiz !== undefined ? over.cikissiz : cikissizFiltre ? "1" : ""
+    if (hedefCikissiz) params.set("cikissiz", hedefCikissiz)
     const hedefSayfa = over.sayfa ?? sayfa
     if (hedefSayfa > 1) params.set("sayfa", String(hedefSayfa))
     const hedefSecili = over.secili !== undefined ? over.secili : secili
@@ -321,6 +332,18 @@ export default async function IslerSayfasi({
         }
       >
         Bakılmadı
+      </Link>
+      <Link
+        href={linkUret({ cikissiz: cikissizFiltre ? "" : "1", sayfa: 1 })}
+        className={
+          "rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors " +
+          (cikissizFiltre
+            ? "bg-sky-600 text-white"
+            : "border border-sky-300/60 bg-card text-sky-700 hover:bg-sky-500/10 dark:text-sky-300")
+        }
+        title="Henüz çıkış tarihi girilmemiş (teslim edilmemiş) işler"
+      >
+        Çıkış tarihi olmayanlar
       </Link>
       {hizliFaturalar.map((f) => {
         const aktifMi = fatura === f.id

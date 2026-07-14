@@ -25,6 +25,7 @@ export type IsFormVarsayilan = {
   teknik_personel_id?: string | null
   fatura_durumu_id?: string | null
   ilgili_kisi?: string | null
+  telefon?: string | null
   adres?: string | null
   kargo_takip_no?: string | null
   grup_id?: string | null
@@ -121,8 +122,9 @@ export function IsFormu({
     return () => document.removeEventListener("mousedown", disari)
   }, [])
 
-  // İlgili kişi & telefon — telefon rehberinden seçme (Contact Picker API)
+  // İlgili kişi & telefon — ayrı kutular; rehberden seçince ikisi de dolar
   const [ilgiliKisi, setIlgiliKisi] = useState(varsayilan.ilgili_kisi ?? "")
+  const [telefon, setTelefon] = useState(varsayilan.telefon ?? "")
   const [rehberVar, setRehberVar] = useState(false)
   useEffect(() => {
     const nav = navigator as Navigator & { contacts?: { select?: unknown } }
@@ -144,14 +146,33 @@ export function IsFormu({
       if (c) {
         const ad = Array.isArray(c.name) ? c.name[0] : c.name
         const tel = Array.isArray(c.tel) ? c.tel[0] : c.tel
-        const metin = [ad, tel].filter(Boolean).join(" · ")
-        if (metin) {
-          setIlgiliKisi(metin)
-          if (degisiklikTakip) setDegisti(true)
-        }
+        if (ad) setIlgiliKisi(ad)
+        if (tel) setTelefon(tel)
+        if ((ad || tel) && degisiklikTakip) setDegisti(true)
       }
     } catch {
       /* kullanıcı iptal etti ya da desteklenmiyor — elle yazabilir */
+    }
+  }
+  // Zorunlu alan pop-up'ı (yalnız yeni kayıtta; düzenlemede eski kayıtlar bloklanmasın)
+  const [eksikAlanlar, setEksikAlanlar] = useState<string[]>([])
+  const zorunluKontrol = !degisiklikTakip // yeni iş girişi
+  function gonderKontrol(e: React.FormEvent<HTMLFormElement>) {
+    if (!zorunluKontrol) return
+    const fd = new FormData(e.currentTarget)
+    const eksik: string[] = []
+    const musteriDolu = yeniMusteri ? yeniMusteriAd.trim() : musteriId
+    if (!musteriDolu) eksik.push("Müşteri")
+    if (!String(fd.get("cihaz_adi") ?? "").trim()) eksik.push("Kart / cihaz adı")
+    if (!ilgiliKisi.trim()) eksik.push("İlgili kişi")
+    if (!telefon.trim()) eksik.push("Telefon")
+    if (!personelMod) {
+      if (!String(fd.get("gelis_tarihi") ?? "").trim()) eksik.push("Geliş tarihi")
+      if (!String(fd.get("durum_id") ?? "").trim()) eksik.push("Durum")
+    }
+    if (eksik.length) {
+      e.preventDefault()
+      setEksikAlanlar(eksik)
     }
   }
   // Değişiklik takibi: edit modunda buton değişiklik olana dek pasif kalır.
@@ -191,6 +212,7 @@ export function IsFormu({
   return (
     <form
       action={formAction}
+      onSubmit={gonderKontrol}
       onInput={() => {
         if (degisiklikTakip && !degisti) setDegisti(true)
       }}
@@ -199,6 +221,38 @@ export function IsFormu({
       {state.error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {state.error}
+        </div>
+      )}
+
+      {/* Zorunlu alan uyarısı — ekrana pop-up */}
+      {eksikAlanlar.length > 0 && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setEksikAlanlar([])}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center gap-2 text-base font-semibold text-destructive">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                <path d="M12 9v4M12 17h.01" />
+              </svg>
+              Bunları doldurmadınız
+            </div>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Şu zorunlu alanlar boş kaldı:
+            </p>
+            <ul className="mb-5 list-disc space-y-1 pl-5 text-sm font-medium">
+              {eksikAlanlar.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+            <Button type="button" className="w-full" onClick={() => setEksikAlanlar([])}>
+              Tamam
+            </Button>
+          </div>
         </div>
       )}
 
@@ -295,41 +349,49 @@ export function IsFormu({
           )}
           <Hata alan="musteri_id" />
         </div>
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <label className={labelClass} htmlFor="ilgili_kisi">İlgili kişi & telefon</label>
-              {rehberVar && (
-                <button
-                  type="button"
-                  onClick={rehberdenSec}
-                  className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-accent px-2.5 py-1 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 8v6M18 11h6"/></svg>
-                  Rehberden seç
-                </button>
-              )}
-            </div>
+        <div className="grid gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <label className={labelClass}>İlgili kişi & telefon *</label>
+            {rehberVar && (
+              <button
+                type="button"
+                onClick={rehberdenSec}
+                className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-accent px-2.5 py-1 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 8v6M18 11h6"/></svg>
+                Rehberden seç
+              </button>
+            )}
+          </div>
+          <div className="grid gap-3.5 sm:grid-cols-2">
             <Input
               id="ilgili_kisi"
               name="ilgili_kisi"
-              placeholder="Ad Soyad · 05xx…"
+              placeholder="Ad Soyad"
               value={ilgiliKisi}
               onChange={(e) => setIlgiliKisi(e.target.value)}
+              aria-invalid={!!fe.ilgili_kisi}
             />
-            {rehberVar && (
-              <span className="text-[11px] text-muted-foreground">
-                Rehberde yoksa buraya elle yaz.
-              </span>
-            )}
+            <Input
+              id="telefon"
+              name="telefon"
+              type="tel"
+              inputMode="tel"
+              placeholder="05xx…"
+              value={telefon}
+              onChange={(e) => setTelefon(e.target.value)}
+              aria-invalid={!!fe.telefon}
+            />
           </div>
+        </div>
+        <div className="mt-3.5 grid gap-1.5 sm:max-w-[50%]">
           {servisNoGoster ? (
-            <div className="grid gap-1.5">
+            <>
               <label className={labelClass} htmlFor="servis_no">{servisNoEtiket}</label>
               <Input id="servis_no" name="servis_no" placeholder="Örn. 9577" defaultValue={varsayilan.servis_no ?? ""} />
-            </div>
+            </>
           ) : (
-            <div className="grid gap-1.5">
+            <>
               <label className={labelClass}>Fiş no</label>
               <div className="flex h-9 items-center rounded-[9px] border border-input bg-muted/40 px-2.5 font-mono text-sm">
                 {varsayilan.servis_no ?? (
@@ -338,7 +400,7 @@ export function IsFormu({
                   </span>
                 )}
               </div>
-            </div>
+            </>
           )}
         </div>
         {/* Adres personelde gizli (yalnız yönetici) */}

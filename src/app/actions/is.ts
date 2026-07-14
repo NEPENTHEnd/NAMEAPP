@@ -31,6 +31,9 @@ export type IsFormState = {
 // Boş string'i undefined'a çevir (opsiyonel alanlar için)
 const bosNull = (v: unknown) => (v === "" || v == null ? undefined : v)
 
+// Türkçe-duyarlı BÜYÜK harf (i→İ, ı→I). Girilen tüm metinler büyük harfe çevrilir.
+const buyuk = (s: string) => s.toLocaleUpperCase("tr-TR")
+
 const sayi = z.preprocess(
   bosNull,
   z.coerce.number({ message: "Geçerli bir sayı girin" }).nonnegative().optional()
@@ -46,13 +49,27 @@ const tarih = z.preprocess(
 
 const metin = z.preprocess(bosNull, z.string().trim().optional())
 
+// Metin + otomatik BÜYÜK harf (girilen tüm yazılar büyük harfe çevrilir)
+const metinBuyuk = z.preprocess(
+  bosNull,
+  z
+    .string()
+    .trim()
+    .transform((s) => buyuk(s))
+    .optional()
+)
+
 const sema = z
   .object({
     musteri_id: z.preprocess(bosNull, z.string().uuid().optional()),
-    yeni_musteri_adi: metin,
-    cihaz_adi: z.string().trim().min(1, "Cihaz adı zorunlu"),
-    seri_no: metin,
-    servis_no: metin,
+    yeni_musteri_adi: metinBuyuk,
+    cihaz_adi: z
+      .string()
+      .trim()
+      .min(1, "Cihaz adı zorunlu")
+      .transform((s) => buyuk(s)),
+    seri_no: metinBuyuk,
+    servis_no: metinBuyuk,
     gelis_tarihi: z.preprocess(
       bosNull,
       z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Geliş tarihi zorunlu")
@@ -61,15 +78,16 @@ const sema = z
     durum_id: z.string().uuid("Durum seçin"),
     teknik_personel_id: z.preprocess(bosNull, z.string().uuid().optional()),
     fatura_durumu_id: z.preprocess(bosNull, z.string().uuid().optional()),
-    ilgili_kisi: metin,
-    adres: metin,
+    ilgili_kisi: metinBuyuk,
+    telefon: metin,
+    adres: metinBuyuk,
     kargo_takip_no: metin,
     grup_id: z.preprocess(bosNull, z.string().uuid().optional()),
     fiyat_teklifi: sayi,
     fatura_tutari: sayi,
     fatura_tarihi: tarih,
-    garanti_no: metin,
-    aciklama: metin,
+    garanti_no: metinBuyuk,
+    aciklama: metinBuyuk,
   })
   .refine((d) => !!d.musteri_id || !!d.yeni_musteri_adi, {
     message: "Müşteri seçin ya da yeni müşteri adı girin",
@@ -89,6 +107,7 @@ function formdanOku(formData: FormData) {
     teknik_personel_id: formData.get("teknik_personel_id"),
     fatura_durumu_id: formData.get("fatura_durumu_id"),
     ilgili_kisi: formData.get("ilgili_kisi"),
+    telefon: formData.get("telefon"),
     adres: formData.get("adres"),
     kargo_takip_no: formData.get("kargo_takip_no"),
     grup_id: formData.get("grup_id"),
@@ -137,6 +156,7 @@ function temelSatir(veri: z.infer<typeof sema>, musteriId: string) {
     durum_id: veri.durum_id,
     teknik_personel_id: veri.teknik_personel_id ?? null,
     ilgili_kisi: veri.ilgili_kisi ?? null,
+    telefon: veri.telefon ?? null,
     adres: veri.adres ?? null,
     kargo_takip_no: veri.kargo_takip_no ?? null,
     aciklama: veri.aciklama ?? null,
@@ -282,7 +302,8 @@ export async function isFinansalGuncelle(
       fatura_durumu_id: (formData.get("fatura_durumu_id") as string) || null,
       fiyat_teklifi: sayiCevir(formData.get("fiyat_teklifi")),
       fatura_tutari: sayiCevir(formData.get("fatura_tutari")),
-      garanti_no: (formData.get("garanti_no") as string)?.trim() || null,
+      garanti_no:
+        buyuk((formData.get("garanti_no") as string)?.trim() ?? "") || null,
     })
     .eq("id", id)
 
@@ -338,14 +359,18 @@ export async function isHucreGuncelle(
   switch (alan) {
     case "cihaz_adi":
       if (!t) return { ok: false, error: "Cihaz adı boş olamaz." }
-      guncelle.cihaz_adi = t
+      guncelle.cihaz_adi = buyuk(t)
+      break
+    case "kargo_takip_no":
+    case "telefon":
+      // Telefon rakam olduğundan büyük harf çevirmesi yok
+      guncelle[alan] = t || null
       break
     case "seri_no":
-    case "kargo_takip_no":
     case "garanti_no":
     case "servis_no":
     case "aciklama":
-      guncelle[alan] = t || null
+      guncelle[alan] = t ? buyuk(t) : null
       break
     case "teknik_personel_id":
       guncelle.teknik_personel_id = t || null
@@ -383,17 +408,18 @@ export async function isHucreGuncelle(
     case "musteri": {
       // İsme göre müşteri bul ya da oluştur (Excel gibi elle firma girişi).
       if (!t) return { ok: false, error: "Firma adı boş olamaz." }
+      const ad = buyuk(t)
       const { data: mevcut } = await supabase
         .from("musteri")
         .select("id")
-        .ilike("ad", t)
+        .ilike("ad", ad)
         .limit(1)
         .maybeSingle()
       let mid = mevcut?.id
       if (!mid) {
         const { data: yeni, error: mErr } = await supabase
           .from("musteri")
-          .insert({ ad: t })
+          .insert({ ad })
           .select("id")
           .single()
         if (mErr || !yeni) return { ok: false, error: "Firma oluşturulamadı." }

@@ -221,7 +221,9 @@ export type Database = {
           seri_no: string | null
           servis_no: string | null
           takip_no: string
+          teklif_birim: string
           teknik_personel_id: string | null
+          telefon: string | null
           updated_at: string
           yonetici_gordu: boolean
         }
@@ -247,7 +249,9 @@ export type Database = {
           seri_no?: string | null
           servis_no?: string | null
           takip_no?: string
+          teklif_birim?: string
           teknik_personel_id?: string | null
+          telefon?: string | null
           updated_at?: string
           yonetici_gordu?: boolean
         }
@@ -273,7 +277,9 @@ export type Database = {
           seri_no?: string | null
           servis_no?: string | null
           takip_no?: string
+          teklif_birim?: string
           teknik_personel_id?: string | null
+          telefon?: string | null
           updated_at?: string
           yonetici_gordu?: boolean
         }
