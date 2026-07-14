@@ -15,6 +15,9 @@ function metin(formData: FormData, ad: string): string {
   return String(formData.get(ad) ?? "").trim()
 }
 
+// Türkçe-duyarlı BÜYÜK harf (uygulama genelinde metinler büyük harf)
+const buyuk = (s: string) => s.toLocaleUpperCase("tr-TR")
+
 function bitir() {
   revalidatePath("/tanimlar")
 }
@@ -51,6 +54,15 @@ export async function musteriAktiflik(formData: FormData) {
     .from("musteri")
     .update({ aktif: metin(formData, "aktif") === "true" })
     .eq("id", id)
+  bitir()
+}
+
+// Müşteriyi kalıcı sil — işleri silinmez, "müşterisiz" olur (FK on delete set null)
+export async function musteriSil(id: string) {
+  const supabase = await yoneticiSupabase()
+  if (!id) return
+  await supabase.from("musteri").delete().eq("id", id)
+  revalidatePath("/")
   bitir()
 }
 
@@ -108,6 +120,88 @@ export async function grupSirala(ids: string[]) {
   await Promise.all(
     ids.map((id, i) => supabase.from("grup").update({ sira: i + 1 }).eq("id", id))
   )
+  revalidatePath("/")
+  bitir()
+}
+
+// Sol menüye yeni firma: yalnız kayıtlı bir MÜŞTERİDEN eklenir (arayıp seç)
+export async function grupMusteridenEkle(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const musteriId = metin(formData, "musteri_id")
+  if (!musteriId) return
+  const { data: m } = await supabase
+    .from("musteri")
+    .select("ad")
+    .eq("id", musteriId)
+    .maybeSingle()
+  if (!m) return
+  // Aynı firma zaten menüde varsa tekrar ekleme
+  const { data: mevcut } = await supabase
+    .from("grup")
+    .select("id")
+    .ilike("ad", m.ad)
+    .limit(1)
+    .maybeSingle()
+  if (mevcut) return
+  const { data: son } = await supabase
+    .from("grup")
+    .select("sira")
+    .order("sira", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  await supabase
+    .from("grup")
+    .insert({ ad: buyuk(m.ad), musteri_id: musteriId, sira: (son?.sira ?? 0) + 1 })
+  revalidatePath("/")
+  bitir()
+}
+
+// ---- Şube (bir sol-menü firmasının alt firmaları) ----
+export async function subeEkle(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const grupId = metin(formData, "grup_id")
+  const ad = metin(formData, "ad")
+  if (!grupId || !ad) return
+  const { data: son } = await supabase
+    .from("sube")
+    .select("sira")
+    .eq("grup_id", grupId)
+    .order("sira", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  await supabase.from("sube").insert({
+    grup_id: grupId,
+    ad: buyuk(ad),
+    ilgili_kisi: buyuk(metin(formData, "ilgili_kisi")) || null,
+    telefon: metin(formData, "telefon") || null,
+    sira: (son?.sira ?? 0) + 1,
+  })
+  revalidatePath("/")
+  bitir()
+}
+
+export async function subeDuzenle(formData: FormData) {
+  const supabase = await yoneticiSupabase()
+  const id = metin(formData, "id")
+  const ad = metin(formData, "ad")
+  if (!id || !ad) return
+  await supabase
+    .from("sube")
+    .update({
+      ad: buyuk(ad),
+      ilgili_kisi: buyuk(metin(formData, "ilgili_kisi")) || null,
+      telefon: metin(formData, "telefon") || null,
+    })
+    .eq("id", id)
+  revalidatePath("/")
+  bitir()
+}
+
+// Şubeyi sil — işleri silinmez, şubesiz (ana firma) kalır (FK on delete set null)
+export async function subeSil(id: string) {
+  const supabase = await yoneticiSupabase()
+  if (!id) return
+  await supabase.from("sube").delete().eq("id", id)
   revalidatePath("/")
   bitir()
 }

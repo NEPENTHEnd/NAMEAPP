@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
 import { FirmaListesi } from "@/components/firma-listesi"
+import { MusteriSil } from "@/components/musteri-sil"
 import {
   musteriEkle,
   musteriDuzenle,
@@ -45,7 +46,7 @@ export default async function TanimlarSayfasi({
   const sekme = SEKMELER.some((s) => s.k === sekmeRaw) ? sekmeRaw! : "musteri"
 
   const supabase = await createClient()
-  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler, gruplar, isKisiler] =
+  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler, gruplar, isKisiler, subeler] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
@@ -59,6 +60,10 @@ export default async function TanimlarSayfasi({
       supabase.from("grup").select("id, ad, sira, aktif").order("sira"),
       // Müşteri başına biriken ilgili kişi + telefon (işlerden otomatik toplanır)
       supabase.from("is_kaydi").select("musteri_id, ilgili_kisi, telefon"),
+      supabase
+        .from("sube")
+        .select("id, grup_id, ad, ilgili_kisi, telefon")
+        .order("sira"),
     ])
 
   // Her müşterinin işlerinden benzersiz (ad · telefon) iletişimlerini + iş sayısını çıkar
@@ -119,9 +124,10 @@ export default async function TanimlarSayfasi({
       {sekme === "firmalar" && (
         <section className="grid gap-3">
           <p className="text-xs text-muted-foreground">
-            İşler ekranının solundaki firma menüsü. Satırı ⠿ sapından tutup
-            <strong> sürükleyerek sırala</strong>; <strong>Sil</strong> firmayı
-            menüden kalıcı kaldırır (işleri silinmez, DİĞER'e taşınır).
+            İşler ekranının solundaki firma menüsü. Yeni firma yalnız
+            <strong> kayıtlı müşterilerden</strong> seçilerek eklenir. Satırı
+            sürükleyerek sırala; <strong>Şubeler</strong> ile firmaya alt firma ekle;
+            <strong> Sil</strong> firmayı menüden kaldırır (işleri silinmez, DİĞER'e taşınır).
           </p>
           <FirmaListesi
             gruplar={(gruplar.data ?? []).map((g) => ({
@@ -129,6 +135,8 @@ export default async function TanimlarSayfasi({
               ad: g.ad,
               sira: g.sira,
             }))}
+            musteriler={(musteriler.data ?? []).map((m) => ({ id: m.id, ad: m.ad }))}
+            subeler={subeler.data ?? []}
           />
         </section>
       )}
@@ -178,6 +186,7 @@ export default async function TanimlarSayfasi({
                       {m.aktif ? "Pasifleştir" : "Aktifleştir"}
                     </Button>
                   </form>
+                  <MusteriSil id={m.id} ad={m.ad} isSayisi={isSayisi} />
                   {!m.aktif && <span className="text-xs text-muted-foreground">(pasif)</span>}
                 </div>
                 {iletisimler.length > 0 && (

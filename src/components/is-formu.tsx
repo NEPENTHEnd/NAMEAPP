@@ -29,6 +29,7 @@ export type IsFormVarsayilan = {
   adres?: string | null
   kargo_takip_no?: string | null
   grup_id?: string | null
+  sube_id?: string | null
   fiyat_teklifi?: number | null
   teklif_birim?: string | null
   fatura_tutari?: number | null
@@ -43,6 +44,7 @@ type Props = {
   durumlar: Secenek[]
   personeller: Secenek[]
   faturaDurumlari: Secenek[]
+  subeler?: Secenek[] // seçili firmanın (grup) şubeleri — varsa "şube seç" çıkar
   varsayilan?: IsFormVarsayilan
   gonderEtiketi?: string
   iptalHref?: string
@@ -83,6 +85,7 @@ export function IsFormu({
   durumlar,
   personeller,
   faturaDurumlari,
+  subeler = [],
   varsayilan = {},
   gonderEtiketi = "Kaydet",
   iptalHref = "/",
@@ -353,6 +356,25 @@ export function IsFormu({
           )}
           <Hata alan="musteri_id" />
         </div>
+        {/* Şube: yalnız şubeli firmalarda (yönetici) çıkar */}
+        {!personelMod && subeler.length > 0 && (
+          <div className="mb-3.5 grid gap-1.5">
+            <label className={labelClass} htmlFor="sube_id">Şube</label>
+            <select
+              id="sube_id"
+              name="sube_id"
+              className={selectClass}
+              defaultValue={varsayilan.sube_id ?? ""}
+            >
+              <option value="">Ana firma (şubesiz)</option>
+              {subeler.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.ad}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between gap-2">
             <label className={labelClass}>İlgili kişi & telefon *</label>

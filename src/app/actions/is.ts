@@ -83,6 +83,7 @@ const sema = z
     adres: metinBuyuk,
     kargo_takip_no: metin,
     grup_id: z.preprocess(bosNull, z.string().uuid().optional()),
+    sube_id: z.preprocess(bosNull, z.string().uuid().optional()),
     fiyat_teklifi: sayi,
     teklif_birim: z.preprocess(bosNull, z.enum(["TL", "EUR", "USD"]).optional()),
     fatura_tutari: sayi,
@@ -112,6 +113,7 @@ function formdanOku(formData: FormData) {
     adres: formData.get("adres"),
     kargo_takip_no: formData.get("kargo_takip_no"),
     grup_id: formData.get("grup_id"),
+    sube_id: formData.get("sube_id"),
     fiyat_teklifi: formData.get("fiyat_teklifi"),
     teklif_birim: formData.get("teklif_birim"),
     fatura_tutari: formData.get("fatura_tutari"),
@@ -186,6 +188,8 @@ export async function isOlustur(
     yonetici_gordu: finansal,
     // Grup atamasını yalnız yönetici yapar; personelin işi DİĞER'e (null) düşer.
     grup_id: finansal ? (parsed.data.grup_id ?? null) : null,
+    // Şube de yalnız yönetici tarafından atanır (grup'a bağlı)
+    sube_id: finansal ? (parsed.data.sube_id ?? null) : null,
   }
   // Fiş no HERKESE otomatik (ön eki olan kullanıcıda); yoksa form değeri/boş.
   // İSTİSNA: BOYTEKS grubuna girilen işlerde fiş no üretilmez — firmaya özel
@@ -282,7 +286,7 @@ export async function isGuncelle(
 
   const finansal = kullanici.rol === "yonetici"
   const guncelle: TablesUpdate<"is_kaydi"> = temelSatir(parsed.data, m.id)
-  // Fiş no değişmez (otomatik). Yalnız yönetici finansal alanları değiştirir.
+  // Fiş no değişmez (otomatik). Yalnız yönetici finansal alanları + şubeyi değiştirir.
   if (finansal) {
     guncelle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     guncelle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
@@ -290,6 +294,7 @@ export async function isGuncelle(
     guncelle.fatura_tutari = parsed.data.fatura_tutari ?? null
     guncelle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     guncelle.garanti_no = parsed.data.garanti_no ?? null
+    guncelle.sube_id = parsed.data.sube_id ?? null
   }
 
   const { error } = await supabase

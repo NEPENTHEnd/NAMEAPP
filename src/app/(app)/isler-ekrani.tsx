@@ -73,9 +73,12 @@ function tarihTR(s: string | null): string {
   return `${g}.${m}.${y}`
 }
 
+type Sube = { id: string; grup_id: string; ad: string }
+
 export function IslerEkrani({
   kayitlar,
   gruplar,
+  subeler = [],
   durumlar,
   personeller,
   faturaDurumlari,
@@ -83,10 +86,12 @@ export function IslerEkrani({
   seciliId,
   seciliBilgi,
   aktifGrup,
+  aktifSube = "",
   ustSlot,
 }: {
   kayitlar: Kayit[]
   gruplar: Secenek[]
+  subeler?: Sube[]
   durumlar: Secenek[]
   personeller: Secenek[]
   faturaDurumlari: Secenek[]
@@ -94,6 +99,7 @@ export function IslerEkrani({
   seciliId: string
   seciliBilgi: SeciliBilgi | null
   aktifGrup: string // "" (tümü) | "diger" | grup id
+  aktifSube?: string // belirli şube id
   ustSlot?: React.ReactNode // arama+filtreler — tablo sütununun üstünde
 }) {
   const router = useRouter()
@@ -130,6 +136,30 @@ export function IslerEkrani({
   const grupGorunumu = aktifGrup !== "" && aktifGrup !== "diger" // belirli firma seçili
   const aktifGrupAd = gruplar.find((g) => g.id === aktifGrup)?.ad ?? null
   const stokKoduModu = aktifGrupAd === "BOYTEKS" // fiş no yerine firma stok kodu
+
+  // Şubeleri firmaya göre grupla
+  const subeMap = new Map<string, Sube[]>()
+  for (const s of subeler) {
+    const l = subeMap.get(s.grup_id) ?? []
+    l.push(s)
+    subeMap.set(s.grup_id, l)
+  }
+  // Açık (genişletilmiş) firmalar — aktif şube/grup otomatik açık başlar
+  const [acikGruplar, setAcikGruplar] = useState<Set<string>>(() => {
+    const s = new Set<string>()
+    const bulun = aktifSube ? subeler.find((x) => x.id === aktifSube) : null
+    if (bulun) s.add(bulun.grup_id)
+    if (aktifGrup && subeMap.has(aktifGrup)) s.add(aktifGrup)
+    return s
+  })
+  function grupAcKapa(id: string) {
+    setAcikGruplar((prev) => {
+      const y = new Set(prev)
+      if (y.has(id)) y.delete(id)
+      else y.add(id)
+      return y
+    })
+  }
 
   // ---- Sürükle-bırak: fiş no'nun solundaki SAPTAN tutulur ----
   const [surukle, setSurukle] = useState<Kayit | null>(null)
@@ -198,7 +228,7 @@ export function IslerEkrani({
           {/* Açılır listeden hızlı firma seçimi */}
           <select
             value={aktifGrup}
-            onChange={(e) => git({ grup: e.target.value || null, bakilmadi: null })}
+            onChange={(e) => git({ grup: e.target.value || null, sube: null, bakilmadi: null })}
             aria-label="Firma seç"
             className="mb-0.5 h-8 w-full rounded-lg border border-input bg-card px-2 text-[12.5px] outline-none transition focus:border-primary"
           >
@@ -212,7 +242,7 @@ export function IslerEkrani({
           </select>
           <div className="grid gap-0.5">
             {hedefler.map((h, i) => {
-              const aktifMi = aktifGrup === h.anahtar
+              const aktifMi = aktifGrup === h.anahtar && !aktifSube
               const suruklemeVar = surukle != null
               // "ağız gibi açılma": sürüklerken hedefin üstü yukarı, altı aşağı kayar
               let ty = 0
@@ -221,42 +251,95 @@ export function IslerEkrani({
                 else if (i > hedefIndex) ty = 10
               }
               const vurgulu = suruklemeVar && hedef === h.anahtar
+              const hSubeler =
+                h.anahtar === "diger" ? [] : subeMap.get(h.anahtar) ?? []
+              const acik = acikGruplar.has(h.anahtar)
               return (
-                <div
-                  key={h.anahtar}
-                  ref={(el) => {
-                    if (el) ogeRef.current.set(h.anahtar, el)
-                    else ogeRef.current.delete(h.anahtar)
-                  }}
-                  className="group/firma relative flex items-center transition-transform duration-150"
-                  style={{ transform: `translateY(${ty}px)` }}
-                >
-                  <Link
-                    href={url({ grup: h.anahtar, bakilmadi: null })}
-                    scroll={false}
-                    className={cn(
-                      "flex-1 truncate rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
-                      vurgulu
-                        ? "bg-emerald-500 font-bold text-white ring-2 ring-inset ring-emerald-200"
-                        : aktifMi
-                          ? "bg-accent font-semibold text-primary"
-                          : h.anahtar === "diger"
-                            ? "font-semibold text-amber-600 hover:bg-muted dark:text-amber-400"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                <div key={h.anahtar}>
+                  <div
+                    ref={(el) => {
+                      if (el) ogeRef.current.set(h.anahtar, el)
+                      else ogeRef.current.delete(h.anahtar)
+                    }}
+                    className="group/firma relative flex items-center transition-transform duration-150"
+                    style={{ transform: `translateY(${ty}px)` }}
+                  >
+                    {/* Şubesi olan firmada aç/kapa oku (adın solunda) */}
+                    {hSubeler.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          grupAcKapa(h.anahtar)
+                        }}
+                        title={acik ? "Şubeleri gizle" : "Şubeleri göster"}
+                        className="flex h-6 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={cn("transition-transform", acik && "rotate-90")}
+                        >
+                          <path d="m9 18 6-6-6-6" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <span className="w-5 shrink-0" />
                     )}
-                  >
-                    {h.ad}
-                  </Link>
-                  {/* Yeşil + : bu gruba hızlı iş ekle */}
-                  <Link
-                    href={h.anahtar === "diger" ? "/yeni" : `/yeni?grup=${h.anahtar}`}
-                    title={`${h.ad} grubuna iş ekle`}
-                    className="absolute right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white opacity-0 transition-opacity hover:bg-emerald-600 group-hover/firma:opacity-100"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </Link>
+                    <Link
+                      href={url({ grup: h.anahtar, sube: null, bakilmadi: null })}
+                      scroll={false}
+                      className={cn(
+                        "flex-1 truncate rounded-lg px-2 py-1.5 text-[13px] font-medium transition-colors",
+                        vurgulu
+                          ? "bg-emerald-500 font-bold text-white ring-2 ring-inset ring-emerald-200"
+                          : aktifMi
+                            ? "bg-accent font-semibold text-primary"
+                            : h.anahtar === "diger"
+                              ? "font-semibold text-amber-600 hover:bg-muted dark:text-amber-400"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {h.ad}
+                    </Link>
+                    {/* Yeşil + : bu gruba hızlı iş ekle */}
+                    <Link
+                      href={h.anahtar === "diger" ? "/yeni" : `/yeni?grup=${h.anahtar}`}
+                      title={`${h.ad} grubuna iş ekle`}
+                      className="absolute right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white opacity-0 transition-opacity hover:bg-emerald-600 group-hover/firma:opacity-100"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </Link>
+                  </div>
+                  {/* Şubeler (açıkken alt alta) */}
+                  {acik && hSubeler.length > 0 && (
+                    <div className="mb-0.5 ml-[18px] grid gap-0.5 border-l border-border pl-1.5">
+                      {hSubeler.map((s) => (
+                        <Link
+                          key={s.id}
+                          href={url({ grup: h.anahtar, sube: s.id, bakilmadi: null })}
+                          scroll={false}
+                          className={cn(
+                            "truncate rounded-lg px-2.5 py-1 text-[12.5px] transition-colors",
+                            aktifSube === s.id
+                              ? "bg-accent font-semibold text-primary"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                        >
+                          {s.ad}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}

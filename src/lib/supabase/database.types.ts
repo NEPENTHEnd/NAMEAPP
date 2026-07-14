@@ -180,6 +180,7 @@ export type Database = {
           aktif: boolean
           created_at: string
           id: string
+          musteri_id: string | null
           sira: number
         }
         Insert: {
@@ -187,6 +188,7 @@ export type Database = {
           aktif?: boolean
           created_at?: string
           id?: string
+          musteri_id?: string | null
           sira?: number
         }
         Update: {
@@ -194,9 +196,18 @@ export type Database = {
           aktif?: boolean
           created_at?: string
           id?: string
+          musteri_id?: string | null
           sira?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "grup_musteri_id_fkey"
+            columns: ["musteri_id"]
+            isOneToOne: false
+            referencedRelation: "musteri"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       is_kaydi: {
         Row: {
@@ -216,10 +227,11 @@ export type Database = {
           id: string
           ilgili_kisi: string | null
           kargo_takip_no: string | null
-          musteri_id: string
+          musteri_id: string | null
           olusturan_id: string | null
           seri_no: string | null
           servis_no: string | null
+          sube_id: string | null
           takip_no: string
           teklif_birim: string
           teknik_personel_id: string | null
@@ -244,10 +256,11 @@ export type Database = {
           id?: string
           ilgili_kisi?: string | null
           kargo_takip_no?: string | null
-          musteri_id: string
+          musteri_id?: string | null
           olusturan_id?: string | null
           seri_no?: string | null
           servis_no?: string | null
+          sube_id?: string | null
           takip_no?: string
           teklif_birim?: string
           teknik_personel_id?: string | null
@@ -272,10 +285,11 @@ export type Database = {
           id?: string
           ilgili_kisi?: string | null
           kargo_takip_no?: string | null
-          musteri_id?: string
+          musteri_id?: string | null
           olusturan_id?: string | null
           seri_no?: string | null
           servis_no?: string | null
+          sube_id?: string | null
           takip_no?: string
           teklif_birim?: string
           teknik_personel_id?: string | null
@@ -310,6 +324,13 @@ export type Database = {
             columns: ["musteri_id"]
             isOneToOne: false
             referencedRelation: "musteri"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "is_kaydi_sube_id_fkey"
+            columns: ["sube_id"]
+            isOneToOne: false
+            referencedRelation: "sube"
             referencedColumns: ["id"]
           },
           {
@@ -406,6 +427,47 @@ export type Database = {
           p256dh?: string
         }
         Relationships: []
+      }
+      sube: {
+        Row: {
+          ad: string
+          aktif: boolean
+          created_at: string
+          grup_id: string
+          id: string
+          ilgili_kisi: string | null
+          sira: number
+          telefon: string | null
+        }
+        Insert: {
+          ad: string
+          aktif?: boolean
+          created_at?: string
+          grup_id: string
+          id?: string
+          ilgili_kisi?: string | null
+          sira?: number
+          telefon?: string | null
+        }
+        Update: {
+          ad?: string
+          aktif?: boolean
+          created_at?: string
+          grup_id?: string
+          id?: string
+          ilgili_kisi?: string | null
+          sira?: number
+          telefon?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sube_grup_id_fkey"
+            columns: ["grup_id"]
+            isOneToOne: false
+            referencedRelation: "grup"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teknik_personel: {
         Row: {

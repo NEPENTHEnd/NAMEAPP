@@ -1,5 +1,6 @@
 import Link from "next/link"
 
+import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
 import { getIsFormSecenekleri } from "@/lib/secenekler"
 import { isOlustur } from "@/app/actions/is"
@@ -26,6 +27,18 @@ export default async function YeniIsSayfasi({
   const grup = !personel
     ? secenekler.gruplar.find((g) => g.id === grupParam)
     : undefined
+  // Seçili firmanın şubeleri (varsa formda "şube seç" çıkar)
+  let subeler: { id: string; ad: string }[] = []
+  if (grup) {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from("sube")
+      .select("id, ad")
+      .eq("grup_id", grup.id)
+      .eq("aktif", true)
+      .order("sira")
+    subeler = data ?? []
+  }
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-5">
@@ -44,6 +57,7 @@ export default async function YeniIsSayfasi({
         durumlar={secenekler.durumlar}
         personeller={secenekler.personeller}
         faturaDurumlari={secenekler.faturaDurumlari}
+        subeler={subeler}
         varsayilan={{
           gelis_tarihi: bugun,
           durum_id: personel ? bakilmadiId : undefined,

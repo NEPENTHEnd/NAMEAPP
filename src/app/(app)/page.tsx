@@ -46,8 +46,10 @@ export default async function IslerSayfasi({
   const ay = tek(sp.ay) ?? ""
   const secili = tek(sp.secili) ?? ""
   const grupParam = tek(sp.grup) ?? "" // "" | "diger" | grup id
+  const subeParam = tek(sp.sube) ?? "" // belirli şube id
   const bakilmadiFiltre = tek(sp.bakilmadi) === "1"
   const cikissizFiltre = tek(sp.cikissiz) === "1" // çıkış tarihi olmayanlar
+  const musterisizFiltre = tek(sp.musterisiz) === "1" // müşterisiz (tanımsız) işler
   const sayfa = Math.max(1, Number(tek(sp.sayfa) ?? "1") || 1)
 
   // Sıralama
@@ -74,6 +76,7 @@ export default async function IslerSayfasi({
     musterilerRes,
     gruplarRes,
     profillerRes,
+    subelerRes,
   ] = await Promise.all([
       supabase.from("durum").select("id, ad").order("sira"),
       supabase
@@ -89,9 +92,11 @@ export default async function IslerSayfasi({
         .order("ad"),
       supabase.from("grup").select("id, ad").eq("aktif", true).order("sira"),
       supabase.from("kullanici_profil").select("id, ad"),
+      supabase.from("sube").select("id, grup_id, ad").eq("aktif", true).order("sira"),
     ])
 
   const gruplar = gruplarRes.data ?? []
+  const subeler = subelerRes.data ?? []
   const bakilmadiId = durumlarRes.data?.find((d) => d.ad === "BAKILMADI")?.id ?? ""
   const faturaDurumlari = faturalarRes.data ?? []
   // "Kapanmış" fatura durumları. Bir iş yalnızca ÇIKIŞ TARİHİ VAR **ve** fatura
@@ -132,6 +137,10 @@ export default async function IslerSayfasi({
   // Sol menü grubu: "diger" = grupsuz (null), aksi halde grup id
   if (grupParam === "diger") query = query.is("grup_id", null)
   else if (grupParam) query = query.eq("grup_id", grupParam)
+  // Belirli şube seçiliyse yalnız o şubenin işleri
+  if (subeParam) query = query.eq("sube_id", subeParam)
+  // "Müşterisiz" (tanımsız) — müşterisi silinmiş işler
+  if (musterisizFiltre) query = query.is("musteri_id", null)
   // "Bakılmadı (gelenler)" tuşu
   if (bakilmadiFiltre && bakilmadiId) query = query.eq("durum_id", bakilmadiId)
   // "Çıkış tarihi olmayanlar" tuşu
@@ -281,8 +290,10 @@ export default async function IslerSayfasi({
       sirala?: string
       yon?: string
       grup?: string
+      sube?: string
       bakilmadi?: string
       cikissiz?: string
+      musterisiz?: string
       fatura?: string
     } = {}
   ): string {
@@ -298,12 +309,17 @@ export default async function IslerSayfasi({
     if (ay) params.set("ay", ay)
     const hedefGrup = over.grup !== undefined ? over.grup : grupParam
     if (hedefGrup) params.set("grup", hedefGrup)
+    const hedefSube = over.sube !== undefined ? over.sube : subeParam
+    if (hedefSube) params.set("sube", hedefSube)
     const hedefBakilmadi =
       over.bakilmadi !== undefined ? over.bakilmadi : bakilmadiFiltre ? "1" : ""
     if (hedefBakilmadi) params.set("bakilmadi", hedefBakilmadi)
     const hedefCikissiz =
       over.cikissiz !== undefined ? over.cikissiz : cikissizFiltre ? "1" : ""
     if (hedefCikissiz) params.set("cikissiz", hedefCikissiz)
+    const hedefMusterisiz =
+      over.musterisiz !== undefined ? over.musterisiz : musterisizFiltre ? "1" : ""
+    if (hedefMusterisiz) params.set("musterisiz", hedefMusterisiz)
     const hedefSayfa = over.sayfa ?? sayfa
     if (hedefSayfa > 1) params.set("sayfa", String(hedefSayfa))
     const hedefSecili = over.secili !== undefined ? over.secili : secili
@@ -344,6 +360,18 @@ export default async function IslerSayfasi({
         title="Henüz çıkış tarihi girilmemiş (teslim edilmemiş) işler"
       >
         Çıkış tarihi olmayanlar
+      </Link>
+      <Link
+        href={linkUret({ musterisiz: musterisizFiltre ? "" : "1", sayfa: 1, grup: "" })}
+        className={
+          "rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors " +
+          (musterisizFiltre
+            ? "bg-rose-600 text-white"
+            : "border border-rose-300/60 bg-card text-rose-700 hover:bg-rose-500/10 dark:text-rose-300")
+        }
+        title="Müşterisi silinmiş (tanımsız) işler"
+      >
+        Müşterisiz
       </Link>
       {hizliFaturalar.map((f) => {
         const aktifMi = fatura === f.id
@@ -456,6 +484,7 @@ export default async function IslerSayfasi({
           <IslerEkrani
             kayitlar={kayitlar}
             gruplar={gruplar}
+            subeler={subeler}
             durumlar={durumlarRes.data ?? []}
             personeller={personellerRes.data ?? []}
             faturaDurumlari={faturaDurumlari}
@@ -463,6 +492,7 @@ export default async function IslerSayfasi({
             seciliId={secili}
             seciliBilgi={seciliBilgi}
             aktifGrup={grupParam}
+            aktifSube={subeParam}
             ustSlot={filtrelerBlogu}
           />
 
