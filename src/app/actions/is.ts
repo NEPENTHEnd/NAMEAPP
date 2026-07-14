@@ -216,29 +216,54 @@ export async function isOlustur(
     ekle.garanti_no = parsed.data.garanti_no ?? null
   }
 
-  const { data, error } = await supabase
-    .from("is_kaydi")
-    .insert(ekle)
-    .select("id")
-    .single()
-
-  if (error || !data) {
-    return { error: "Kayıt oluşturulamadı: " + (error?.message ?? "bilinmeyen hata") }
+  // Adet: aynı üründen birden çok → tek fiş no, her biri AYRI satır (kendi seri no'su)
+  const adet = Math.max(1, Math.min(50, Number(formData.get("adet")) || 1))
+  let ilkId: string
+  if (adet <= 1) {
+    const { data, error } = await supabase
+      .from("is_kaydi")
+      .insert(ekle)
+      .select("id")
+      .single()
+    if (error || !data) {
+      return {
+        error: "Kayıt oluşturulamadı: " + (error?.message ?? "bilinmeyen hata"),
+      }
+    }
+    ilkId = data.id
+  } else {
+    const seriler = formData.getAll("seri_no").map((v) => String(v).trim())
+    const satirlar = Array.from({ length: adet }).map((_, i) => ({
+      ...ekle,
+      seri_no: seriler[i] ? buyuk(seriler[i]) : null,
+    }))
+    const { data, error } = await supabase
+      .from("is_kaydi")
+      .insert(satirlar)
+      .select("id")
+    if (error || !data || data.length === 0) {
+      return {
+        error: "Kayıtlar oluşturulamadı: " + (error?.message ?? "bilinmeyen hata"),
+      }
+    }
+    ilkId = data[0].id
   }
 
   // Personelin eklediği işte yöneticilere push bildirim gönder (hata olsa da akış sürer)
   if (!finansal) {
     await yoneticilereBildir(supabase, {
       baslik: "Yeni iş kaydı",
-      govde: `${kullanici.ad}: ${parsed.data.cihaz_adi}`,
-      url: `/is/${data.id}`,
-      tag: `is-${data.id}`,
+      govde:
+        `${kullanici.ad}: ${parsed.data.cihaz_adi}` +
+        (adet > 1 ? ` (${adet} adet)` : ""),
+      url: `/is/${ilkId}`,
+      tag: `is-${ilkId}`,
     })
   }
 
   revalidatePath("/")
-  // Yönlendirme/foto yükleme client'ta yapılır (id döndürülür)
-  return { basari: true, id: data.id }
+  // Yönlendirme/foto yükleme client'ta yapılır (ilk satırın id'si döndürülür)
+  return { basari: true, id: ilkId }
 }
 
 export async function isGuncelle(

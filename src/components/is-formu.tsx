@@ -155,6 +155,9 @@ export function IsFormu({
       /* kullanıcı iptal etti ya da desteklenmiyor — elle yazabilir */
     }
   }
+  // Adet: yeni kayıtta birden çok aynı ürün → tek fiş no, ayrı satırlar
+  const [adet, setAdet] = useState(1)
+  const cokluAdet = !degisiklikTakip // yalnız yeni iş girişinde adet seçilir
   // Zorunlu alan pop-up'ı (yalnız yeni kayıtta; düzenlemede eski kayıtlar bloklanmasın)
   const [eksikAlanlar, setEksikAlanlar] = useState<string[]>([])
   const zorunluKontrol = !degisiklikTakip // yeni iş girişi
@@ -419,10 +422,63 @@ export function IsFormu({
           <Input id="cihaz_adi" name="cihaz_adi" placeholder="Örn. SIEMENS 6SE3221 7.5KW SÜRÜCÜ" defaultValue={varsayilan.cihaz_adi ?? ""} aria-invalid={!!fe.cihaz_adi} />
           <Hata alan="cihaz_adi" />
         </div>
-        <div className="grid gap-1.5">
-          <label className={labelClass} htmlFor="seri_no">Seri no</label>
-          <Input id="seri_no" name="seri_no" defaultValue={varsayilan.seri_no ?? ""} />
-        </div>
+        {cokluAdet && (
+          <div className="mb-3.5 grid gap-1.5 sm:max-w-[160px]">
+            <label className={labelClass} htmlFor="adet">Adet</label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setAdet((a) => Math.max(1, a - 1))}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-lg hover:bg-muted"
+                aria-label="Azalt"
+              >
+                −
+              </button>
+              <input
+                id="adet"
+                name="adet"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={50}
+                value={adet}
+                onChange={(e) =>
+                  setAdet(Math.max(1, Math.min(50, Number(e.target.value) || 1)))
+                }
+                className={cn(selectClass, "w-16 text-center")}
+              />
+              <button
+                type="button"
+                onClick={() => setAdet((a) => Math.min(50, a + 1))}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-lg hover:bg-muted"
+                aria-label="Artır"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        )}
+        {cokluAdet && adet > 1 ? (
+          <div className="grid gap-2">
+            <label className={labelClass}>Seri no ({adet} ürün)</label>
+            {Array.from({ length: adet }).map((_, i) => (
+              <Input
+                key={i}
+                name="seri_no"
+                placeholder={`Seri no #${i + 1}`}
+                autoComplete="off"
+              />
+            ))}
+            <span className="text-[11px] text-muted-foreground">
+              Her ürün ayrı satır olur; fiş no hepsinde aynıdır.
+            </span>
+          </div>
+        ) : (
+          <div className="grid gap-1.5">
+            <label className={labelClass} htmlFor="seri_no">Seri no</label>
+            <Input id="seri_no" name="seri_no" defaultValue={varsayilan.seri_no ?? ""} />
+          </div>
+        )}
       </Bolum>
 
       {personelMod ? (
