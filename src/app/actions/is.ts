@@ -84,6 +84,7 @@ const sema = z
     kargo_takip_no: metin,
     grup_id: z.preprocess(bosNull, z.string().uuid().optional()),
     fiyat_teklifi: sayi,
+    teklif_birim: z.preprocess(bosNull, z.enum(["TL", "EUR", "USD"]).optional()),
     fatura_tutari: sayi,
     fatura_tarihi: tarih,
     garanti_no: metinBuyuk,
@@ -112,6 +113,7 @@ function formdanOku(formData: FormData) {
     kargo_takip_no: formData.get("kargo_takip_no"),
     grup_id: formData.get("grup_id"),
     fiyat_teklifi: formData.get("fiyat_teklifi"),
+    teklif_birim: formData.get("teklif_birim"),
     fatura_tutari: formData.get("fatura_tutari"),
     fatura_tarihi: formData.get("fatura_tarihi"),
     garanti_no: formData.get("garanti_no"),
@@ -208,6 +210,7 @@ export async function isOlustur(
   if (finansal) {
     ekle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     ekle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
+    ekle.teklif_birim = parsed.data.teklif_birim ?? "TL"
     ekle.fatura_tutari = parsed.data.fatura_tutari ?? null
     ekle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     ekle.garanti_no = parsed.data.garanti_no ?? null
@@ -258,6 +261,7 @@ export async function isGuncelle(
   if (finansal) {
     guncelle.fatura_durumu_id = parsed.data.fatura_durumu_id ?? null
     guncelle.fiyat_teklifi = parsed.data.fiyat_teklifi ?? null
+    guncelle.teklif_birim = parsed.data.teklif_birim ?? "TL"
     guncelle.fatura_tutari = parsed.data.fatura_tutari ?? null
     guncelle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     guncelle.garanti_no = parsed.data.garanti_no ?? null
@@ -295,13 +299,24 @@ export async function isFinansalGuncelle(
     return Number.isFinite(n) && n >= 0 ? n : null
   }
 
+  const birimSec = (v: FormDataEntryValue | null): "TL" | "EUR" | "USD" => {
+    const s = String(v ?? "").toUpperCase()
+    return s === "EUR" || s === "USD" ? s : "TL"
+  }
+  const tarihSec = (v: FormDataEntryValue | null): string | null => {
+    const s = String(v ?? "").trim()
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
+  }
+
   const supabase = await createClient()
   const { error } = await supabase
     .from("is_kaydi")
     .update({
       fatura_durumu_id: (formData.get("fatura_durumu_id") as string) || null,
       fiyat_teklifi: sayiCevir(formData.get("fiyat_teklifi")),
+      teklif_birim: birimSec(formData.get("teklif_birim")),
       fatura_tutari: sayiCevir(formData.get("fatura_tutari")),
+      fatura_tarihi: tarihSec(formData.get("fatura_tarihi")),
       garanti_no:
         buyuk((formData.get("garanti_no") as string)?.trim() ?? "") || null,
     })
@@ -336,6 +351,7 @@ const FINANSAL_ALAN = new Set([
   "fatura_tarihi",
   "garanti_no",
   "fiyat_teklifi",
+  "teklif_birim",
   "fatura_tutari",
   "servis_no", // fiş no / firma stok kodu elle düzeltme
   "teknik_personel_id", // tekniker atama (personel yapamaz)
@@ -405,6 +421,13 @@ export async function isHucreGuncelle(
     case "fatura_durumu_id":
       guncelle.fatura_durumu_id = t || null
       break
+    case "teklif_birim": {
+      const b = t.toUpperCase()
+      if (b !== "TL" && b !== "EUR" && b !== "USD")
+        return { ok: false, error: "Geçersiz para birimi." }
+      guncelle.teklif_birim = b
+      break
+    }
     case "musteri": {
       // İsme göre müşteri bul ya da oluştur (Excel gibi elle firma girişi).
       if (!t) return { ok: false, error: "Firma adı boş olamaz." }

@@ -18,14 +18,10 @@ function tarihTR(s: string | null): string {
   return `${g}.${m}.${y}`
 }
 
-const tutarBicim = new Intl.NumberFormat("tr-TR", {
-  style: "currency",
-  currency: "TRY",
-  maximumFractionDigits: 0,
-})
-
-function tutarTR(n: number | null): string {
-  return n == null ? "—" : tutarBicim.format(n)
+const sayiBicim = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 })
+// Düz sayı + birim son eki (₺ simgesi yok): "1.000 TL", "500 USD"
+function paraTR(n: number | null, birim = "TL"): string {
+  return n == null ? "—" : `${sayiBicim.format(n)} ${birim}`
 }
 
 type SP = Record<string, string | string[] | undefined>
@@ -122,7 +118,7 @@ export default async function IslerSayfasi({
     .select(
       `
         id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
-        fatura_tarihi, fiyat_teklifi, fatura_tutari, garanti_no, kargo_takip_no,
+        fatura_tarihi, fiyat_teklifi, teklif_birim, fatura_tutari, garanti_no, kargo_takip_no,
         musteri_id, durum_id, fatura_durumu_id, grup_id, teknik_personel_id, olusturan_id,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
@@ -223,7 +219,9 @@ export default async function IslerSayfasi({
     kargo_takip_no: string | null
     fatura_durumu_id: string | null
     fiyat_teklifi: number | null
+    teklif_birim: string | null
     fatura_tutari: number | null
+    fatura_tarihi: string | null
     garanti_no: string | null
     fotolar: { id: string; url: string }[]
   }
@@ -232,7 +230,7 @@ export default async function IslerSayfasi({
     const { data: kayit } = await supabase
       .from("is_kaydi")
       .select(
-        "cihaz_adi, servis_no, aciklama, kargo_takip_no, fatura_durumu_id, fiyat_teklifi, fatura_tutari, garanti_no, musteri:musteri_id ( ad )"
+        "cihaz_adi, servis_no, aciklama, kargo_takip_no, fatura_durumu_id, fiyat_teklifi, teklif_birim, fatura_tutari, fatura_tarihi, garanti_no, musteri:musteri_id ( ad )"
       )
       .eq("id", secili)
       .maybeSingle()
@@ -266,7 +264,9 @@ export default async function IslerSayfasi({
         kargo_takip_no: kayit.kargo_takip_no,
         fatura_durumu_id: kayit.fatura_durumu_id,
         fiyat_teklifi: kayit.fiyat_teklifi,
+        teklif_birim: kayit.teklif_birim,
         fatura_tutari: kayit.fatura_tutari,
+        fatura_tarihi: kayit.fatura_tarihi,
         garanti_no: kayit.garanti_no,
         fotolar,
       }
@@ -495,7 +495,9 @@ export default async function IslerSayfasi({
                   {finansal && <div>Fatura: {k.fatura_durumu?.ad ?? "—"}</div>}
                   {finansal && (
                     <div className="font-medium text-foreground">
-                      {tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
+                      {k.fatura_tutari != null
+                        ? paraTR(k.fatura_tutari, "TL")
+                        : paraTR(k.fiyat_teklifi, k.teklif_birim ?? "TL")}
                     </div>
                   )}
                 </div>

@@ -21,7 +21,9 @@ export function PanelFinansal({
   varsayilan: {
     fatura_durumu_id: string | null
     fiyat_teklifi: number | null
+    teklif_birim: string | null
     fatura_tutari: number | null
+    fatura_tarihi: string | null
     garanti_no: string | null
   }
 }) {
@@ -49,27 +51,48 @@ export function PanelFinansal({
         ))}
       </select>
       <div className="grid grid-cols-2 gap-2">
-        <Input
-          name="fiyat_teklifi"
-          type="number"
-          inputMode="decimal"
-          min="0"
-          step="0.01"
-          placeholder="Teklif ₺"
-          defaultValue={varsayilan.fiyat_teklifi ?? ""}
-          className="h-8"
-        />
+        <div className="flex gap-1">
+          <Input
+            name="fiyat_teklifi"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            placeholder="Fiyat teklifi"
+            defaultValue={varsayilan.fiyat_teklifi ?? ""}
+            className="h-8 flex-1"
+          />
+          <select
+            name="teklif_birim"
+            defaultValue={varsayilan.teklif_birim ?? "TL"}
+            aria-label="Para birimi"
+            className="h-8 w-[64px] shrink-0 rounded-lg border border-input bg-card px-1.5 text-sm outline-none focus:border-primary"
+          >
+            <option value="TL">TL</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
         <Input
           name="fatura_tutari"
           type="number"
           inputMode="decimal"
           min="0"
           step="0.01"
-          placeholder="Tutar ₺"
+          placeholder="Tutar (TL)"
           defaultValue={varsayilan.fatura_tutari ?? ""}
           className="h-8"
         />
       </div>
+      <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+        Fatura tarihi
+        <Input
+          name="fatura_tarihi"
+          type="date"
+          defaultValue={varsayilan.fatura_tarihi ?? ""}
+          className="h-8"
+        />
+      </label>
       <Input
         name="garanti_no"
         placeholder="Takip no (harf/rakam)"

@@ -30,6 +30,7 @@ export type IsFormVarsayilan = {
   kargo_takip_no?: string | null
   grup_id?: string | null
   fiyat_teklifi?: number | null
+  teklif_birim?: string | null
   fatura_tutari?: number | null
   fatura_tarihi?: string | null
   garanti_no?: string | null
@@ -477,12 +478,24 @@ export function IsFormu({
             </select>
           </div>
           <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="fiyat_teklifi">Fiyat teklifi (₺)</label>
-            <Input id="fiyat_teklifi" name="fiyat_teklifi" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0" defaultValue={varsayilan.fiyat_teklifi ?? ""} aria-invalid={!!fe.fiyat_teklifi} />
+            <label className={labelClass} htmlFor="fiyat_teklifi">Fiyat teklifi</label>
+            <div className="flex gap-1.5">
+              <Input id="fiyat_teklifi" name="fiyat_teklifi" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0" defaultValue={varsayilan.fiyat_teklifi ?? ""} aria-invalid={!!fe.fiyat_teklifi} className="flex-1" />
+              <select
+                name="teklif_birim"
+                defaultValue={varsayilan.teklif_birim ?? "TL"}
+                aria-label="Para birimi"
+                className={cn(selectClass, "w-[76px] shrink-0")}
+              >
+                <option value="TL">TL</option>
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
             <Hata alan="fiyat_teklifi" />
           </div>
           <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="fatura_tutari">Fatura tutarı (₺)</label>
+            <label className={labelClass} htmlFor="fatura_tutari">Fatura tutarı (TL)</label>
             <Input id="fatura_tutari" name="fatura_tutari" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0" defaultValue={varsayilan.fatura_tutari ?? ""} aria-invalid={!!fe.fatura_tutari} />
             <Hata alan="fatura_tutari" />
           </div>

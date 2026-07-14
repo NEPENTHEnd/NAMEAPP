@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table"
 import { DurumRozeti, FaturaRozeti, durumRenk, faturaRenk } from "@/components/rozet"
 import { HucreDuzenle } from "@/components/hucre-duzenle"
+import { TeklifBirimi } from "@/components/teklif-birimi"
 import { PanelFinansal } from "@/components/panel-finansal"
 
 type Secenek = { id: string; ad: string; renk?: string | null }
@@ -40,6 +41,7 @@ export type Kayit = {
   garanti_no: string | null
   kargo_takip_no: string | null
   fiyat_teklifi: number | null
+  teklif_birim: string | null
   fatura_tutari: number | null
   grup_id: string | null
   olusturan_ad: string | null
@@ -54,17 +56,17 @@ export type SeciliBilgi = {
   kargo_takip_no: string | null
   fatura_durumu_id: string | null
   fiyat_teklifi: number | null
+  teklif_birim: string | null
   fatura_tutari: number | null
+  fatura_tarihi: string | null
   garanti_no: string | null
   fotolar: { id: string; url: string }[]
 }
 
-const tutarBicim = new Intl.NumberFormat("tr-TR", {
-  style: "currency",
-  currency: "TRY",
-  maximumFractionDigits: 0,
-})
-const tutarTR = (n: number | null) => (n == null ? "—" : tutarBicim.format(n))
+const sayiBicim = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 })
+// "1000" → "1.000 TL" (₺ simgesi yok, düz birim son eki)
+const paraTR = (n: number | null, birim: string) =>
+  n == null ? "—" : `${sayiBicim.format(n)} ${birim}`
 function tarihTR(s: string | null): string {
   if (!s) return "—"
   const [y, m, g] = s.split("-")
@@ -293,7 +295,7 @@ export function IslerEkrani({
               <TableHead>Durum</TableHead>
               <TableHead>Personel</TableHead>
               {finansal && <TableHead>Fatura</TableHead>}
-              {finansal && <TableHead>Fatura Tarihi</TableHead>}
+              {finansal && <TableHead className="text-right">Fiyat Teklifi</TableHead>}
               {finansal && (
                 <TableHead className="text-right">
                   <Link href={siralaHref("tutar")} scroll={false} className="hover:underline">Tutar{ok("tutar")}</Link>
@@ -424,8 +426,24 @@ export function IslerEkrani({
                   </TableCell>
                 )}
                 {finansal && (
-                  <TableCell>
-                    <HucreDuzenle isId={k.id} alan="fatura_tarihi" tip="tarih" deger={k.fatura_tarihi} goster={() => tarihTR(k.fatura_tarihi)} />
+                  <TableCell className="min-w-[110px] text-right tabular-nums">
+                    <div className="flex items-center justify-end gap-0.5">
+                      <HucreDuzenle
+                        isId={k.id}
+                        alan="fiyat_teklifi"
+                        deger={k.fiyat_teklifi != null ? String(k.fiyat_teklifi) : null}
+                        goster={() =>
+                          k.fiyat_teklifi != null ? (
+                            sayiBicim.format(k.fiyat_teklifi)
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )
+                        }
+                        placeholder="Teklif"
+                        className="text-right"
+                      />
+                      <TeklifBirimi isId={k.id} birim={k.teklif_birim} />
+                    </div>
                   </TableCell>
                 )}
                 {finansal && (
@@ -434,8 +452,14 @@ export function IslerEkrani({
                       isId={k.id}
                       alan="fatura_tutari"
                       deger={k.fatura_tutari != null ? String(k.fatura_tutari) : null}
-                      goster={() => tutarTR(k.fatura_tutari ?? k.fiyat_teklifi)}
-                      placeholder="Tutar ₺"
+                      goster={() =>
+                        k.fatura_tutari != null ? (
+                          paraTR(k.fatura_tutari, "TL")
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )
+                      }
+                      placeholder="Tutar"
                       className="text-right"
                     />
                   </TableCell>
@@ -543,7 +567,9 @@ export function IslerEkrani({
                     varsayilan={{
                       fatura_durumu_id: seciliBilgi.fatura_durumu_id,
                       fiyat_teklifi: seciliBilgi.fiyat_teklifi,
+                      teklif_birim: seciliBilgi.teklif_birim,
                       fatura_tutari: seciliBilgi.fatura_tutari,
+                      fatura_tarihi: seciliBilgi.fatura_tarihi,
                       garanti_no: seciliBilgi.garanti_no,
                     }}
                   />
