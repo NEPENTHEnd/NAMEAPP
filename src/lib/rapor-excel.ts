@@ -10,15 +10,20 @@ export type RaporSatir = {
   cihaz_adi: string
   seri_no: string | null
   gelis_tarihi: string | null
+  gelis_saat: string | null
   cikis_tarihi: string | null
   ilgili_kisi: string | null
+  telefon: string | null
   adres: string | null
   garanti_no: string | null
   kargo_takip_no: string | null
   fiyat_teklifi: number | null
+  teklif_birim: string | null
   fatura_tutari: number | null
+  fatura_tarihi: string | null
   aciklama: string | null
   musteri: { ad: string | null; sube_sehir: string | null } | null
+  sube: { ad: string | null } | null
   durum: { ad: string | null } | null
   teknik_personel: { ad: string | null } | null
   fatura_durumu: { ad: string | null } | null
@@ -27,9 +32,11 @@ export type RaporSatir = {
 
 // Supabase select ifadesi (rapor + aylık yedek için ortak).
 export const RAPOR_SELECT = `
-  servis_no, takip_no, cihaz_adi, seri_no, gelis_tarihi, cikis_tarihi,
-  ilgili_kisi, adres, garanti_no, kargo_takip_no, fiyat_teklifi, fatura_tutari, aciklama,
+  servis_no, takip_no, cihaz_adi, seri_no, gelis_tarihi, gelis_saat, cikis_tarihi,
+  ilgili_kisi, telefon, adres, garanti_no, kargo_takip_no,
+  fiyat_teklifi, teklif_birim, fatura_tutari, fatura_tarihi, aciklama,
   musteri:musteri_id ( ad, sube_sehir ),
+  sube:sube_id ( ad ),
   durum:durum_id ( ad ),
   teknik_personel:teknik_personel_id ( ad ),
   fatura_durumu:fatura_durumu_id ( ad ),
@@ -79,6 +86,8 @@ type Alan =
   | "musteri" | "cihaz" | "gelis" | "cikis" | "durum" | "personel" | "sonuc"
   | "servis" | "seri" | "aciklama" | "teklif" | "tutar" | "ilgili"
   | "kartno" | "talepno" | "teklifno" | "etiket" | "tsnNot"
+  // Sonradan eklenen alanlar (yalnız veri varsa sütun açılır)
+  | "sube" | "gelisSaat" | "telefon" | "teklifBirim" | "faturaTarihi"
 
 type Kolon = [baslik: string, alan: Alan]
 
@@ -217,12 +226,54 @@ const GENISLIK: Record<Alan, number> = {
   musteri: 22, cihaz: 38, gelis: 13, cikis: 13, durum: 13, personel: 17,
   sonuc: 17, servis: 15, seri: 16, aciklama: 42, teklif: 13, tutar: 15,
   ilgili: 22, kartno: 14, talepno: 17, teklifno: 12, etiket: 14, tsnNot: 15,
+  sube: 20, gelisSaat: 11, telefon: 16, teklifBirim: 11, faturaTarihi: 14,
 }
 
 function tarihTR(s: string | null): string {
   if (!s) return ""
   const [y, m, g] = s.split("-")
   return `${g}.${m}.${y}`
+}
+
+// "16:52:00" -> "16:52"
+function saatTR(s: string | null): string {
+  return s ? s.slice(0, 5) : ""
+}
+
+// Sonradan eklenen alanları orijinal düzeni bozmadan yerleştir.
+// ÖNEMLİ: bir sütun YALNIZCA o sayfada gerçekten veri varsa açılır — böylece
+// veri girilmemiş firmaların sayfaları orijinaliyle birebir aynı kalır.
+function sablonuGenislet(sablon: Kolon[], rows: RaporSatir[]): Kolon[] {
+  const subeVar = rows.some((r) => r.sube?.ad)
+  const saatVar = rows.some((r) => r.gelis_saat)
+  const telefonVar = rows.some((r) => r.telefon)
+  const faturaTarihiVar = rows.some((r) => r.fatura_tarihi)
+  // Para birimi sütunu yalnız TL DIŞI teklif varsa (hepsi TL ise zaten belirsizlik yok)
+  const dovizVar = rows.some(
+    (r) => r.fiyat_teklifi != null && (r.teklif_birim ?? "TL") !== "TL"
+  )
+  const musteriVar = sablon.some(([, a]) => a === "musteri")
+  const ilgiliVar = sablon.some(([, a]) => a === "ilgili")
+  const teklifVar = sablon.some(([, a]) => a === "teklif")
+
+  const cikti: Kolon[] = []
+  // Firma sütunu olmayan (tek firmalı) sayfalarda şube en başa
+  if (subeVar && !musteriVar) cikti.push(["ŞUBE", "sube"])
+  for (const kolon of sablon) {
+    cikti.push(kolon)
+    const [, alan] = kolon
+    if (alan === "musteri" && subeVar) cikti.push(["ŞUBE", "sube"])
+    if (alan === "gelis" && saatVar) cikti.push(["GELİŞ SAATİ", "gelisSaat"])
+    if (alan === "teklif" && dovizVar) cikti.push(["PARA BİRİMİ", "teklifBirim"])
+    if (alan === "ilgili" && telefonVar) cikti.push(["TELEFON", "telefon"])
+  }
+  // Şablonunda ilgili kişi olmayan sayfalarda ad+telefonu sona ekle
+  if (telefonVar && !ilgiliVar)
+    cikti.push(["İLGİLİ KİŞİ", "ilgili"], ["TELEFON", "telefon"])
+  // Teklif sütunu olmayan sayfada döviz varsa yine de göster
+  if (dovizVar && !teklifVar) cikti.push(["PARA BİRİMİ", "teklifBirim"])
+  if (faturaTarihiVar) cikti.push(["FATURA TARİHİ", "faturaTarihi"])
+  return cikti
 }
 
 // İçe aktarmada açıklamaya " · " ile eklenen etiketli notları geri ayıkla
@@ -268,6 +319,12 @@ function hucreDegeri(
     case "teklifno": return ayiklanmis.notlar["TEKLİF NO"] ?? ""
     case "etiket": return ayiklanmis.notlar["TEKNİK ETİKET"] ?? ""
     case "tsnNot": return ayiklanmis.notlar["SERVİS NO"] ?? ""
+    case "sube": return k.sube?.ad ?? ""
+    case "gelisSaat": return saatTR(k.gelis_saat)
+    case "telefon": return k.telefon ?? ""
+    // Tutar hep TL; birim yalnız fiyat teklifi içindir
+    case "teklifBirim": return k.fiyat_teklifi != null ? (k.teklif_birim ?? "TL") : ""
+    case "faturaTarihi": return tarihTR(k.fatura_tarihi)
   }
 }
 
@@ -298,7 +355,8 @@ export async function raporExcelBuffer(satirlar: RaporSatir[]): Promise<Buffer> 
     kullanilanAdlar.add(ad)
 
     const ws = wb.addWorksheet(ad, { views: [{ state: "frozen", ySplit: 1 }] })
-    const sablon = SABLONLAR[grupAd] ?? VARSAYILAN_SABLON
+    // Orijinal düzen + o sayfada verisi olan yeni alanlar (şube, saat, telefon, döviz…)
+    const sablon = sablonuGenislet(SABLONLAR[grupAd] ?? VARSAYILAN_SABLON, rows)
 
     ws.columns = sablon.map(([baslik, alan]) => ({
       header: baslik,
