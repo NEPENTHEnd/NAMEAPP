@@ -79,7 +79,12 @@ function saatTR(s: string | null): string {
   return s ? s.slice(0, 5) : ""
 }
 
-type Sube = { id: string; grup_id: string; ad: string }
+type Sube = {
+  id: string
+  grup_id: string
+  ad: string
+  ust_sube_id: string | null // null → firmaya doğrudan bağlı üst seviye şube
+}
 
 export function IslerEkrani({
   kayitlar,
@@ -143,13 +148,32 @@ export function IslerEkrani({
   const aktifGrupAd = gruplar.find((g) => g.id === aktifGrup)?.ad ?? null
   const stokKoduModu = aktifGrupAd === "BOYTEKS" // fiş no yerine firma stok kodu
 
-  // Şubeleri firmaya göre grupla
-  const subeMap = new Map<string, Sube[]>()
+  // Şubeler: firmanın üst-seviye şubeleri + her şubenin alt şubeleri
+  const subeMap = new Map<string, Sube[]>() // grup_id → üst seviye şubeler
+  const altSubeMap = new Map<string, Sube[]>() // ust_sube_id → alt şubeler
   for (const s of subeler) {
-    const l = subeMap.get(s.grup_id) ?? []
-    l.push(s)
-    subeMap.set(s.grup_id, l)
+    if (s.ust_sube_id) {
+      const l = altSubeMap.get(s.ust_sube_id) ?? []
+      l.push(s)
+      altSubeMap.set(s.ust_sube_id, l)
+    } else {
+      const l = subeMap.get(s.grup_id) ?? []
+      l.push(s)
+      subeMap.set(s.grup_id, l)
+    }
   }
+  // Bir şubenin üst şube zinciri (aktif şubenin atalarını otomatik açmak için)
+  function atalar(subeId: string): string[] {
+    const yol: string[] = []
+    let simdiki = subeler.find((x) => x.id === subeId)
+    while (simdiki?.ust_sube_id) {
+      const ustId: string = simdiki.ust_sube_id
+      yol.push(ustId)
+      simdiki = subeler.find((x) => x.id === ustId)
+    }
+    return yol
+  }
+
   // Açık (genişletilmiş) firmalar — aktif şube/grup otomatik açık başlar
   const [acikGruplar, setAcikGruplar] = useState<Set<string>>(() => {
     const s = new Set<string>()
@@ -160,6 +184,20 @@ export function IslerEkrani({
   })
   function grupAcKapa(id: string) {
     setAcikGruplar((prev) => {
+      const y = new Set(prev)
+      if (y.has(id)) y.delete(id)
+      else y.add(id)
+      return y
+    })
+  }
+  // Açık (genişletilmiş) şubeler — aktif şubenin üst zinciri otomatik açık
+  const [acikSubeler, setAcikSubeler] = useState<Set<string>>(() => {
+    const s = new Set<string>()
+    if (aktifSube) for (const a of atalar(aktifSube)) s.add(a)
+    return s
+  })
+  function subeAcKapa(id: string) {
+    setAcikSubeler((prev) => {
       const y = new Set(prev)
       if (y.has(id)) y.delete(id)
       else y.add(id)
@@ -293,6 +331,73 @@ export function IslerEkrani({
 
   const hedefIndex = hedef ? hedefler.findIndex((h) => h.anahtar === hedef) : -1
 
+  // Şube (ve alt şubelerini) özyinelemeli çiz. Bileşen DEĞİL düz fonksiyon:
+  // sürüklerken her karede yeniden bağlanıp ogeRef'i bozmasın diye.
+  function subeAgaci(s: Sube, grupAnahtar: string): React.ReactNode {
+    const cocuklar = altSubeMap.get(s.id) ?? []
+    const subeAcikMi = acikSubeler.has(s.id)
+    const subeVurgulu = surukle != null && hedef === `sube:${s.id}`
+    return (
+      <div key={s.id}>
+        <div className="flex items-center">
+          {/* Alt şubesi olan şubede aç/kapa oku */}
+          {cocuklar.length > 0 ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                subeAcKapa(s.id)
+              }}
+              title={subeAcikMi ? "Alt şubeleri gizle" : "Alt şubeleri göster"}
+              className="flex h-5 w-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={cn("transition-transform", subeAcikMi && "rotate-90")}
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+          ) : (
+            <span className="w-4 shrink-0" />
+          )}
+          <Link
+            ref={(el) => {
+              const anahtar = `sube:${s.id}`
+              if (el) ogeRef.current.set(anahtar, el)
+              else ogeRef.current.delete(anahtar)
+            }}
+            href={url({ grup: grupAnahtar, sube: s.id, bakilmadi: null })}
+            scroll={false}
+            className={cn(
+              "min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-[12.5px] transition-colors",
+              subeVurgulu
+                ? "bg-emerald-500 font-bold text-white ring-2 ring-inset ring-emerald-200"
+                : aktifSube === s.id
+                  ? "bg-accent font-semibold text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            {s.ad}
+          </Link>
+        </div>
+        {subeAcikMi && cocuklar.length > 0 && (
+          <div className="ml-3 grid gap-0.5 border-l border-border pl-1">
+            {cocuklar.map((c) => subeAgaci(c, grupAnahtar))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="hidden min-w-0 gap-4 md:flex">
       {/* Sol menü: firmalar */}
@@ -397,34 +502,10 @@ export function IslerEkrani({
                       </svg>
                     </Link>
                   </div>
-                  {/* Şubeler (açıkken alt alta) — sürükle-bırak hedefi */}
+                  {/* Şubeler + alt şubeler (açıkken alt alta) — sürükle-bırak hedefi */}
                   {acik && hSubeler.length > 0 && (
                     <div className="mb-0.5 ml-[18px] grid gap-0.5 border-l border-border pl-1.5">
-                      {hSubeler.map((s) => {
-                        const subeVurgulu = surukle != null && hedef === `sube:${s.id}`
-                        return (
-                          <Link
-                            key={s.id}
-                            ref={(el) => {
-                              const anahtar = `sube:${s.id}`
-                              if (el) ogeRef.current.set(anahtar, el)
-                              else ogeRef.current.delete(anahtar)
-                            }}
-                            href={url({ grup: h.anahtar, sube: s.id, bakilmadi: null })}
-                            scroll={false}
-                            className={cn(
-                              "truncate rounded-lg px-2.5 py-1 text-[12.5px] transition-colors",
-                              subeVurgulu
-                                ? "bg-emerald-500 font-bold text-white ring-2 ring-inset ring-emerald-200"
-                                : aktifSube === s.id
-                                  ? "bg-accent font-semibold text-primary"
-                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            )}
-                          >
-                            {s.ad}
-                          </Link>
-                        )
-                      })}
+                      {hSubeler.map((s) => subeAgaci(s, h.anahtar))}
                     </div>
                   )}
                 </div>

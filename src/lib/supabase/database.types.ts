@@ -441,6 +441,7 @@ export type Database = {
           ilgili_kisi: string | null
           sira: number
           telefon: string | null
+          ust_sube_id: string | null
         }
         Insert: {
           ad: string
@@ -451,6 +452,7 @@ export type Database = {
           ilgili_kisi?: string | null
           sira?: number
           telefon?: string | null
+          ust_sube_id?: string | null
         }
         Update: {
           ad?: string
@@ -461,6 +463,7 @@ export type Database = {
           ilgili_kisi?: string | null
           sira?: number
           telefon?: string | null
+          ust_sube_id?: string | null
         }
         Relationships: [
           {
@@ -468,6 +471,13 @@ export type Database = {
             columns: ["grup_id"]
             isOneToOne: false
             referencedRelation: "grup"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sube_ust_sube_id_fkey"
+            columns: ["ust_sube_id"]
+            isOneToOne: false
+            referencedRelation: "sube"
             referencedColumns: ["id"]
           },
         ]

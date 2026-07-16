@@ -23,6 +23,7 @@ type Sube = {
   ad: string
   ilgili_kisi: string | null
   telefon: string | null
+  ust_sube_id: string | null // null → firmaya doğrudan bağlı üst seviye şube
 }
 type Musteri = { id: string; ad: string }
 
@@ -45,17 +46,34 @@ export function FirmaListesi({
     if (surukleIdx === null) setListe(gruplar)
   }, [gruplar, surukleIdx])
 
-  // Şubeleri firmaya göre grupla
-  const subeMap = useMemo(() => {
-    const m = new Map<string, Sube[]>()
+  // Şubeler: firmanın üst-seviye şubeleri + her şubenin alt şubeleri
+  const { subeMap, altSubeMap } = useMemo(() => {
+    const ust = new Map<string, Sube[]>() // grup_id → üst seviye şubeler
+    const alt = new Map<string, Sube[]>() // ust_sube_id → alt şubeler
     for (const s of subeler) {
-      const l = m.get(s.grup_id) ?? []
-      l.push(s)
-      m.set(s.grup_id, l)
+      if (s.ust_sube_id) {
+        const l = alt.get(s.ust_sube_id) ?? []
+        l.push(s)
+        alt.set(s.ust_sube_id, l)
+      } else {
+        const l = ust.get(s.grup_id) ?? []
+        l.push(s)
+        ust.set(s.grup_id, l)
+      }
     }
-    return m
+    return { subeMap: ust, altSubeMap: alt }
   }, [subeler])
   const [acikSube, setAcikSube] = useState<Set<string>>(new Set())
+  // Hangi şubenin "alt şube ekle" formu açık
+  const [acikAltEkle, setAcikAltEkle] = useState<Set<string>>(new Set())
+  function altEkleToggle(subeId: string) {
+    setAcikAltEkle((prev) => {
+      const y = new Set(prev)
+      if (y.has(subeId)) y.delete(subeId)
+      else y.add(subeId)
+      return y
+    })
+  }
 
   // Yeni firma: müşteri arama
   const [ara, setAra] = useState("")
@@ -126,12 +144,86 @@ export function FirmaListesi({
   }
 
   function subeSilTikla(s: Sube) {
-    if (!window.confirm(`"${s.ad}" şubesi silinecek. İşleri ana firmaya döner. Emin misin?`))
-      return
+    const altSayisi = (altSubeMap.get(s.id) ?? []).length
+    const mesaj = altSayisi
+      ? `"${s.ad}" şubesi ve ${altSayisi} alt şubesi silinecek.\nİşleri silinmez, ana firmaya döner. Emin misin?`
+      : `"${s.ad}" şubesi silinecek. İşleri ana firmaya döner. Emin misin?`
+    if (!window.confirm(mesaj)) return
     startTransition(async () => {
       await subeSil(s.id)
       router.refresh()
     })
+  }
+
+  // Şubeyi ve alt şubelerini özyinelemeli çiz (her seviyede "alt şube ekle" var)
+  function subeSatiri(s: Sube): React.ReactNode {
+    const cocuklar = altSubeMap.get(s.id) ?? []
+    const ekleAcik = acikAltEkle.has(s.id)
+    return (
+      <div key={s.id} className="grid gap-1.5">
+        <form
+          action={async (fd) => {
+            await subeDuzenle(fd)
+            router.refresh()
+          }}
+          className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-1.5"
+        >
+          <input type="hidden" name="id" value={s.id} />
+          <Input name="ad" defaultValue={s.ad} placeholder="Şube adı" className="h-8 min-w-[7rem] flex-1" required />
+          <Input name="ilgili_kisi" defaultValue={s.ilgili_kisi ?? ""} placeholder="İlgili kişi" className="h-8 w-[8.5rem]" />
+          <Input name="telefon" defaultValue={s.telefon ?? ""} placeholder="Telefon" className="h-8 w-[7.5rem]" />
+          <Button type="submit" size="sm" variant="outline">Kaydet</Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => altEkleToggle(s.id)}
+            className={cn(ekleAcik && "bg-muted")}
+          >
+            + Alt şube
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => subeSilTikla(s)}
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            Sil
+          </Button>
+        </form>
+
+        {/* Bu şubenin altına yeni alt şube */}
+        {ekleAcik && (
+          <form
+            action={async (fd) => {
+              await subeEkle(fd)
+              setAcikAltEkle((p) => {
+                const y = new Set(p)
+                y.delete(s.id)
+                return y
+              })
+              router.refresh()
+            }}
+            className="ml-4 flex flex-wrap items-center gap-1.5 rounded-lg border border-dashed border-primary/50 bg-accent/40 p-1.5"
+          >
+            {/* Firma bilgisi üst şubeden devralınır (grup_id göndermiyoruz) */}
+            <input type="hidden" name="ust_sube_id" value={s.id} />
+            <Input name="ad" placeholder={`${s.ad} → alt şube adı`} className="h-8 min-w-[8rem] flex-1" required autoFocus />
+            <Input name="ilgili_kisi" placeholder="İlgili kişi (ops.)" className="h-8 w-[8.5rem]" />
+            <Input name="telefon" placeholder="Telefon (ops.)" className="h-8 w-[7.5rem]" />
+            <Button type="submit" size="sm">+ Ekle</Button>
+          </form>
+        )}
+
+        {/* Alt şubeler */}
+        {cocuklar.length > 0 && (
+          <div className="ml-4 grid gap-1.5 border-l-2 border-border pl-2">
+            {cocuklar.map((c) => subeSatiri(c))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -178,7 +270,8 @@ export function FirmaListesi({
 
       <div className={cn("grid gap-1.5", pending && "opacity-60")}>
         {liste.map((g, i) => {
-          const gSubeler = subeMap.get(g.id) ?? []
+          const gSubeler = subeMap.get(g.id) ?? [] // üst seviye şubeler
+          const toplamSube = subeler.filter((s) => s.grup_id === g.id).length // alt şubeler dahil
           const subeAcik = acikSube.has(g.id)
           return (
             <div
@@ -241,7 +334,7 @@ export function FirmaListesi({
                   onClick={() => subeToggle(g.id)}
                   className={cn(subeAcik && "bg-muted")}
                 >
-                  Şubeler{gSubeler.length > 0 ? ` (${gSubeler.length})` : ""}
+                  Şubeler{toplamSube > 0 ? ` (${toplamSube})` : ""}
                 </Button>
                 <Button
                   type="button"
@@ -254,35 +347,11 @@ export function FirmaListesi({
                 </Button>
               </div>
 
-              {/* Şube paneli */}
+              {/* Şube paneli — şubeler + alt şubeler (iç içe) */}
               {subeAcik && (
                 <div className="grid gap-1.5 border-t border-border/60 bg-muted/30 p-2">
-                  {gSubeler.map((s) => (
-                    <form
-                      key={s.id}
-                      action={async (fd) => {
-                        await subeDuzenle(fd)
-                        router.refresh()
-                      }}
-                      className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-1.5"
-                    >
-                      <input type="hidden" name="id" value={s.id} />
-                      <Input name="ad" defaultValue={s.ad} placeholder="Şube adı" className="h-8 min-w-[8rem] flex-1" required />
-                      <Input name="ilgili_kisi" defaultValue={s.ilgili_kisi ?? ""} placeholder="İlgili kişi" className="h-8 w-[9rem]" />
-                      <Input name="telefon" defaultValue={s.telefon ?? ""} placeholder="Telefon" className="h-8 w-[8rem]" />
-                      <Button type="submit" size="sm" variant="outline">Kaydet</Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => subeSilTikla(s)}
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        Sil
-                      </Button>
-                    </form>
-                  ))}
-                  {/* Yeni şube ekle */}
+                  {gSubeler.map((s) => subeSatiri(s))}
+                  {/* Yeni (üst seviye) şube ekle */}
                   <form
                     action={async (fd) => {
                       await subeEkle(fd)

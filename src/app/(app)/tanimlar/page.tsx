@@ -62,7 +62,7 @@ export default async function TanimlarSayfasi({
       supabase.from("is_kaydi").select("musteri_id, ilgili_kisi, telefon"),
       supabase
         .from("sube")
-        .select("id, grup_id, ad, ilgili_kisi, telefon")
+        .select("id, grup_id, ad, ilgili_kisi, telefon, ust_sube_id")
         .order("sira"),
     ])
 

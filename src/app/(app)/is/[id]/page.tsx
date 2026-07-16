@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
 import { getIsFormSecenekleri } from "@/lib/secenekler"
+import { subeSecenekleri } from "@/lib/sube"
 import { isGuncelle, isSil } from "@/app/actions/is"
 import { IsFormu } from "@/components/is-formu"
 import { SilButonu } from "@/components/sil-butonu"
@@ -74,16 +75,16 @@ export default async function IsDetaySayfasi({
   }
 
   const secenekler = await getIsFormSecenekleri()
-  // İşin firmasının (grup) şubeleri — varsa formda "şube seç" çıkar (yalnız yönetici)
+  // İşin firmasının (grup) şubeleri + alt şubeleri — formda "şube seç" (yalnız yönetici)
   let subeler: { id: string; ad: string }[] = []
   if (kullanici.rol === "yonetici" && kayit.grup_id) {
     const { data } = await supabase
       .from("sube")
-      .select("id, ad")
+      .select("id, ad, ust_sube_id")
       .eq("grup_id", kayit.grup_id)
       .eq("aktif", true)
       .order("sira")
-    subeler = data ?? []
+    subeler = subeSecenekleri(data ?? [])
   }
   const guncelleAction = isGuncelle.bind(null, id)
   const silAction = isSil.bind(null, id)

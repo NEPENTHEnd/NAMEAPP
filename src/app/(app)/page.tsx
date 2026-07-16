@@ -92,7 +92,11 @@ export default async function IslerSayfasi({
         .order("ad"),
       supabase.from("grup").select("id, ad").eq("aktif", true).order("sira"),
       supabase.from("kullanici_profil").select("id, ad"),
-      supabase.from("sube").select("id, grup_id, ad").eq("aktif", true).order("sira"),
+      supabase
+        .from("sube")
+        .select("id, grup_id, ad, ust_sube_id")
+        .eq("aktif", true)
+        .order("sira"),
     ])
 
   const gruplar = gruplarRes.data ?? []
@@ -137,8 +141,22 @@ export default async function IslerSayfasi({
   // Sol menü grubu: "diger" = grupsuz (null), aksi halde grup id
   if (grupParam === "diger") query = query.is("grup_id", null)
   else if (grupParam) query = query.eq("grup_id", grupParam)
-  // Belirli şube seçiliyse yalnız o şubenin işleri
-  if (subeParam) query = query.eq("sube_id", subeParam)
+  // Belirli şube seçiliyse o şubenin İŞLERİ + ALT ŞUBELERİNİN işleri
+  // (firmaya tıklayınca hepsi geldiği gibi, üst şubeye tıklayınca da altındakiler gelir)
+  if (subeParam) {
+    const kapsam = [subeParam]
+    const kuyruk = [subeParam]
+    while (kuyruk.length > 0) {
+      const ust = kuyruk.shift()!
+      for (const s of subeler) {
+        if (s.ust_sube_id === ust && !kapsam.includes(s.id)) {
+          kapsam.push(s.id)
+          kuyruk.push(s.id)
+        }
+      }
+    }
+    query = query.in("sube_id", kapsam)
+  }
   // "Müşterisiz" (tanımsız) — müşterisi silinmiş işler
   if (musterisizFiltre) query = query.is("musteri_id", null)
   // "Bakılmadı (gelenler)" tuşu

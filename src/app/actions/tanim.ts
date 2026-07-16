@@ -156,21 +156,39 @@ export async function grupMusteridenEkle(formData: FormData) {
   bitir()
 }
 
-// ---- Şube (bir sol-menü firmasının alt firmaları) ----
+// ---- Şube (bir sol-menü firmasının alt firmaları; şubenin de alt şubesi olabilir) ----
 export async function subeEkle(formData: FormData) {
   const supabase = await yoneticiSupabase()
-  const grupId = metin(formData, "grup_id")
   const ad = metin(formData, "ad")
-  if (!grupId || !ad) return
-  const { data: son } = await supabase
-    .from("sube")
-    .select("sira")
-    .eq("grup_id", grupId)
+  const ustSubeId = metin(formData, "ust_sube_id") // dolu ise ALT şube
+  let grupId = metin(formData, "grup_id")
+  if (!ad) return
+
+  // Alt şube: firmayı üst şubeden devral (yanlış firmaya bağlanmasın)
+  if (ustSubeId) {
+    const { data: ust } = await supabase
+      .from("sube")
+      .select("grup_id")
+      .eq("id", ustSubeId)
+      .maybeSingle()
+    if (!ust) return
+    grupId = ust.grup_id
+  }
+  if (!grupId) return
+
+  // Sıra: aynı seviyedekilerin (aynı üst) sonuna ekle
+  let sorgu = supabase.from("sube").select("sira").eq("grup_id", grupId)
+  sorgu = ustSubeId
+    ? sorgu.eq("ust_sube_id", ustSubeId)
+    : sorgu.is("ust_sube_id", null)
+  const { data: son } = await sorgu
     .order("sira", { ascending: false })
     .limit(1)
     .maybeSingle()
+
   await supabase.from("sube").insert({
     grup_id: grupId,
+    ust_sube_id: ustSubeId || null,
     ad: buyuk(ad),
     ilgili_kisi: buyuk(metin(formData, "ilgili_kisi")) || null,
     telefon: metin(formData, "telefon") || null,
@@ -197,7 +215,8 @@ export async function subeDuzenle(formData: FormData) {
   bitir()
 }
 
-// Şubeyi sil — işleri silinmez, şubesiz (ana firma) kalır (FK on delete set null)
+// Şubeyi sil — ALT ŞUBELERİ de silinir (FK cascade).
+// İşleri silinmez, şubesiz (ana firma) kalır (is_kaydi.sube_id set null).
 export async function subeSil(id: string) {
   const supabase = await yoneticiSupabase()
   if (!id) return

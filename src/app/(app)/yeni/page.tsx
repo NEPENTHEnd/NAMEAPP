@@ -3,6 +3,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
 import { getIsFormSecenekleri } from "@/lib/secenekler"
+import { subeSecenekleri } from "@/lib/sube"
 import { isOlustur } from "@/app/actions/is"
 import { IsFormu } from "@/components/is-formu"
 
@@ -27,17 +28,17 @@ export default async function YeniIsSayfasi({
   const grup = !personel
     ? secenekler.gruplar.find((g) => g.id === grupParam)
     : undefined
-  // Seçili firmanın şubeleri (varsa formda "şube seç" çıkar)
+  // Seçili firmanın şubeleri + alt şubeleri (varsa formda "şube seç" çıkar)
   let subeler: { id: string; ad: string }[] = []
   if (grup) {
     const supabase = await createClient()
     const { data } = await supabase
       .from("sube")
-      .select("id, ad")
+      .select("id, ad, ust_sube_id")
       .eq("grup_id", grup.id)
       .eq("aktif", true)
       .order("sira")
-    subeler = data ?? []
+    subeler = subeSecenekleri(data ?? [])
   }
 
   return (
