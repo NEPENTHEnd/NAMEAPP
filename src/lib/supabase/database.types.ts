@@ -222,6 +222,7 @@ export type Database = {
           fatura_tutari: number | null
           fiyat_teklifi: number | null
           garanti_no: string | null
+          gelis_saat: string | null
           gelis_tarihi: string
           grup_id: string | null
           id: string
@@ -251,6 +252,7 @@ export type Database = {
           fatura_tutari?: number | null
           fiyat_teklifi?: number | null
           garanti_no?: string | null
+          gelis_saat?: string | null
           gelis_tarihi?: string
           grup_id?: string | null
           id?: string
@@ -280,6 +282,7 @@ export type Database = {
           fatura_tutari?: number | null
           fiyat_teklifi?: number | null
           garanti_no?: string | null
+          gelis_saat?: string | null
           gelis_tarihi?: string
           grup_id?: string | null
           id?: string

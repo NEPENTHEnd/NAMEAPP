@@ -20,6 +20,7 @@ export type IsFormVarsayilan = {
   seri_no?: string | null
   servis_no?: string | null
   gelis_tarihi?: string | null
+  gelis_saat?: string | null
   cikis_tarihi?: string | null
   durum_id?: string | null
   teknik_personel_id?: string | null
@@ -158,6 +159,18 @@ export function IsFormu({
       /* kullanıcı iptal etti ya da desteklenmiyor — elle yazabilir */
     }
   }
+  // Geliş saati. Yeni kayıtta TARAYICININ saatiyle dolar (sunucu UTC çalıştığı için
+  // sunucuda üretilirsek 3 saat şaşar). Hydration uyuşmazlığı olmasın diye effect'te.
+  const [gelisSaat, setGelisSaat] = useState(varsayilan.gelis_saat?.slice(0, 5) ?? "")
+  useEffect(() => {
+    if (degisiklikTakip || varsayilan.gelis_saat) return // düzenleme: kayıtlı saati koru
+    const d = new Date()
+    setGelisSaat(
+      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Adet: yeni kayıtta birden çok aynı ürün → tek fiş no, ayrı satırlar
   const [adet, setAdet] = useState(1)
   const cokluAdet = !degisiklikTakip // yalnız yeni iş girişinde adet seçilir
@@ -507,14 +520,27 @@ export function IsFormu({
         <>
           <input type="hidden" name="durum_id" value={varsayilan.durum_id ?? ""} />
           <input type="hidden" name="gelis_tarihi" value={varsayilan.gelis_tarihi ?? ""} />
+          <input type="hidden" name="gelis_saat" value={gelisSaat} />
         </>
       ) : (
       <Bolum baslik="Süreç & Atama">
         <div className="grid gap-3.5 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="gelis_tarihi">Geliş tarihi *</label>
-            <input id="gelis_tarihi" name="gelis_tarihi" type="date" className={selectClass} defaultValue={varsayilan.gelis_tarihi ?? ""} aria-invalid={!!fe.gelis_tarihi} />
+            <label className={labelClass} htmlFor="gelis_tarihi">Geliş tarihi & saati *</label>
+            <div className="flex gap-1.5">
+              <input id="gelis_tarihi" name="gelis_tarihi" type="date" className={cn(selectClass, "min-w-0 flex-1")} defaultValue={varsayilan.gelis_tarihi ?? ""} aria-invalid={!!fe.gelis_tarihi} />
+              <input
+                id="gelis_saat"
+                name="gelis_saat"
+                type="time"
+                aria-label="Geliş saati"
+                className={cn(selectClass, "w-[104px] shrink-0")}
+                value={gelisSaat}
+                onChange={(e) => setGelisSaat(e.target.value)}
+              />
+            </div>
             <Hata alan="gelis_tarihi" />
+            <Hata alan="gelis_saat" />
           </div>
           <div className="grid gap-1.5">
             <label className={labelClass} htmlFor="cikis_tarihi">Çıkış tarihi</label>

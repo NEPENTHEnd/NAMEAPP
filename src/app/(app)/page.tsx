@@ -122,9 +122,9 @@ export default async function IslerSayfasi({
     .from("is_kaydi")
     .select(
       `
-        id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
+        id, cihaz_adi, seri_no, servis_no, gelis_tarihi, gelis_saat, cikis_tarihi,
         fatura_tarihi, fiyat_teklifi, teklif_birim, fatura_tutari, garanti_no, kargo_takip_no,
-        musteri_id, durum_id, fatura_durumu_id, grup_id, teknik_personel_id, olusturan_id,
+        musteri_id, durum_id, fatura_durumu_id, grup_id, sube_id, teknik_personel_id, olusturan_id,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
         teknik_personel:teknik_personel_id ( ad ),
@@ -202,8 +202,11 @@ export default async function IslerSayfasi({
   const siralaKolon = sirala ? SIRALANABILIR[sirala] : "gelis_tarihi"
   const artan = sirala ? yon === "asc" : false
   const baslangicIndex = (sayfa - 1) * SAYFA_BOYUTU
-  const { data, count, error } = await query
-    .order(siralaKolon, { ascending: artan, nullsFirst: false })
+  let siraliQuery = query.order(siralaKolon, { ascending: artan, nullsFirst: false })
+  // Geliş sıralamasında aynı gün içinde saate göre de sırala
+  if (siralaKolon === "gelis_tarihi")
+    siraliQuery = siraliQuery.order("gelis_saat", { ascending: artan, nullsFirst: false })
+  const { data, count, error } = await siraliQuery
     .order("created_at", { ascending: false })
     .range(baslangicIndex, baslangicIndex + SAYFA_BOYUTU - 1)
 
@@ -519,7 +522,10 @@ export default async function IslerSayfasi({
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <div>Servis: {k.servis_no ?? "—"}</div>
                   <div>Personel: {k.teknik_personel?.ad ?? "—"}</div>
-                  <div>Geliş: {tarihTR(k.gelis_tarihi)}</div>
+                  <div>
+                    Geliş: {tarihTR(k.gelis_tarihi)}
+                    {k.gelis_saat ? ` ${k.gelis_saat.slice(0, 5)}` : ""}
+                  </div>
                   <div>Çıkış: {tarihTR(k.cikis_tarihi)}</div>
                   {finansal && k.garanti_no ? <div>Takip no: {k.garanti_no}</div> : null}
                   {finansal && <div>Fatura: {k.fatura_durumu?.ad ?? "—"}</div>}

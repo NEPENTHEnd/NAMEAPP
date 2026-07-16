@@ -74,6 +74,14 @@ const sema = z
       bosNull,
       z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Geliş tarihi zorunlu")
     ),
+    // Saat "HH:MM" (bazı tarayıcılar "HH:MM:SS" gönderir)
+    gelis_saat: z.preprocess(
+      bosNull,
+      z
+        .string()
+        .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Geçerli bir saat girin")
+        .optional()
+    ),
     cikis_tarihi: tarih,
     durum_id: z.string().uuid("Durum seçin"),
     teknik_personel_id: z.preprocess(bosNull, z.string().uuid().optional()),
@@ -104,6 +112,7 @@ function formdanOku(formData: FormData) {
     seri_no: formData.get("seri_no"),
     servis_no: formData.get("servis_no"),
     gelis_tarihi: formData.get("gelis_tarihi"),
+    gelis_saat: formData.get("gelis_saat"),
     cikis_tarihi: formData.get("cikis_tarihi"),
     durum_id: formData.get("durum_id"),
     teknik_personel_id: formData.get("teknik_personel_id"),
@@ -156,6 +165,7 @@ function temelSatir(veri: z.infer<typeof sema>, musteriId: string) {
     cihaz_adi: veri.cihaz_adi,
     seri_no: veri.seri_no ?? null,
     gelis_tarihi: veri.gelis_tarihi,
+    gelis_saat: veri.gelis_saat ?? null,
     cikis_tarihi: veri.cikis_tarihi ?? null,
     durum_id: veri.durum_id,
     teknik_personel_id: veri.teknik_personel_id ?? null,
@@ -375,6 +385,37 @@ export async function isGrupAta(id: string, grupId: string | null) {
   return { ok: true }
 }
 
+// Geri al: taşımadan önceki firma/şube değerlerini geri yazar.
+// Her iş kendi eski yerine döner (farklı yerlerden gelmiş olabilirler).
+export async function isGeriAl(
+  oncekiler: { id: string; grup_id: string | null; sube_id: string | null }[]
+) {
+  const kullanici = await getKullanici()
+  if (kullanici.rol !== "yonetici") {
+    return { ok: false, error: "Bu işlem için yönetici yetkisi gerekir." }
+  }
+  if (oncekiler.length === 0) return { ok: true }
+  const supabase = await createClient()
+  // Aynı (grup, şube) çiftine dönecekleri tek sorguda topla
+  const kumeler = new Map<string, string[]>()
+  for (const o of oncekiler) {
+    const anahtar = `${o.grup_id ?? ""}|${o.sube_id ?? ""}`
+    const l = kumeler.get(anahtar) ?? []
+    l.push(o.id)
+    kumeler.set(anahtar, l)
+  }
+  for (const [anahtar, ids] of kumeler) {
+    const [g, s] = anahtar.split("|")
+    const { error } = await supabase
+      .from("is_kaydi")
+      .update({ grup_id: g || null, sube_id: s || null })
+      .in("id", ids)
+    if (error) return { ok: false, error: error.message }
+  }
+  revalidatePath("/")
+  return { ok: true }
+}
+
 // Sürükle-bırak (çoklu): yönetici bir veya çok işi firmaya + şubeye taşır.
 // grupId=null → DİĞER; subeId=null → ana firma (şubesiz).
 export async function isTasima(
@@ -447,6 +488,11 @@ export async function isHucreGuncelle(
       if (!/^\d{4}-\d{2}-\d{2}$/.test(t))
         return { ok: false, error: "Geçerli tarih girin." }
       guncelle.gelis_tarihi = t
+      break
+    case "gelis_saat":
+      if (t && !/^\d{2}:\d{2}(:\d{2})?$/.test(t))
+        return { ok: false, error: "Geçerli saat girin." }
+      guncelle.gelis_saat = t || null
       break
     case "cikis_tarihi":
     case "fatura_tarihi":

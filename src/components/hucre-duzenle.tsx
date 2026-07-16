@@ -24,7 +24,7 @@ export function HucreDuzenle({
   isId: string
   alan: string
   deger: string | null
-  tip?: "metin" | "tarih" | "select"
+  tip?: "metin" | "tarih" | "saat" | "select"
   secenekler?: Secenek[]
   bosEtiket?: string
   goster?: (deger: string | null) => React.ReactNode
@@ -116,13 +116,13 @@ export function HucreDuzenle({
     )
   }
 
-  // metin / tarih
+  // metin / tarih / saat
   if (acik) {
     return (
       <div className={className} onPointerDown={stop} onClick={stop}>
         <input
           autoFocus
-          type={tip === "tarih" ? "date" : "text"}
+          type={tip === "tarih" ? "date" : tip === "saat" ? "time" : "text"}
           defaultValue={deger ?? ""}
           placeholder={placeholder}
           onBlur={(e) => kaydet(e.target.value)}

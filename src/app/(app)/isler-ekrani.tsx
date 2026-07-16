@@ -7,7 +7,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
-import { isTasima, isSil } from "@/app/actions/is"
+import { isTasima, isGeriAl, isSil } from "@/app/actions/is"
 import {
   Table,
   TableBody,
@@ -29,6 +29,7 @@ export type Kayit = {
   cihaz_adi: string
   seri_no: string | null
   gelis_tarihi: string | null
+  gelis_saat: string | null
   cikis_tarihi: string | null
   fatura_tarihi: string | null
   durum_id: string
@@ -44,6 +45,7 @@ export type Kayit = {
   teklif_birim: string | null
   fatura_tutari: number | null
   grup_id: string | null
+  sube_id: string | null
   olusturan_ad: string | null
 }
 
@@ -71,6 +73,10 @@ function tarihTR(s: string | null): string {
   if (!s) return "—"
   const [y, m, g] = s.split("-")
   return `${g}.${m}.${y}`
+}
+// "16:52:00" -> "16:52"
+function saatTR(s: string | null): string {
+  return s ? s.slice(0, 5) : ""
 }
 
 type Sube = { id: string; grup_id: string; ad: string }
@@ -161,7 +167,7 @@ export function IslerEkrani({
     })
   }
 
-  // ---- Çoklu seçim (işaretle → birlikte sürükle) ----
+  // ---- Çoklu seçim: Ctrl (⌘) + tıkla → birlikte sürükle ----
   const [secili, setSecili] = useState<Set<string>>(new Set())
   function seciliDegistir(id: string) {
     setSecili((prev) => {
@@ -172,12 +178,27 @@ export function IslerEkrani({
     })
   }
   const gorunenIdler = kayitlar.map((k) => k.id)
-  const hepsiSecili =
-    gorunenIdler.length > 0 && gorunenIdler.every((id) => secili.has(id))
-  function hepsiniDegistir() {
-    setSecili((prev) => {
-      if (gorunenIdler.every((id) => prev.has(id))) return new Set()
-      return new Set(gorunenIdler)
+
+  // ---- Son yapılan taşıma (alt şeritte gösterilir + geri alınabilir) ----
+  type SonIslem = {
+    oncekiler: { id: string; grup_id: string | null; sube_id: string | null }[]
+    metin: string
+    adet: number
+  }
+  const [sonIslem, setSonIslem] = useState<SonIslem | null>(null)
+  // Bir işin bulunduğu yerin adı (şube > firma > DİĞER)
+  function yerAdi(grupId: string | null, subeId: string | null): string {
+    if (subeId) return subeler.find((s) => s.id === subeId)?.ad ?? "şube"
+    if (grupId) return gruplar.find((g) => g.id === grupId)?.ad ?? "firma"
+    return "DİĞER"
+  }
+  function geriAl() {
+    if (!sonIslem) return
+    const oncekiler = sonIslem.oncekiler
+    setSonIslem(null)
+    startTransition(async () => {
+      await isGeriAl(oncekiler)
+      router.refresh()
     })
   }
 
@@ -236,9 +257,26 @@ export function IslerEkrani({
         } else {
           grupId = h
         }
+        // Taşımadan ÖNCEKİ yerleri sakla → "Geri al" bunları geri yazar
+        const kayitMap = new Map(kayitlar.map((k) => [k.id, k]))
+        const oncekiler = idler.map((id) => ({
+          id,
+          grup_id: kayitMap.get(id)?.grup_id ?? null,
+          sube_id: kayitMap.get(id)?.sube_id ?? null,
+        }))
+        // Hiçbiri gerçekten yer değiştirmiyorsa dokunma
+        const degisen = oncekiler.some(
+          (o) => o.grup_id !== grupId || o.sube_id !== subeId
+        )
+        if (!degisen) return
+        const kaynaklar = new Set(oncekiler.map((o) => yerAdi(o.grup_id, o.sube_id)))
+        const kaynakAd =
+          kaynaklar.size === 1 ? [...kaynaklar][0] : `${kaynaklar.size} farklı yer`
+        const metin = `${kaynakAd} → ${hedefAd(h)}`
         startTransition(async () => {
-          await isTasima(idler, grupId, subeId)
+          const r = await isTasima(idler, grupId, subeId)
           setSecili(new Set())
+          if (r.ok) setSonIslem({ oncekiler, metin, adet: idler.length })
           router.refresh()
         })
       }
@@ -406,17 +444,7 @@ export function IslerEkrani({
         >
           <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-card [&_th]:shadow-[inset_0_-1px_0_var(--border)]">
             <TableRow>
-              {finansal && (
-                <TableHead className="w-11 p-0 pl-1">
-                  <input
-                    type="checkbox"
-                    checked={hepsiSecili}
-                    onChange={hepsiniDegistir}
-                    title="Görünenlerin hepsini seç"
-                    className="size-3.5 accent-primary"
-                  />
-                </TableHead>
-              )}
+              {finansal && <TableHead className="w-7 p-0" />}
               <TableHead>
                 <Link href={siralaHref("servis")} scroll={false} className="hover:underline">
                   {stokKoduModu ? "Firma Stok Kodu" : "Fiş No"}
@@ -463,6 +491,16 @@ export function IslerEkrani({
                 key={k.id}
                 data-selected={k.id === seciliId}
                 onDoubleClick={() => git({ secili: k.id })}
+                // Ctrl (Mac'te ⌘) + tıkla → satırı seç. Capture: hücre düzenleyiciler
+                // kendi onClick'lerinde durdurduğu için onlardan ÖNCE yakalanmalı.
+                onClickCapture={(e) => {
+                  if (!finansal) return
+                  if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    seciliDegistir(k.id)
+                  }
+                }}
                 // Satır rengi Excel'deki gibi: önce FATURA (SONUÇ), yoksa DURUM
                 style={{
                   "--satir":
@@ -476,44 +514,36 @@ export function IslerEkrani({
                   secili.has(k.id) && "ring-2 ring-inset ring-primary/70"
                 )}
               >
-                {/* Seçim kutusu + sürükleme sapı — fiş no'nun hemen solunda */}
+                {/* Sürükleme sapı — fiş no'nun hemen solunda (seçim: Ctrl + tıkla) */}
                 {finansal && (
-                  <TableCell className="w-11 p-0 pl-1">
-                    <div className="flex items-center gap-0.5">
-                      <input
-                        type="checkbox"
-                        checked={secili.has(k.id)}
-                        onChange={() => seciliDegistir(k.id)}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                        title="Seç (çoklu sürükleme için)"
-                        className="size-3.5 shrink-0 accent-primary"
-                      />
-                      <button
-                        type="button"
-                        title="Tutup sol menüdeki firmaya/şubeye sürükle"
-                        onPointerDown={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          // Seçili satırlardan biri tutulduysa hepsini taşı; değilse yalnız bunu
-                          const idler =
-                            secili.has(k.id) && secili.size > 0
-                              ? Array.from(secili)
-                              : [k.id]
-                          setSurukle(k)
-                          setSurukleIdler(idler)
-                          setPos({ x: e.clientX, y: e.clientY })
-                        }}
-                        className="flex h-8 w-5 cursor-grab items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-foreground active:cursor-grabbing"
-                        style={{ touchAction: "none" }}
-                      >
-                        <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-                          <circle cx="2.5" cy="2.5" r="1.4" /><circle cx="7.5" cy="2.5" r="1.4" />
-                          <circle cx="2.5" cy="8" r="1.4" /><circle cx="7.5" cy="8" r="1.4" />
-                          <circle cx="2.5" cy="13.5" r="1.4" /><circle cx="7.5" cy="13.5" r="1.4" />
-                        </svg>
-                      </button>
-                    </div>
+                  <TableCell className="w-7 p-0 pl-1">
+                    <button
+                      type="button"
+                      title="Tutup sol menüdeki firmaya/şubeye sürükle (çoklu için Ctrl+tıkla seç)"
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        // Seçili satırlardan biri tutulduysa hepsini taşı; değilse yalnız bunu
+                        const idler =
+                          secili.has(k.id) && secili.size > 0
+                            ? Array.from(secili)
+                            : [k.id]
+                        setSurukle(k)
+                        setSurukleIdler(idler)
+                        setPos({ x: e.clientX, y: e.clientY })
+                      }}
+                      className={cn(
+                        "flex h-8 w-5 cursor-grab items-center justify-center rounded hover:bg-muted hover:text-foreground active:cursor-grabbing",
+                        secili.has(k.id) ? "text-primary" : "text-muted-foreground/50"
+                      )}
+                      style={{ touchAction: "none" }}
+                    >
+                      <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                        <circle cx="2.5" cy="2.5" r="1.4" /><circle cx="7.5" cy="2.5" r="1.4" />
+                        <circle cx="2.5" cy="8" r="1.4" /><circle cx="7.5" cy="8" r="1.4" />
+                        <circle cx="2.5" cy="13.5" r="1.4" /><circle cx="7.5" cy="13.5" r="1.4" />
+                      </svg>
+                    </button>
                   </TableCell>
                 )}
                 <TableCell className="font-medium">
@@ -546,8 +576,25 @@ export function IslerEkrani({
                   <HucreDuzenle isId={k.id} alan="cihaz_adi" deger={k.cihaz_adi} className="truncate" />
                   <HucreDuzenle isId={k.id} alan="seri_no" deger={k.seri_no} bosEtiket="SN ekle" className="truncate text-xs text-muted-foreground" />
                 </TableCell>
-                <TableCell>
+                <TableCell className="min-w-[92px]">
                   <HucreDuzenle isId={k.id} alan="gelis_tarihi" tip="tarih" deger={k.gelis_tarihi} goster={() => tarihTR(k.gelis_tarihi)} />
+                  <HucreDuzenle
+                    isId={k.id}
+                    alan="gelis_saat"
+                    tip="saat"
+                    // "16:52:00" değil "16:52" ver: time input'un döndürdüğüyle aynı
+                    // olsun ki değişmeden kapatınca boşuna kayıt atmasın
+                    deger={saatTR(k.gelis_saat) || null}
+                    bosEtiket="saat ekle"
+                    goster={() =>
+                      k.gelis_saat ? (
+                        saatTR(k.gelis_saat)
+                      ) : (
+                        <span className="text-muted-foreground/60">saat ekle</span>
+                      )
+                    }
+                    className="text-xs text-muted-foreground"
+                  />
                 </TableCell>
                 <TableCell>
                   <HucreDuzenle isId={k.id} alan="cikis_tarihi" tip="tarih" deger={k.cikis_tarihi} goster={() => tarihTR(k.cikis_tarihi)} />
@@ -776,6 +823,61 @@ export function IslerEkrani({
           <span className="ml-1 text-muted-foreground">
             → {hedef ? hedefAd(hedef) : "soldaki firmaya/şubeye bırak"}
           </span>
+        </div>
+      )}
+
+      {/* Alt şerit: seçim bilgisi + son yapılan taşıma & geri al */}
+      {finansal && (secili.size > 0 || sonIslem) && (
+        <div className="fixed bottom-3 left-1/2 z-40 flex -translate-x-1/2 flex-wrap items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2 shadow-xl">
+          {secili.size > 0 && (
+            <>
+              <span className="text-[12.5px] font-semibold text-primary">
+                {secili.size} iş seçili
+              </span>
+              <button
+                type="button"
+                onClick={() => setSecili(new Set(gorunenIdler))}
+                className="rounded-lg border border-border px-2 py-1 text-[12px] font-medium hover:bg-muted"
+              >
+                Tümünü seç
+              </button>
+              <button
+                type="button"
+                onClick={() => setSecili(new Set())}
+                className="rounded-lg px-2 py-1 text-[12px] font-medium text-muted-foreground hover:bg-muted"
+              >
+                Temizle
+              </button>
+            </>
+          )}
+          {secili.size > 0 && sonIslem && <span className="h-4 w-px bg-border" />}
+          {sonIslem && (
+            <>
+              <span className="text-[12.5px]">
+                <strong>{sonIslem.adet} iş</strong> taşındı
+                <span className="ml-1 text-muted-foreground">{sonIslem.metin}</span>
+              </span>
+              <button
+                type="button"
+                onClick={geriAl}
+                disabled={pending}
+                className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-accent px-2.5 py-1 text-[12px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+                </svg>
+                Geri al
+              </button>
+              <button
+                type="button"
+                onClick={() => setSonIslem(null)}
+                title="Kapat"
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </>
+          )}
         </div>
       )}
 
