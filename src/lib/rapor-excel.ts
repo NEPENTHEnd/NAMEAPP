@@ -158,7 +158,8 @@ const SABLONLAR: Record<string, Kolon[]> = {
     ["FATURA", "sonuc"], ["KART NO", "kartno"], ["SERİ NO", "seri"],
     ["TEKNİK ETİKET", "etiket"], ["TEKLİF FİYAT", "teklif"], ["FATURA BİRİM TUTARI", "tutar"],
   ],
-  "KİH": [
+  // NOT: firma adı "KŞH" (eskiden yanlışlıkla "KİH" yazılmıştı → şablon tutmuyordu)
+  "KŞH": [
     ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
     ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"],
     ["TEKNİK SERVİS NO", "servis"], ["KART NO", "kartno"], ["AÇIKLAMA", "aciklama"],
@@ -194,7 +195,8 @@ const SABLONLAR: Record<string, Kolon[]> = {
     ["FATURA", "sonuc"], ["KART NO", "kartno"], ["AÇIKLAMA", "aciklama"],
     ["TEKLİF FİYAT", "teklif"], ["FATURA BİRİM TUTARI", "tutar"],
   ],
-  "SİTAŞ": [
+  // NOT: firma adı "SÜTAŞ" (eskiden yanlışlıkla "SİTAŞ" yazılmıştı → şablon tutmuyordu)
+  "SÜTAŞ": [
     ["KARTIN ADI", "cihaz"], ["GELİŞ TARİHİ", "gelis"], ["ÇIKIŞ TARİHİ", "cikis"],
     ["DURUM", "durum"], ["TEKNİK PERSONEL", "personel"], ["FATURA", "sonuc"],
     ["TEKNİK SERVİS NO", "servis"], ["AÇIKLAMA", "aciklama"], ["TEKLİF FİYAT", "teklif"],
