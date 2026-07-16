@@ -159,15 +159,18 @@ export function IsFormu({
       /* kullanıcı iptal etti ya da desteklenmiyor — elle yazabilir */
     }
   }
-  // Geliş saati. Yeni kayıtta TARAYICININ saatiyle dolar (sunucu UTC çalıştığı için
-  // sunucuda üretilirsek 3 saat şaşar). Hydration uyuşmazlığı olmasın diye effect'te.
+  // Geliş tarihi & saati — YENİ kayıtta ikisi de TARAYICININ saatinden otomatik dolar.
+  // Sunucu (Vercel) UTC çalıştığı için sunucudan üretirsek gece yarısı–03:00 arası
+  // tarih bir gün geri kalır ve saatle çelişirdi. Hydration uyuşmazlığı olmasın diye
+  // sunucu değeriyle başlayıp mount sonrası effect'te düzeltiyoruz.
+  const [gelisTarihi, setGelisTarihi] = useState(varsayilan.gelis_tarihi ?? "")
   const [gelisSaat, setGelisSaat] = useState(varsayilan.gelis_saat?.slice(0, 5) ?? "")
   useEffect(() => {
-    if (degisiklikTakip || varsayilan.gelis_saat) return // düzenleme: kayıtlı saati koru
+    if (degisiklikTakip) return // düzenleme: kayıtlı tarih/saati koru
     const d = new Date()
-    setGelisSaat(
-      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
-    )
+    const iki = (n: number) => String(n).padStart(2, "0")
+    setGelisTarihi(`${d.getFullYear()}-${iki(d.getMonth() + 1)}-${iki(d.getDate())}`)
+    if (!varsayilan.gelis_saat) setGelisSaat(`${iki(d.getHours())}:${iki(d.getMinutes())}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -519,7 +522,8 @@ export function IsFormu({
       {personelMod ? (
         <>
           <input type="hidden" name="durum_id" value={varsayilan.durum_id ?? ""} />
-          <input type="hidden" name="gelis_tarihi" value={varsayilan.gelis_tarihi ?? ""} />
+          {/* Personelde geliş tarihi + saati otomatik (tarayıcı saatinden) */}
+          <input type="hidden" name="gelis_tarihi" value={gelisTarihi} />
           <input type="hidden" name="gelis_saat" value={gelisSaat} />
         </>
       ) : (
@@ -528,7 +532,15 @@ export function IsFormu({
           <div className="grid gap-1.5">
             <label className={labelClass} htmlFor="gelis_tarihi">Geliş tarihi & saati *</label>
             <div className="flex gap-1.5">
-              <input id="gelis_tarihi" name="gelis_tarihi" type="date" className={cn(selectClass, "min-w-0 flex-1")} defaultValue={varsayilan.gelis_tarihi ?? ""} aria-invalid={!!fe.gelis_tarihi} />
+              <input
+                id="gelis_tarihi"
+                name="gelis_tarihi"
+                type="date"
+                className={cn(selectClass, "min-w-0 flex-1")}
+                value={gelisTarihi}
+                onChange={(e) => setGelisTarihi(e.target.value)}
+                aria-invalid={!!fe.gelis_tarihi}
+              />
               <input
                 id="gelis_saat"
                 name="gelis_saat"
