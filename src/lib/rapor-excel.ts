@@ -224,12 +224,66 @@ const VARSAYILAN_SABLON: Kolon[] = [
   ["TEKLİF FİYATI", "teklif"], ["FATURA BİRİM TUTARI", "tutar"], ["SERİ NO", "seri"],
 ]
 
+// Yeni (orijinalde olmayan) sütunlar için yedek genişlik
 const GENISLIK: Record<Alan, number> = {
   musteri: 22, cihaz: 38, gelis: 13, cikis: 13, durum: 13, personel: 17,
   sonuc: 17, servis: 15, seri: 16, aciklama: 42, teklif: 13, tutar: 15,
   ilgili: 22, kartno: 14, talepno: 17, teklifno: 12, etiket: 14, tsnNot: 15,
   sube: 20, gelisSaat: 11, telefon: 16, teklifBirim: 11, faturaTarihi: 14,
 }
+
+// ---------------------------------------------------------------------------
+// Sayfa biçimleri — ORİJİNAL çalışma dosyasından ÖLÇÜLDÜ (yazı tipi, punto,
+// satır yükseklikleri, sütun genişlikleri). Her firma sayfası farklı: kimi
+// Montserrat, kimi Nunito, TCDD Trebuchet MS; TCDD'de veri kalın DEĞİL vb.
+// Genişlikler BAŞLIK ADINA göre eşlenir (sütun sırası değişse de tutar).
+// ---------------------------------------------------------------------------
+type SayfaBicim = {
+  font: string
+  baslikBoyut: number
+  baslikYuk: number
+  veriBoyut: number
+  veriKalin: boolean
+  veriYuk: number
+  kaydir: boolean
+  bosIlkSatir: boolean // orijinalde başlık 2. satırda, 1. satır boş
+  ilkSatirYuk: number | null
+  genislik: Record<string, number>
+}
+
+const SAYFA_BICIM: Record<string, SayfaBicim> = {
+  "DİĞER": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 52.5, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 26.25, "kaydir": true, "bosIlkSatir": true, "ilkSatirYuk": 37.5, "genislik": {"FİRMA ADI": 36.4, "KARTIN ADI": 54.1, "GELİŞ TARİHİ": 17.6, "ÇIKIŞ TARİHİ": 20.0, "DURUM": 18.7, "TEKNİK PERSONEL": 18.3, "SONUÇ": 24.1, "İLGİLİ KİŞİ": 29.9, "FİYAT TEKLİFİ": 15.1, "FATURA BİRİM TUTARI": 19.0, "FİŞ NO": 18.9, "AÇIKLAMA / SERİ NO": 30.1, "RESİM-1": 17.0, "RESİM-2": 13.0}},
+  "ŞİRİKÇİOĞLU": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 61.5, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 25.5, "genislik": {"ÜRÜNÜN ADI VEYA KODU": 61.9, "GELİŞ TARİHİ": 16.4, "ÇIKIŞ TARİHİ": 16.9, "DURUM  BİLGİSİ": 17.6, "TEKNİK PERSONEL": 20.3, "SONUÇ": 22.7, "TEKNİK SERVİS NO": 15.3, "AÇIKLAMA": 18.9, "FİYAT TEKLİFİ": 16.9, "FATURA BİRİM TUTARI": 18.3, "RESİM-1": 16.6, "RESİM-2": 17.6, "SERİ NO": 30.9}},
+  "BOYTEKS": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 54.0, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 22.5, "genislik": {"FİRMA STOK KODU": 18.7, "ÜRÜNÜN ADI VEYA KODU": 67.3, "GELİŞ TARİHİ": 18.1, "ÇIKIŞ TARİHİ": 13.0, "DURUM  BİLGİSİ": 18.0, "TEKNİK PERSONEL": 20.9, "SONUÇ": 21.9, "TEKNİK SERVİS NO": 17.7, "TEKLİF NO": 13.1, "TEKLİF BİRİM FİYAT": 17.0, "FATURA BİRİM TUTARI": 18.1, "RESİM-1": 14.0, "RESİM-2": 13.3}},
+  "BOYDAK GRUP": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 54.0, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 19.5, "genislik": {"FİRMA ADI": 27.3, "ÜRÜNÜN ADI VEYA KODU": 56.4, "GELİŞ TARİHİ": 16.3, "ÇIKIŞ TARİHİ": 13.0, "DURUM  BİLGİSİ": 18.7, "TEKNİK PERSONEL": 18.6, "SONUÇ": 22.9, "TEKNİK SERVİS NO": 15.1, "AÇIKLAMA": 26.9, "TEKLİF FİYATI": 16.4, "FATURA BİRİM TUTARI": 19.1, "RESİM-1": 15.1, "RESİM-2": 14.7}},
+  "BOYTAŞ-3": {"font": "Nunito", "baslikBoyut": 12.0, "baslikYuk": 49.5, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 18.75, "genislik": {"ÜRÜNÜN ADI VEYA KODU": 52.1, "GELİŞ TARİHİ": 16.9, "ÇIKIŞ TARİHİ": 13.0, "DURUM  BİLGİSİ": 17.6, "TEKNİK PERSONEL": 19.4, "SONUÇ": 22.9, "TEKNİK SERVİS NO": 13.6, "AÇIKLAMA": 24.7, "TEKLİF FİYAT": 16.7, "FATURA BİRİM TUTARI": 17.0, "RESİM-1": 14.0, "RESİM-2": 13.0}},
+  "HASÇELİK KABLO": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 56.25, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 30.0, "genislik": {"ŞUBE ADI": 25.0, "ÜRÜNÜN ADI VEYA KODU": 49.3, "GELİŞ TARİHİ": 16.3, "ÇIKIŞ TARİHİ": 13.0, "DURUM  BİLGİSİ": 17.4, "TEKNİK PERSONEL": 20.6, "SONUÇ": 13.0, "TEKNİK SERVİS NO": 17.9, "ÜRÜN SERİ NO": 23.4, "TEKLİF FİYATI": 17.3, "FATURA BİRİM TUTARI": 17.0, "AÇIKLAMA": 25.1, "RESİM-1": 16.0, "RESİM-2": 13.0}},
+  "HASÇELİK HALAT": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 52.5, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 23.25, "genislik": {"ŞUBE ADI": 20.0, "ÜRÜNÜN ADI VEYA KODU": 54.4, "GELİŞ TARİHİ": 18.7, "ÇIKIŞ TARİHİ": 16.4, "DURUM  BİLGİSİ": 17.4, "TEKNİK PERSONEL": 19.6, "SONUÇ": 20.1, "TEKNİK SERVİS NO": 15.9, "AÇIKLAMA": 24.1, "TEKLİF FİYATI": 16.3, "FATURA BİRİM TUTARI": 17.3, "ÜRÜN SERİ NO": 25.0, "RESİM-1": 16.6, "RESİM-2": 13.0}},
+  "TEXHONG": {"font": "Montserrat", "baslikBoyut": 11.0, "baslikYuk": 60.75, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 24.0, "genislik": {"ÜRÜNÜN ADI VEYA KODU": 50.7, "GELİŞ TARİHİ": 18.7, "ÇIKIŞ TARİHİ": 13.0, "DURUM  BİLGİSİ": 13.0, "TEKNİK PERSONEL": 13.0, "SONUÇ": 20.1, "TEKNİK SERVİS NO": 18.7, "AÇIKLAMA": 13.0, "TEKLİF FİYATI": 13.0, "FATURA BİRİM TUTARI": 13.0, "RESİM-1": 13.0, "RESİM-2": 13.0, "1. sütun": 13.0}},
+  "MEGA METAL": {"font": "Nunito", "baslikBoyut": 12.0, "baslikYuk": 49.5, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 22.5, "genislik": {"ÜRÜNÜN ADI VEYA KODU": 68.7, "GELİŞ TARİHİ": 16.3, "ÇIKIŞ TARİHİ": 13.0, "DURUM  BİLGİSİ": 13.0, "TEKNİK PERSONEL": 19.3, "SONUÇ": 21.4, "TEKNİK SERVİS NO": 14.7, "AÇIKLAMA": 22.6, "TEKLİF FİYATI": 16.9, "FATURA BİRİM TUTARI": 17.7, "TALEP NO": 20.6, "RESİM-1": 14.0, "RESİM-2": 14.1}},
+  "ŞALT": {"font": "Nunito", "baslikBoyut": 12.0, "baslikYuk": 67.5, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": true, "bosIlkSatir": false, "ilkSatirYuk": null, "genislik": {"KARTIN ADI": 38.0, "SERİ NO": 24.6, "GELİŞ TARİHİ": 13.0, "ÇIKIŞ TARİHİ": 24.0, "DURUM": 18.7, "FİŞ NO": 13.7, "TEKNİK PERSONEL": 27.1, "FATURA": 20.3, "FİYAT TEKLİFİ": 21.1, "FATURA BİRİM TUTARI": 35.0, "AÇIKLAMA / SERİ NO": 38.0}},
+  "TCDD": {"font": "Trebuchet MS", "baslikBoyut": 12.0, "baslikYuk": 60.0, "veriBoyut": 10.0, "veriKalin": false, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": null, "genislik": {"ŞEHİR": 12.4, "KARTIN ADI": 59.1, "GELİŞ TARİHİ": 17.0, "ÇIKIŞ TARİHİ": 14.4, "DURUM": 13.0, "TEKNİK PERSONEL": 17.6, "FATURA": 19.1, "KART NO": 14.4, "SERİ NO": 18.7, "TEKNİK ETİKET": 17.4, "TEKLİF FİYAT": 13.0, "FATURA BİRİM TUTARI": 13.0, "2. sütun": 34.3, "RESİM-1": 14.0, "RESİM-2": 13.0, "5. sütun": 13.0}},
+  "KŞH": {"font": "Nunito", "baslikBoyut": 12.0, "baslikYuk": 72.0, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": null, "genislik": {"KARTIN ADI": 64.0, "GELİŞ TARİHİ": 18.6, "ÇIKIŞ TARİHİ": 16.1, "DURUM": 18.3, "TEKNİK PERSONEL": 17.9, "FATURA": 21.3, "TEKNİK SERVİS NO": 14.9, "KART NO": 13.0, "AÇIKLAMA": 27.1, "TEKLİF FİYATI": 18.6, "FATURA BİRİM TUTARI": 20.9, "SERİ NUMARASI": 21.0, "RESİM ÖN": 13.1, "RESİM ARKA": 18.1}},
+  "SERSİM": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 49.5, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 35.25, "genislik": {"KARTIN ADI": 61.9, "GELİŞ TARİHİ": 18.9, "ÇIKIŞ TARİHİ": 18.1, "DURUM": 15.4, "TEKNİK PERSONEL": 18.9, "FATURA": 21.9, "KART NO": 15.0, "AÇIKLAMA": 33.6, "TEKLİF FİYAT": 16.0, "FATURA BİRİM TUTARI": 17.7, "RESİM 1": 14.4, "RESİM 2": 14.0, "SERİ NO": 13.0}},
+  "BORSAN": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 48.0, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 33.0, "genislik": {"KARTIN ADI": 54.0, "GELİŞ TARİHİ": 16.9, "ÇIKIŞ TARİHİ": 17.6, "DURUM": 18.7, "TEKNİK PERSONEL": 19.4, "FATURA": 13.0, "AÇIKLAMA": 18.3, "TEKLİF FİYAT": 17.6, "FATURA BİRİM TUTARI": 17.7, "TALEP NO": 19.7, "RESİM": 17.0, "RESİM 2": 19.9}},
+  "BAŞYAZICIOĞLU": {"font": "Nunito", "baslikBoyut": 12.0, "baslikYuk": 56.25, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 22.5, "genislik": {"ÜRÜNÜN ADI VEYA KODU": 49.4, "GELİŞ TARİHİ": 21.6, "ÇIKIŞ TARİHİ": 18.4, "DURUM  BİLGİSİ": 15.3, "TEKNİK PERSONEL": 18.3, "SONUÇ": 21.6, "TEKNİK SERVİS NO": 15.1, "AÇIKLAMA": 23.4, "TEKLİF FİYATI": 16.3, "FATURA BİRİM TUTARI": 19.1, "ÜRÜN SERİ NO": 16.0, "RESİM-1": 13.4, "RESİM-2": 13.0}},
+  "MES ET": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 60.75, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": 26.25, "genislik": {"ÜRÜNÜN ADI VEYA KODU": 55.4, "GELİŞ TARİHİ": 15.9, "ÇIKIŞ TARİHİ": 13.0, "DURUM  BİLGİSİ": 16.9, "TEKNİK PERSONEL": 19.9, "SONUÇ": 20.7, "TEKNİK SERVİS NO": 17.6, "AÇIKLAMA": 26.7, "TEKLİF FİYATI": 15.1, "FATURA BİRİM TUTARI": 16.6, "RESİM-1": 13.0, "RESİM-2": 13.0}},
+  "DOĞUŞ": {"font": "Nunito", "baslikBoyut": 11.0, "baslikYuk": 47.25, "veriBoyut": 9.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": null, "genislik": {"ŞUBE": 24.9, "KARTIN ADI": 54.6, "GELİŞ TARİHİ": 22.0, "ÇIKIŞ TARİHİ": 22.1, "DURUM": 18.0, "TEKNİK PERSONEL": 19.3, "FATURA": 20.4, "KART NO": 18.0, "AÇIKLAMA": 29.9, "TEKLİF FİYAT": 18.0, "FATURA BİRİM TUTARI": 13.0, "RESİM-1": 14.4, "RESİM-2": 13.0}},
+  "SÜTAŞ": {"font": "Montserrat", "baslikBoyut": 10.0, "baslikYuk": 48.75, "veriBoyut": 10.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": true, "bosIlkSatir": true, "ilkSatirYuk": 32.25, "genislik": {"KARTIN ADI": 62.1, "GELİŞ TARİHİ": 16.9, "ÇIKIŞ TARİHİ": 16.3, "DURUM": 17.6, "TEKNİK PERSONEL": 19.1, "FATURA": 25.0, "TEKNİK SERVİS NO": 16.3, "AÇIKLAMA": 42.3, "TEKLİF FİYAT": 17.3, "FATURA BİRİM TUTARI": 17.0, "SERİ NUMARASI": 22.4, "RESİM 1": 13.3, "RESİM 2": 11.7}},
+  "RES": {"font": "Nunito", "baslikBoyut": 12.0, "baslikYuk": 52.5, "veriBoyut": 10.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": true, "bosIlkSatir": true, "ilkSatirYuk": 35.25, "genislik": {"ŞUBE ADI": 40.3, "ÜRÜNÜN ADI VEYA KODU": 40.7, "GELİŞ TARİHİ": 18.7, "ÇIKIŞ TARİHİ": 16.4, "DURUM  BİLGİSİ": 17.4, "TEKNİK PERSONEL": 19.6, "SONUÇ": 22.0, "TEKNİK SERVİS NO": 15.9, "AÇIKLAMA": 20.0, "TEKLİF FİYATI": 16.3, "FATURA BİRİM TUTARI": 17.3, "FİŞ NO": 11.7, "ÜRÜN SERİ NO": 25.0, "RESİM-1": 14.6, "RESİM-2": 16.6}},
+  "K.B.Ş.B.": {"font": "Montserrat", "baslikBoyut": 12.0, "baslikYuk": 58.5, "veriBoyut": 10.0, "veriKalin": true, "veriYuk": 22.5, "kaydir": false, "bosIlkSatir": true, "ilkSatirYuk": null, "genislik": {"KARTIN ADI": 78.4, "GELİŞ TARİHİ": 18.1, "ÇIKIŞ TARİHİ": 19.0, "DURUM": 18.3, "TEKNİK PERSONEL": 19.3, "FATURA": 21.9, "KART NO": 14.9, "AÇIKLAMA": 46.7, "TEKLİF FİYAT": 14.4, "FATURA BİRİM TUTARI": 17.9, "SERİ NO": 14.4, "RESİM": 13.0}},
+}
+
+// Orijinalde olmayan (sonradan eklenen) firmalar için genel biçim
+const VARSAYILAN_BICIM: SayfaBicim = {
+  font: "Montserrat", baslikBoyut: 12, baslikYuk: 52.5,
+  veriBoyut: 9, veriKalin: true, veriYuk: 22.5,
+  kaydir: false, bosIlkSatir: true, ilkSatirYuk: 22.5, genislik: {},
+}
+
+// Orijinalde her hücrede ince kenarlık var
+const INCE = { style: "thin" } as const
+const KENARLIK = { top: INCE, left: INCE, bottom: INCE, right: INCE }
 
 function tarihTR(s: string | null): string {
   if (!s) return ""
@@ -356,33 +410,66 @@ export async function raporExcelBuffer(satirlar: RaporSatir[]): Promise<Buffer> 
     while (kullanilanAdlar.has(ad)) ad = (ad + " 2").slice(0, 31)
     kullanilanAdlar.add(ad)
 
-    const ws = wb.addWorksheet(ad, { views: [{ state: "frozen", ySplit: 1 }] })
     // Orijinal düzen + o sayfada verisi olan yeni alanlar (şube, saat, telefon, döviz…)
     const sablon = sablonuGenislet(SABLONLAR[grupAd] ?? VARSAYILAN_SABLON, rows)
+    const bicim = SAYFA_BICIM[grupAd] ?? VARSAYILAN_BICIM
+    // Orijinalde başlık çoğu sayfada 2. satırda (1. satır boş); ŞALT'ta 1. satırda
+    const baslikNo = bicim.bosIlkSatir ? 2 : 1
+    const ws = wb.addWorksheet(ad, {
+      views: [{ state: "frozen", ySplit: baslikNo }],
+    })
 
+    // Sütun genişlikleri: orijinalden BAŞLIK ADINA göre; yeni sütunlar için yedek
     ws.columns = sablon.map(([baslik, alan]) => ({
-      header: baslik,
-      width: GENISLIK[alan],
+      width: bicim.genislik[baslik] ?? GENISLIK[alan],
     }))
 
-    for (const k of rows) {
-      const ayiklanmis = notlariAyikla(k.aciklama)
-      const satir = ws.addRow(sablon.map(([, alan]) => hucreDegeri(alan, k, ayiklanmis)))
-      const renk = satirRengi(k.fatura_durumu?.ad ?? "", k.durum?.ad ?? "")
-      if (renk) {
-        for (let c = 1; c <= sablon.length; c++) {
-          const hucre = satir.getCell(c)
-          hucre.fill = { type: "pattern", pattern: "solid", fgColor: { argb: renk.bg } }
-          hucre.font = { color: { argb: renk.yazi } }
-        }
-      }
+    // Boş 1. satır (orijinaldeki boşluk satırı)
+    if (bicim.bosIlkSatir && bicim.ilkSatirYuk) {
+      ws.getRow(1).height = bicim.ilkSatirYuk
     }
 
-    // Başlık satırı: orijinaldeki gibi kalın, dolgu yok
-    const baslik = ws.getRow(1)
-    baslik.font = { bold: true, size: 11 }
-    baslik.alignment = { vertical: "middle" }
-    baslik.height = 20
+    // Başlık satırı
+    const baslikSatiri = ws.getRow(baslikNo)
+    sablon.forEach(([baslik], i) => {
+      baslikSatiri.getCell(i + 1).value = baslik
+    })
+    baslikSatiri.height = bicim.baslikYuk
+    for (let c = 1; c <= sablon.length; c++) {
+      const h = baslikSatiri.getCell(c)
+      h.font = { name: bicim.font, size: bicim.baslikBoyut, bold: true }
+      h.alignment = { horizontal: "center", vertical: "middle", wrapText: true }
+      h.border = KENARLIK
+    }
+    baslikSatiri.commit()
+
+    // Veri satırları
+    let satirNo = baslikNo + 1
+    for (const k of rows) {
+      const ayiklanmis = notlariAyikla(k.aciklama)
+      const satir = ws.getRow(satirNo++)
+      sablon.forEach(([, alan], i) => {
+        satir.getCell(i + 1).value = hucreDegeri(alan, k, ayiklanmis)
+      })
+      satir.height = bicim.veriYuk
+      const renk = satirRengi(k.fatura_durumu?.ad ?? "", k.durum?.ad ?? "")
+      for (let c = 1; c <= sablon.length; c++) {
+        const hucre = satir.getCell(c)
+        // Yazı tipi TEK seferde: renk kuralı yalnız RENGİ değiştirir, punto/kalınlığı değil
+        hucre.font = {
+          name: bicim.font,
+          size: bicim.veriBoyut,
+          bold: bicim.veriKalin,
+          ...(renk ? { color: { argb: renk.yazi } } : {}),
+        }
+        hucre.alignment = { vertical: "middle", wrapText: bicim.kaydir }
+        hucre.border = KENARLIK
+        if (renk)
+          hucre.fill = { type: "pattern", pattern: "solid", fgColor: { argb: renk.bg } }
+      }
+      satir.commit()
+    }
+
     // Para sütunları
     sablon.forEach(([, alan], i) => {
       if (alan === "teklif" || alan === "tutar") {
