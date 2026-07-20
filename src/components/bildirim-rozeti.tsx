@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/client"
+import { bildirimleriOkunduIsaretle } from "@/app/actions/is"
 
 type YeniIs = {
   id: string
@@ -27,7 +28,15 @@ function zamanTR(s: string): string {
 export function BildirimRozeti() {
   const [isler, setIsler] = useState<YeniIs[]>([])
   const [acik, setAcik] = useState(false)
+  const [temizleniyor, temizleBaslat] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
+
+  function tumunuOku() {
+    setIsler([]) // anında boşalt (iyimser)
+    temizleBaslat(async () => {
+      await bildirimleriOkunduIsaretle()
+    })
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -84,8 +93,20 @@ export function BildirimRozeti() {
 
       {acik && (
         <div className="absolute right-0 top-12 z-40 w-72 overflow-hidden rounded-xl border border-border bg-popover shadow-[0_16px_40px_-16px_rgba(15,23,42,.3)]">
-          <div className="border-b border-muted px-3 py-2 text-[12.5px] font-semibold">
-            Yeni işler{sayi > 0 ? ` (${sayi})` : ""}
+          <div className="flex items-center justify-between gap-2 border-b border-muted px-3 py-2">
+            <span className="text-[12.5px] font-semibold">
+              Yeni işler{sayi > 0 ? ` (${sayi})` : ""}
+            </span>
+            {sayi > 0 && (
+              <button
+                type="button"
+                onClick={tumunuOku}
+                disabled={temizleniyor}
+                className="rounded-md px-1.5 py-0.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+              >
+                {temizleniyor ? "Temizleniyor…" : "Tümünü okundu işaretle"}
+              </button>
+            )}
           </div>
           {sayi === 0 ? (
             <p className="px-3 py-4 text-center text-[12.5px] text-muted-foreground">

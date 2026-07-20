@@ -369,6 +369,22 @@ export async function isFinansalGuncelle(
   return { basari: true }
 }
 
+// Bildirimleri temizle: okunmamış tüm işleri "görüldü" işaretle (yönetici).
+export async function bildirimleriOkunduIsaretle() {
+  const kullanici = await getKullanici()
+  if (kullanici.rol !== "yonetici") {
+    return { ok: false, error: "Bu işlem için yönetici yetkisi gerekir." }
+  }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("is_kaydi")
+    .update({ yonetici_gordu: true })
+    .eq("yonetici_gordu", false)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/")
+  return { ok: true }
+}
+
 // Sürükle-bırak: yönetici işi bir gruba (ya da null=DİĞER) atar.
 export async function isGrupAta(id: string, grupId: string | null) {
   const kullanici = await getKullanici()

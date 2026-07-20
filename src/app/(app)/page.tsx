@@ -450,10 +450,12 @@ export default async function IslerSayfasi({
       sagSlot={finansal ? hizliButonlar : undefined}
       aySlot={
         <div className="flex items-center gap-3">
-          {/* Geniş ekranda ay kutucukları üst barda; burada yalnız dar ekranda */}
-          <div className="xl:hidden">
-            <AySecici aylar={sonAylar()} basePath="/" />
-          </div>
+          {/* Ay kutucukları yalnız yöneticide (geniş ekranda üst barda); personel hep tümü */}
+          {finansal && (
+            <div className="xl:hidden">
+              <AySecici aylar={sonAylar()} basePath="/" />
+            </div>
+          )}
           {sayfalama}
         </div>
       }

@@ -16,7 +16,7 @@ const NAV: NavItem[] = [
   { href: "/", etiket: "Tüm İşler" },
   { href: "/pano", etiket: "Pano", roller: ["yonetici"] },
   { href: "/raporlar", etiket: "Raporlar", roller: ["yonetici"] },
-  { href: "/ice-aktar", etiket: "İçe Aktar", roller: ["yonetici"] },
+  { href: "/ice-aktar", etiket: "İçe / Dışa Aktar", roller: ["yonetici"] },
   { href: "/tanimlar", etiket: "Tanımlar", roller: ["yonetici"] },
 ]
 
