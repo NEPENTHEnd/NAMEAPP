@@ -144,10 +144,11 @@ function alanHatalari(parsed: z.ZodError): IsFormState {
 }
 
 // Doğrulanmış veriyi DB satırına dönüştür; gerekirse yeni müşteri oluştur.
+// Müşteri ADINI da döndürür (sol menü/şube adına göre otomatik atama için).
 async function musteriIdCozumle(
   supabase: Awaited<ReturnType<typeof createClient>>,
   veri: z.infer<typeof sema>
-): Promise<{ id: string } | { hata: string }> {
+): Promise<{ id: string; ad: string } | { hata: string }> {
   if (veri.yeni_musteri_adi) {
     const { data, error } = await supabase
       .from("musteri")
@@ -155,9 +156,43 @@ async function musteriIdCozumle(
       .select("id")
       .single()
     if (error || !data) return { hata: "Yeni müşteri oluşturulamadı." }
-    return { id: data.id }
+    return { id: data.id, ad: veri.yeni_musteri_adi }
   }
-  return { id: veri.musteri_id! }
+  const { data } = await supabase
+    .from("musteri")
+    .select("ad")
+    .eq("id", veri.musteri_id!)
+    .maybeSingle()
+  return { id: veri.musteri_id!, ad: data?.ad ?? "" }
+}
+
+// Müşteri adından sol menü firmasını (grup) + şubesini bul.
+// Önce ŞUBE adı eşleşmesi (ör. "COREAL" → HASÇELİK KABLO / COREAL şubesi),
+// sonra FİRMA adı eşleşmesi (ör. "MEGA METAL" → MEGA METAL firması).
+// Böylece personel müşteriyi seçince iş otomatik doğru klasöre düşer.
+async function firmaSubeCozumle(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  musteriAd: string
+): Promise<{ grupId: string | null; subeId: string | null }> {
+  const ad = musteriAd.trim()
+  if (!ad) return { grupId: null, subeId: null }
+  const { data: sb } = await supabase
+    .from("sube")
+    .select("id, grup_id")
+    .ilike("ad", ad)
+    .eq("aktif", true)
+    .limit(1)
+    .maybeSingle()
+  if (sb) return { grupId: sb.grup_id, subeId: sb.id }
+  const { data: g } = await supabase
+    .from("grup")
+    .select("id")
+    .ilike("ad", ad)
+    .eq("aktif", true)
+    .limit(1)
+    .maybeSingle()
+  if (g) return { grupId: g.id, subeId: null }
+  return { grupId: null, subeId: null }
 }
 
 // Her rolde yazılabilir temel alanlar (servis_no ve finansal HARİÇ).
@@ -193,15 +228,27 @@ export async function isOlustur(
   if ("hata" in m) return { error: m.hata }
 
   const finansal = kullanici.rol === "yonetici"
+  // Sol menü ataması: yönetici formda AÇIKÇA bir firma seçtiyse (ör. yeşil + ile
+  // /yeni?grup=…) onu kullan; aksi halde MÜŞTERİ ADINDAN otomatik türet. Böylece
+  // personel "MEGA METAL" seçince iş otomatik MEGA METAL klasörüne, "COREAL" seçince
+  // HASÇELİK/COREAL şubesine düşer — DİĞER'de kaybolmaz.
+  let grupId: string | null = null
+  let subeId: string | null = null
+  if (finansal && parsed.data.grup_id) {
+    grupId = parsed.data.grup_id
+    subeId = parsed.data.sube_id ?? null
+  } else {
+    const c = await firmaSubeCozumle(supabase, m.ad)
+    grupId = c.grupId
+    subeId = c.subeId
+  }
   const ekle: TablesInsert<"is_kaydi"> = {
     ...temelSatir(parsed.data, m.id),
     olusturan_id: kullanici.id,
     // Personelin eklediği iş yöneticiye "yeni" görünür; yöneticininki görüldü sayılır.
     yonetici_gordu: finansal,
-    // Grup atamasını yalnız yönetici yapar; personelin işi DİĞER'e (null) düşer.
-    grup_id: finansal ? (parsed.data.grup_id ?? null) : null,
-    // Şube de yalnız yönetici tarafından atanır (grup'a bağlı)
-    sube_id: finansal ? (parsed.data.sube_id ?? null) : null,
+    grup_id: grupId,
+    sube_id: subeId,
   }
   // Fiş no HERKESE otomatik (ön eki olan kullanıcıda); yoksa form değeri/boş.
   // İSTİSNA: BOYTEKS grubuna girilen işlerde fiş no üretilmez — firmaya özel
