@@ -1,10 +1,11 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
 
 import { isFinansalGuncelle, type IsFormState } from "@/app/actions/is"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { kaydedildiGoster } from "@/lib/toast"
 
 type Secenek = { id: string; ad: string }
 
@@ -25,6 +26,7 @@ export function PanelFinansal({
     fatura_tutari: number | null
     fatura_tarihi: string | null
     garanti_no: string | null
+    talep_no: string | null
   }
 }) {
   const action = isFinansalGuncelle.bind(null, isKaydiId)
@@ -32,6 +34,9 @@ export function PanelFinansal({
     action,
     {}
   )
+  useEffect(() => {
+    if (state.basari) kaydedildiGoster()
+  }, [state])
 
   return (
     <form action={formAction} className="mt-3 grid gap-2 border-t border-border pt-3">
@@ -94,12 +99,20 @@ export function PanelFinansal({
           className="h-8"
         />
       </label>
-      <Input
-        name="garanti_no"
-        placeholder="Takip no (harf/rakam)"
-        defaultValue={varsayilan.garanti_no ?? ""}
-        className="h-8"
-      />
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          name="garanti_no"
+          placeholder="Takip no"
+          defaultValue={varsayilan.garanti_no ?? ""}
+          className="h-8"
+        />
+        <Input
+          name="talep_no"
+          placeholder="Talep no"
+          defaultValue={varsayilan.talep_no ?? ""}
+          className="h-8"
+        />
+      </div>
       {state.error && <p className="text-xs text-destructive">{state.error}</p>}
       {state.basari && (
         <p className="text-xs font-medium text-emerald-600">Kaydedildi ✓</p>

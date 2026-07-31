@@ -97,6 +97,7 @@ const sema = z
     fatura_tutari: sayi,
     fatura_tarihi: tarih,
     garanti_no: metinBuyuk,
+    talep_no: metinBuyuk,
     aciklama: metinBuyuk,
   })
   .refine((d) => !!d.musteri_id || !!d.yeni_musteri_adi, {
@@ -128,6 +129,7 @@ function formdanOku(formData: FormData) {
     fatura_tutari: formData.get("fatura_tutari"),
     fatura_tarihi: formData.get("fatura_tarihi"),
     garanti_no: formData.get("garanti_no"),
+    talep_no: formData.get("talep_no"),
     aciklama: formData.get("aciklama"),
   }
 }
@@ -228,6 +230,7 @@ export async function isOlustur(
     ekle.fatura_tutari = parsed.data.fatura_tutari ?? null
     ekle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     ekle.garanti_no = parsed.data.garanti_no ?? null
+    ekle.talep_no = parsed.data.talep_no ?? null
   }
 
   // Adet: aynı üründen birden çok → tek fiş no, her biri AYRI satır (kendi seri no'su)
@@ -304,6 +307,7 @@ export async function isGuncelle(
     guncelle.fatura_tutari = parsed.data.fatura_tutari ?? null
     guncelle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     guncelle.garanti_no = parsed.data.garanti_no ?? null
+    guncelle.talep_no = parsed.data.talep_no ?? null
     guncelle.sube_id = parsed.data.sube_id ?? null
   }
 
@@ -359,6 +363,8 @@ export async function isFinansalGuncelle(
       fatura_tarihi: tarihSec(formData.get("fatura_tarihi")),
       garanti_no:
         buyuk((formData.get("garanti_no") as string)?.trim() ?? "") || null,
+      talep_no:
+        buyuk((formData.get("talep_no") as string)?.trim() ?? "") || null,
     })
     .eq("id", id)
 
@@ -459,6 +465,7 @@ const FINANSAL_ALAN = new Set([
   "fatura_durumu_id",
   "fatura_tarihi",
   "garanti_no",
+  "talep_no",
   "fiyat_teklifi",
   "teklif_birim",
   "fatura_tutari",
@@ -493,6 +500,7 @@ export async function isHucreGuncelle(
       break
     case "seri_no":
     case "garanti_no":
+    case "talep_no":
     case "servis_no":
     case "aciklama":
       guncelle[alan] = t ? buyuk(t) : null

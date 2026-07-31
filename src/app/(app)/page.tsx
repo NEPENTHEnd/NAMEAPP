@@ -127,7 +127,7 @@ export default async function IslerSayfasi({
     .select(
       `
         id, cihaz_adi, seri_no, servis_no, gelis_tarihi, gelis_saat, cikis_tarihi,
-        fatura_tarihi, fiyat_teklifi, teklif_birim, fatura_tutari, garanti_no, kargo_takip_no,
+        fatura_tarihi, fiyat_teklifi, teklif_birim, fatura_tutari, garanti_no, talep_no, kargo_takip_no,
         musteri_id, durum_id, fatura_durumu_id, grup_id, sube_id, teknik_personel_id, olusturan_id,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
@@ -202,6 +202,7 @@ export default async function IslerSayfasi({
       "seri_no",
       "servis_no",
       "garanti_no",
+      "talep_no",
       "kargo_takip_no",
       "takip_no",
       "ilgili_kisi",
@@ -253,6 +254,7 @@ export default async function IslerSayfasi({
     fatura_tutari: number | null
     fatura_tarihi: string | null
     garanti_no: string | null
+    talep_no: string | null
     fotolar: { id: string; url: string }[]
   }
   let seciliBilgi: SeciliBilgi | null = null
@@ -260,7 +262,7 @@ export default async function IslerSayfasi({
     const { data: kayit } = await supabase
       .from("is_kaydi")
       .select(
-        "cihaz_adi, servis_no, aciklama, kargo_takip_no, fatura_durumu_id, fiyat_teklifi, teklif_birim, fatura_tutari, fatura_tarihi, garanti_no, musteri:musteri_id ( ad )"
+        "cihaz_adi, servis_no, aciklama, kargo_takip_no, fatura_durumu_id, fiyat_teklifi, teklif_birim, fatura_tutari, fatura_tarihi, garanti_no, talep_no, musteri:musteri_id ( ad )"
       )
       .eq("id", secili)
       .maybeSingle()
@@ -298,6 +300,7 @@ export default async function IslerSayfasi({
         fatura_tutari: kayit.fatura_tutari,
         fatura_tarihi: kayit.fatura_tarihi,
         garanti_no: kayit.garanti_no,
+        talep_no: kayit.talep_no,
         fotolar,
       }
     }

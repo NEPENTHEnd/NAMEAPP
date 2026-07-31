@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 
 import { isHucreGuncelle } from "@/app/actions/is"
 import { cn } from "@/lib/utils"
+import { kaydedildiGoster } from "@/lib/toast"
 
 type Secenek = { id: string; ad: string; renk?: string | null }
 
@@ -45,7 +46,10 @@ export function HucreDuzenle({
     startTransition(async () => {
       const r = await isHucreGuncelle(isId, alan, yeni)
       if (!r.ok) setHata(true)
-      else router.refresh()
+      else {
+        kaydedildiGoster()
+        router.refresh()
+      }
     })
   }
 

@@ -15,6 +15,7 @@ import {
 } from "@/app/actions/tanim"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { kaydedildiGoster } from "@/lib/toast"
 
 type Grup = { id: string; ad: string; sira: number }
 type Sube = {
@@ -38,6 +39,11 @@ export function FirmaListesi({
   subeler: Sube[]
 }) {
   const router = useRouter()
+  // Kaydetten sonra: alt onay + tazele
+  const yenile = () => {
+    kaydedildiGoster()
+    router.refresh()
+  }
   const [liste, setListe] = useState(gruplar)
   const [surukleIdx, setSurukleIdx] = useState<number | null>(null)
   const [pending, startTransition] = useTransition()
@@ -109,14 +115,14 @@ export function FirmaListesi({
       const fd = new FormData()
       fd.set("musteri_id", m.id)
       await grupMusteridenEkle(fd)
-      router.refresh()
+      yenile()
     })
   }
 
   function siralamayiKaydet(yeni: Grup[]) {
     startTransition(async () => {
       await grupSirala(yeni.map((g) => g.id))
-      router.refresh()
+      yenile()
     })
   }
 
@@ -130,7 +136,7 @@ export function FirmaListesi({
     setListe((l) => l.filter((x) => x.id !== g.id))
     startTransition(async () => {
       await grupSil(g.id)
-      router.refresh()
+      yenile()
     })
   }
 
@@ -151,7 +157,7 @@ export function FirmaListesi({
     if (!window.confirm(mesaj)) return
     startTransition(async () => {
       await subeSil(s.id)
-      router.refresh()
+      yenile()
     })
   }
 
@@ -164,7 +170,7 @@ export function FirmaListesi({
         <form
           action={async (fd) => {
             await subeDuzenle(fd)
-            router.refresh()
+            yenile()
           }}
           className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-1.5"
         >
@@ -203,7 +209,7 @@ export function FirmaListesi({
                 y.delete(s.id)
                 return y
               })
-              router.refresh()
+              yenile()
             }}
             className="ml-4 flex flex-wrap items-center gap-1.5 rounded-lg border border-dashed border-primary/50 bg-accent/40 p-1.5"
           >
@@ -319,7 +325,7 @@ export function FirmaListesi({
                 <form
                   action={async (fd) => {
                     await grupDuzenle(fd)
-                    router.refresh()
+                    yenile()
                   }}
                   className="flex min-w-0 flex-1 items-center gap-2"
                 >
@@ -355,7 +361,7 @@ export function FirmaListesi({
                   <form
                     action={async (fd) => {
                       await subeEkle(fd)
-                      router.refresh()
+                      yenile()
                     }}
                     className="flex flex-wrap items-center gap-1.5 rounded-lg border border-dashed border-border p-1.5"
                   >

@@ -8,6 +8,7 @@ import type { IsFormState } from "@/app/actions/is"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { fotograflariYukle } from "@/lib/foto-istemci"
+import { kaydedildiGoster } from "@/lib/toast"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KameraYakala } from "@/components/kamera-yakala"
@@ -36,6 +37,7 @@ export type IsFormVarsayilan = {
   fatura_tutari?: number | null
   fatura_tarihi?: string | null
   garanti_no?: string | null
+  talep_no?: string | null
   aciklama?: string | null
 }
 
@@ -225,6 +227,7 @@ export function IsFormu({
         .finally(detayaGit)
     } else if (state.basari) {
       setDegisti(false)
+      kaydedildiGoster()
     }
   }, [state, router])
 
@@ -623,6 +626,10 @@ export function IsFormu({
           <div className="grid gap-1.5">
             <label className={labelClass} htmlFor="garanti_no">Takip no</label>
             <Input id="garanti_no" name="garanti_no" placeholder="Harf/rakam olabilir" defaultValue={varsayilan.garanti_no ?? ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <label className={labelClass} htmlFor="talep_no">Talep no</label>
+            <Input id="talep_no" name="talep_no" placeholder="Boşsa listede görünmez" defaultValue={varsayilan.talep_no ?? ""} />
           </div>
         </div>
       </Bolum>

@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { cn } from "@/lib/utils"
+import { kaydedildiGoster } from "@/lib/toast"
 import { isTasima, isGeriAl, isSil } from "@/app/actions/is"
 import {
   Table,
@@ -40,6 +41,7 @@ export type Kayit = {
   teknik_personel: { ad: string } | null
   musteri: { ad: string; sube_sehir: string | null } | null
   garanti_no: string | null
+  talep_no: string | null
   kargo_takip_no: string | null
   fiyat_teklifi: number | null
   teklif_birim: string | null
@@ -62,6 +64,7 @@ export type SeciliBilgi = {
   fatura_tutari: number | null
   fatura_tarihi: string | null
   garanti_no: string | null
+  talep_no: string | null
   fotolar: { id: string; url: string }[]
 }
 
@@ -236,6 +239,7 @@ export function IslerEkrani({
     setSonIslem(null)
     startTransition(async () => {
       await isGeriAl(oncekiler)
+      kaydedildiGoster("Geri alındı")
       router.refresh()
     })
   }
@@ -314,7 +318,10 @@ export function IslerEkrani({
         startTransition(async () => {
           const r = await isTasima(idler, grupId, subeId)
           setSecili(new Set())
-          if (r.ok) setSonIslem({ oncekiler, metin, adet: idler.length })
+          if (r.ok) {
+            setSonIslem({ oncekiler, metin, adet: idler.length })
+            kaydedildiGoster("Taşındı")
+          }
           router.refresh()
         })
       }
@@ -646,6 +653,10 @@ export function IslerEkrani({
                   <TableCell className="min-w-[80px]">
                     {/* Takip no (eski adı garanti no) — fiş no'nun hemen yanında */}
                     <HucreDuzenle isId={k.id} alan="garanti_no" deger={k.garanti_no} bosEtiket="—" className="text-xs" />
+                    {/* Talep no — yalnız değer varsa (boşsa görsel kalabalık yapmasın) */}
+                    {k.talep_no && (
+                      <HucreDuzenle isId={k.id} alan="talep_no" deger={k.talep_no} className="text-[11px] text-muted-foreground" />
+                    )}
                   </TableCell>
                 )}
                 {!grupGorunumu && (
@@ -859,6 +870,7 @@ export function IslerEkrani({
                       fatura_tutari: seciliBilgi.fatura_tutari,
                       fatura_tarihi: seciliBilgi.fatura_tarihi,
                       garanti_no: seciliBilgi.garanti_no,
+                      talep_no: seciliBilgi.talep_no,
                     }}
                   />
                 )}

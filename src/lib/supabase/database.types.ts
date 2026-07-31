@@ -234,6 +234,7 @@ export type Database = {
           servis_no: string | null
           sube_id: string | null
           takip_no: string
+          talep_no: string | null
           teklif_birim: string
           teknik_personel_id: string | null
           telefon: string | null
@@ -264,6 +265,7 @@ export type Database = {
           servis_no?: string | null
           sube_id?: string | null
           takip_no?: string
+          talep_no?: string | null
           teklif_birim?: string
           teknik_personel_id?: string | null
           telefon?: string | null
@@ -294,6 +296,7 @@ export type Database = {
           servis_no?: string | null
           sube_id?: string | null
           takip_no?: string
+          talep_no?: string | null
           teklif_birim?: string
           teknik_personel_id?: string | null
           telefon?: string | null

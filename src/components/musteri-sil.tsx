@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 
 import { musteriSil } from "@/app/actions/tanim"
 import { Button } from "@/components/ui/button"
+import { kaydedildiGoster } from "@/lib/toast"
 
 // Müşteriyi uyarıyla sil — işleri silinmez, "Müşterisiz" olur (FK set null)
 export function MusteriSil({
@@ -27,6 +28,7 @@ export function MusteriSil({
     if (!window.confirm(mesaj)) return
     startTransition(async () => {
       await musteriSil(id)
+      kaydedildiGoster("Silindi")
       router.refresh()
     })
   }

@@ -10,6 +10,7 @@ import { UserMenu } from "@/components/user-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { CevrimdisiUyari } from "@/components/cevrimdisi-uyari"
 import { BildirimRozeti } from "@/components/bildirim-rozeti"
+import { Toaster } from "@/components/toaster"
 
 // Giriş gerektiren tüm sayfaların ortak kabuğu: üst başlık + navigasyon + çıkış.
 export default async function AppLayout({
@@ -46,6 +47,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-svh flex-col overflow-x-clip">
+      <Toaster />
       <CevrimdisiUyari />
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="w-full px-4 sm:px-5">

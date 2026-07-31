@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 
 import { isHucreGuncelle } from "@/app/actions/is"
 import { cn } from "@/lib/utils"
+import { kaydedildiGoster } from "@/lib/toast"
 
 const BIRIMLER = ["TL", "USD", "EUR", "CHF"] as const
 
@@ -41,7 +42,10 @@ export function TeklifBirimi({
     if (b === simdi) return
     startTransition(async () => {
       const r = await isHucreGuncelle(isId, "teklif_birim", b)
-      if (r.ok) router.refresh()
+      if (r.ok) {
+        kaydedildiGoster()
+        router.refresh()
+      }
     })
   }
 
