@@ -36,8 +36,11 @@ yazmali. HEDEF klasorune git; icinde nameteknik-yedek-...json olusmali.
 ADIM 4 - Otomatige bagla
 ------------------------------------------------------------------------
 "2-OTOMATIK-KUR.bat" dosyasina SAG TIKLA > "Yonetici olarak calistir".
-"TAMAM" yazacak. Artik her gun 18:00'de, sunucu acik oldugu surece,
-kimse giris yapmasa bile otomatik yedek alinir.
+"TAMAM" yazacak. Artik su anlarda otomatik yedek alinir:
+  - HER SAAT
+  - bilgisayar/oturum ACILINCA (gunun ilk acilisi)
+  - bilgisayar KAPANIRKEN
+Sunucu/PC acik oldugu surece, kimse giris yapmasa bile calisir.
 
 ========================================================================
 Sorun olursa siyah penceredeki yazinin ekran goruntusunu al, ilet.

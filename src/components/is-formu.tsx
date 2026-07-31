@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { fotograflariYukle } from "@/lib/foto-istemci"
 import { kaydedildiGoster } from "@/lib/toast"
 import { subeSecenekleri } from "@/lib/sube"
+import { kuyrugaEkle } from "@/lib/cevrimdisi-kuyruk"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KameraYakala } from "@/components/kamera-yakala"
@@ -223,6 +224,31 @@ export function IsFormu({
     if (eksik.length) {
       e.preventDefault()
       setEksikAlanlar(eksik)
+      return
+    }
+    // Çevrimdışı: sunucuya gönderme; tarayıcı kuyruğuna al, internet gelince yüklensin
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      e.preventDefault()
+      const veri: [string, string][] = []
+      fd.forEach((v, k) => {
+        if (typeof v === "string") veri.push([k, v])
+      })
+      const fotolar = [
+        ...Array.from(fotoRef.current?.files ?? []),
+        ...kameraRef.current,
+      ]
+      kuyrugaEkle({
+        veri,
+        fotolar,
+        cihazAdi: String(fd.get("cihaz_adi") ?? ""),
+      })
+        .then(() => {
+          kaydedildiGoster("Çevrimdışı kaydedildi — internet gelince yüklenecek")
+          router.push("/")
+        })
+        .catch(() =>
+          setEksikAlanlar(["Çevrimdışı kayıt yapılamadı (tarayıcı deposu kapalı)."])
+        )
     }
   }
   // Değişiklik takibi: edit modunda buton değişiklik olana dek pasif kalır.

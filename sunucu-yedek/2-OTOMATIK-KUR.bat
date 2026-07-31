@@ -1,24 +1,41 @@
 @echo off
 chcp 65001 >nul
 echo.
-echo Her gun otomatik yedek gorevi kuruluyor (bilgisayar/sunucu acik oldugu surece
-echo kimse giris yapmasa bile calisir)...
+echo Otomatik yedek gorevleri kuruluyor:
+echo   - HER SAAT
+echo   - Bilgisayar/oturum ACILINCA (gunun ilk acilisi)
+echo   - Bilgisayar KAPANIRKEN (kapatma baslayinca)
+echo (Sunucu/PC acik oldugu surece, kimse giris yapmasa bile calisir.)
 echo.
 
-REM SYSTEM olarak calisir -> kimse giris yapmasa bile, 7/24 acik sunucuda her gun 18:00
-schtasks /Create /TN "NameTeknik Gunluk Yedek" /TR "\"%~dp01-YEDEK-AL.bat\" /oto" /SC DAILY /ST 18:00 /RU SYSTEM /RL HIGHEST /F
+set "YEDEKBAT=%~dp01-YEDEK-AL.bat"
 
-if %errorlevel%==0 (
-  echo.
+REM Eski tek-gorevi (varsa) temizle
+schtasks /Delete /TN "NameTeknik Gunluk Yedek" /F >nul 2>&1
+
+REM 1) HER SAAT
+schtasks /Create /TN "NameTeknik Yedek - Saatlik" /TR "\"%YEDEKBAT%\" /oto" /SC HOURLY /MO 1 /RU SYSTEM /RL HIGHEST /F
+set E1=%errorlevel%
+
+REM 2) OTURUM ACILINCA (gunun ilk acilisinda)
+schtasks /Create /TN "NameTeknik Yedek - Aciliste" /TR "\"%YEDEKBAT%\" /oto" /SC ONLOGON /RU SYSTEM /RL HIGHEST /F
+set E2=%errorlevel%
+
+REM 3) KAPANIRKEN (User32 EventID 1074 = kapatma/yeniden baslatma baslatildi)
+schtasks /Create /TN "NameTeknik Yedek - Kapanista" /TR "\"%YEDEKBAT%\" /oto" /SC ONEVENT /EC System /MO "*[System[Provider[@Name='User32'] and (EventID=1074)]]" /RU SYSTEM /RL HIGHEST /F
+set E3=%errorlevel%
+
+echo.
+if %E1%==0 if %E2%==0 if %E3%==0 (
   echo ============================================
-  echo   TAMAM! Her gun 18:00'de otomatik yedek.
-  echo   Sunucu acik oldugu surece, kimse giris
-  echo   yapmasa bile calisir.
+  echo   TAMAM! Yedek: her saat + aciliste + kapanista.
+  echo   Sunucu/PC acik oldugu surece calisir.
   echo ============================================
-) else (
-  echo.
-  echo Gorev olusturulamadi. Bu dosyaya SAG TIKLAYIP
-  echo "Yonetici olarak calistir" ile tekrar dene.
+  goto son
 )
+echo Bazi gorevler olusturulamadi (E1=%E1% E2=%E2% E3=%E3%).
+echo Bu dosyaya SAG TIKLAYIP "Yonetici olarak calistir" ile tekrar dene.
+echo (Kapanis yedegi bazi surumlerde engellenebilir; saatlik + acilis yine yeter.)
+:son
 echo.
 pause
