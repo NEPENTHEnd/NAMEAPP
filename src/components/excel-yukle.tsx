@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-type Ozet = { sayfa: string; eklenecek: number; zatenVar: number; bosAtlanan: number }
+type Ozet = { sayfa: string; eklenecek: number; guncellenecek: number; zatenVar: number; bosAtlanan: number }
 type Ornek = {
   sayfa: string; musteri: string | null; cihaz: string
   gelis: string | null; seri: string | null; servis: string | null
@@ -16,7 +16,9 @@ type Sonuc = {
   hata?: string
   toplamOkunan?: number
   toplamEklenecek?: number
+  toplamGuncellenecek?: number
   eklenen?: number
+  guncellenen?: number
   ozet?: Ozet[]
   uyarilar?: string[]
   ornekler?: Ornek[]
@@ -66,6 +68,8 @@ export function ExcelYukle() {
   }
 
   const eklenecek = onizleme?.toplamEklenecek ?? 0
+  const guncellenecek = onizleme?.toplamGuncellenecek ?? 0
+  const toplamIslem = eklenecek + guncellenecek
 
   return (
     <div className="grid gap-4">
@@ -125,10 +129,11 @@ export function ExcelYukle() {
       {bitti && !bitti.hata && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
           <div className="text-[15px] font-semibold text-emerald-700 dark:text-emerald-400">
-            ✓ {bitti.eklenen} yeni kayıt eklendi
+            ✓ {bitti.eklenen ?? 0} yeni eklendi
+            {bitti.guncellenen ? ` · ${bitti.guncellenen} kaydın boş alanı dolduruldu` : ""}
           </div>
           <p className="mt-1 text-[12.5px] text-muted-foreground">
-            Mevcut kayıtların hiçbiri değiştirilmedi.
+            Mevcut kayıtların dolu alanlarına dokunulmadı.
           </p>
           <Button type="button" size="sm" variant="outline" className="mt-3" onClick={sifirla}>
             Yeni dosya yükle
@@ -152,13 +157,19 @@ export function ExcelYukle() {
 
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="text-[15px] font-semibold">
-              {eklenecek > 0
-                ? `${eklenecek} yeni kayıt eklenecek`
-                : "Eklenecek yeni kayıt yok — her şey güncel"}
+              {toplamIslem > 0
+                ? [
+                    eklenecek > 0 ? `${eklenecek} yeni kayıt eklenecek` : "",
+                    guncellenecek > 0 ? `${guncellenecek} kaydın boş alanı dolacak` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "Değişiklik yok — her şey güncel"}
             </div>
             <p className="mt-1 text-[12.5px] text-muted-foreground">
-              Excel'de {onizleme.toplamOkunan} satır okundu. Mevcut kayıtlara
-              dokunulmayacak, yalnız eksikler eklenecek.
+              Excel'de {onizleme.toplamOkunan} satır okundu. Mevcut kayıtların
+              <strong> dolu alanlarına dokunulmaz</strong>; yalnız yeni satır eklenir ve
+              eşleşen kayıtların <strong>boş</strong> alanları doldurulur.
             </p>
 
             {onizleme.ozet && onizleme.ozet.length > 0 && (
@@ -168,6 +179,7 @@ export function ExcelYukle() {
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="py-1.5 pr-3 font-medium">Sekme</th>
                       <th className="py-1.5 pr-3 text-right font-medium">Eklenecek</th>
+                      <th className="py-1.5 pr-3 text-right font-medium">Güncellenecek</th>
                       <th className="py-1.5 pr-3 text-right font-medium">Zaten var</th>
                       <th className="py-1.5 text-right font-medium">Boş satır</th>
                     </tr>
@@ -179,6 +191,10 @@ export function ExcelYukle() {
                         <td className={cn("py-1.5 pr-3 text-right tabular-nums",
                           o.eklenecek > 0 && "font-semibold text-emerald-600 dark:text-emerald-400")}>
                           {o.eklenecek || "—"}
+                        </td>
+                        <td className={cn("py-1.5 pr-3 text-right tabular-nums",
+                          o.guncellenecek > 0 && "font-semibold text-sky-600 dark:text-sky-400")}>
+                          {o.guncellenecek || "—"}
                         </td>
                         <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">
                           {o.zatenVar || "—"}
@@ -213,12 +229,17 @@ export function ExcelYukle() {
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button
                 type="button"
-                disabled={eklenecek === 0 || yukleniyor === "uygula"}
+                disabled={toplamIslem === 0 || yukleniyor === "uygula"}
                 onClick={() => dosya && gonder(dosya, "uygula")}
               >
                 {yukleniyor === "uygula"
-                  ? "Ekleniyor…"
-                  : `Onayla ve ${eklenecek} kaydı ekle`}
+                  ? "Uygulanıyor…"
+                  : `Onayla (${[
+                      eklenecek > 0 ? `${eklenecek} ekle` : "",
+                      guncellenecek > 0 ? `${guncellenecek} güncelle` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" + ")})`}
               </Button>
               <Button type="button" variant="ghost" onClick={sifirla}>
                 Vazgeç

@@ -61,9 +61,9 @@ export default async function IceAktarSayfasi() {
               </div>
               <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
                 <li>Sistemde <strong>olmayan</strong> yeni satırları ekler.</li>
+                <li><strong>Eşleşen kaydın BOŞ alanlarını doldurur</strong> (fiyat, çıkış tarihi, fatura durumu, telefon…). Eşleşme <strong>fiş no'nun son haneleri + müşteri + cihaz</strong>a göre — müdür fişte ayı girmese de tutar.</li>
                 <li>Aynı üründen çok satır varsa <strong>adet</strong> sayar (Excel'de 3, sistemde 2 → yalnız 1 ekler). Aynı dosyayı tekrar yüklemek kayıt çoğaltmaz.</li>
-                <li>Her sekmeyi ilgili <strong>firmaya</strong> bağlar; müşteri adı bir şubeyle aynıysa o <strong>şubeye</strong> otomatik bağlar.</li>
-                <li>Firma/müşteri/durum/personel yoksa <strong>otomatik oluşturur</strong>.</li>
+                <li>Her sekmeyi ilgili <strong>firmaya</strong>, müşteri adı bir şubeyle aynıysa <strong>şubeye</strong> bağlar; eksik firma/müşteri/durum/personeli <strong>oluşturur</strong>.</li>
                 <li>Karşılığı olmayan sekme/başlık varsa <strong>eklemeden önce uyarır</strong>.</li>
               </ul>
             </div>
@@ -72,7 +72,7 @@ export default async function IceAktarSayfasi() {
                 ✗ Yapmadıkları
               </div>
               <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                <li><strong>Mevcut kayıtları değiştirmez.</strong> Excel'de bir işin durumunu/çıkış tarihini düzeltirseniz sisteme <em>yansımaz</em> — o düzenlemeyi uygulamadan yapın.</li>
+                <li><strong>Dolu alanların üzerine YAZMAZ.</strong> Yalnız boş alanı doldurur. Uygulamada bir değeri değiştirdiyseniz Excel'deki eski değer onu ezmez.</li>
                 <li><strong>Kayıt silmez.</strong> Excel'den bir satır silmek sistemden silmez.</li>
                 <li><strong>Fotoğraf aktarmaz</strong> — Excel'deki resimler alınmaz (fotoğrafları uygulamadan ekleyin).</li>
               </ul>
