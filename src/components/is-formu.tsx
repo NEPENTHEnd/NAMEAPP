@@ -68,6 +68,25 @@ const selectClass =
 
 const labelClass = "text-xs font-semibold text-muted-foreground"
 
+// İki metin arası düzenleme uzaklığı (yazım hatasını yakalamak için)
+function metinUzakligi(a: string, b: string): number {
+  const m = a.length
+  const n = b.length
+  if (!m) return n
+  if (!n) return m
+  const d = Array.from({ length: n + 1 }, (_, i) => i)
+  for (let i = 1; i <= m; i++) {
+    let onceki = d[0]
+    d[0] = i
+    for (let j = 1; j <= n; j++) {
+      const gecici = d[j]
+      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, onceki + (a[i - 1] === b[j - 1] ? 0 : 1))
+      onceki = gecici
+    }
+  }
+  return d[n]
+}
+
 function Bolum({
   baslik,
   children,
@@ -112,12 +131,34 @@ export function IsFormu({
   )
   const [yeniMusteri, setYeniMusteri] = useState(false)
   const [yeniMusteriAd, setYeniMusteriAd] = useState("") // yazdığı isim buraya taşınır
+  const [benzerYoksay, setBenzerYoksay] = useState(false) // "yeni oluştur" denildiyse uyarıyı gizle
   // Aranabilir müşteri seçici (uzun listede tek tek gezmek yerine yazarak bul)
   const [musteriId, setMusteriId] = useState(varsayilan.musteri_id ?? "")
   const [musteriAra, setMusteriAra] = useState("")
   const [musteriAcik, setMusteriAcik] = useState(false)
   const musteriKutu = useRef<HTMLDivElement>(null)
   const seciliMusteriAd = musteriler.find((m) => m.id === musteriId)?.ad ?? ""
+  // Yeni müşteri yazarken benzer isim var mı? (yazım hatası → yanlış müşteri açılmasın)
+  const benzerMusteri = useMemo(() => {
+    if (!yeniMusteri || benzerYoksay) return null
+    const ad = yeniMusteriAd.trim().toLocaleUpperCase("tr-TR")
+    if (ad.length < 3) return null
+    let enYakin: Secenek | null = null
+    let enAz = Infinity
+    for (const m of musteriler) {
+      const nm = m.ad.toLocaleUpperCase("tr-TR")
+      if (nm === ad) return null // birebir aynısı zaten var → uyarı gereksiz
+      const u = metinUzakligi(ad, nm)
+      if (u < enAz) {
+        enAz = u
+        enYakin = m
+      }
+    }
+    // Yakınsa (küçük yazım farkı) uyar
+    if (enYakin && enAz <= Math.max(2, Math.floor(enYakin.ad.length * 0.34)))
+      return enYakin
+    return null
+  }, [yeniMusteri, benzerYoksay, yeniMusteriAd, musteriler])
   // Şube seçici: ön-seçili firma (subeler) varsa onu kullan; yoksa SEÇİLEN MÜŞTERİ
   // adı bir sol-menü firmasıyla eşleşiyorsa (ör. HASÇELİK KABLO) o firmanın şubelerini
   // aç → personel "şube seç" kutusunu görür ve şube seçebilir.
@@ -138,6 +179,11 @@ export function IsFormu({
   }, [subeler, eslesenFirma, tumSubeler])
   // Firma değişince şube seçimi sıfırlansın diye <select> anahtarı
   const subeAnahtar = subeler.length > 0 ? "onSecili" : eslesenFirma?.id ?? "yok"
+  // BOYTEKS: müşteri BOYTEKS seçilince fiş no yerine "Firma stok kodu" (elle) çıkar,
+  // talep no gizlenir (personel de yönetici de).
+  const boyteksMi = seciliAd === "BOYTEKS"
+  const stokGoster = servisNoGoster || boyteksMi
+  const stokEtiket = boyteksMi ? "Firma stok kodu" : servisNoEtiket
   const filtreliMusteriler = useMemo(() => {
     const q = musteriAra.trim().toLocaleLowerCase("tr-TR")
     const kaynak = q
@@ -347,13 +393,50 @@ export function IsFormu({
             </button>
           </div>
           {yeniMusteri ? (
-            <Input
-              name="yeni_musteri_adi"
-              placeholder="Yeni müşteri adı"
-              autoFocus
-              value={yeniMusteriAd}
-              onChange={(e) => setYeniMusteriAd(e.target.value)}
-            />
+            <>
+              <Input
+                name="yeni_musteri_adi"
+                placeholder="Yeni müşteri adı"
+                autoFocus
+                value={yeniMusteriAd}
+                onChange={(e) => {
+                  setYeniMusteriAd(e.target.value)
+                  setBenzerYoksay(false)
+                }}
+              />
+              {benzerMusteri && (
+                <div className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-2.5 text-[12.5px]">
+                  <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4M12 17h.01" /></svg>
+                    Benzer isim var: <strong>{benzerMusteri.ad}</strong>
+                  </div>
+                  <p className="mb-2 text-muted-foreground">
+                    Yazım hatası olabilir. Aynı müşteri mi, yoksa yeni bir müşteri mi?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMusteriId(benzerMusteri.id)
+                        setYeniMusteri(false)
+                        setYeniMusteriAd("")
+                        if (degisiklikTakip) setDegisti(true)
+                      }}
+                      className="rounded-lg bg-primary px-2.5 py-1.5 text-[12px] font-semibold text-primary-foreground hover:bg-primary/90"
+                    >
+                      “{benzerMusteri.ad}”i seç
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBenzerYoksay(true)}
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-medium hover:bg-muted"
+                    >
+                      Hayır, yeni müşteri
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div ref={musteriKutu} className="relative">
               {/* Yazarak ara — kayıtlı müşteriler süzülür, tıkla seç */}
@@ -482,10 +565,10 @@ export function IsFormu({
           </div>
         </div>
         <div className="mt-3.5 grid gap-1.5 sm:max-w-[50%]">
-          {servisNoGoster ? (
+          {stokGoster ? (
             <>
-              <label className={labelClass} htmlFor="servis_no">{servisNoEtiket}</label>
-              <Input id="servis_no" name="servis_no" placeholder="Örn. 9577" defaultValue={varsayilan.servis_no ?? ""} />
+              <label className={labelClass} htmlFor="servis_no">{stokEtiket}</label>
+              <Input id="servis_no" name="servis_no" placeholder={boyteksMi ? "BOYTEKS stok kodu" : "Örn. 9577"} defaultValue={varsayilan.servis_no ?? ""} />
             </>
           ) : (
             <>
@@ -679,10 +762,12 @@ export function IsFormu({
             <label className={labelClass} htmlFor="garanti_no">Takip no</label>
             <Input id="garanti_no" name="garanti_no" placeholder="Harf/rakam olabilir" defaultValue={varsayilan.garanti_no ?? ""} />
           </div>
-          <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="talep_no">Talep no</label>
-            <Input id="talep_no" name="talep_no" placeholder="Boşsa listede görünmez" defaultValue={varsayilan.talep_no ?? ""} />
-          </div>
+          {!boyteksMi && (
+            <div className="grid gap-1.5">
+              <label className={labelClass} htmlFor="talep_no">Talep no</label>
+              <Input id="talep_no" name="talep_no" placeholder="Boşsa listede görünmez" defaultValue={varsayilan.talep_no ?? ""} />
+            </div>
+          )}
         </div>
       </Bolum>
       )}

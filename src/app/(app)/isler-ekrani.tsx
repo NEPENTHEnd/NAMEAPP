@@ -653,10 +653,10 @@ export function IslerEkrani({
                   <TableCell className="min-w-[80px]">
                     {/* Takip no (eski adı garanti no) — fiş no'nun hemen yanında */}
                     <HucreDuzenle isId={k.id} alan="garanti_no" deger={k.garanti_no} bosEtiket="—" className="text-xs" />
-                    {/* Talep no — yalnız değer varsa; solunda "Talep no" etiketiyle */}
+                    {/* Talep no — yalnız değer varsa; solunda kısa "Talep:" etiketi, kırmızı */}
                     {k.talep_no && (
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <span className="shrink-0">Talep no:</span>
+                      <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                        <span className="shrink-0 font-semibold">Talep:</span>
                         <HucreDuzenle isId={k.id} alan="talep_no" deger={k.talep_no} className="min-w-0" />
                       </div>
                     )}

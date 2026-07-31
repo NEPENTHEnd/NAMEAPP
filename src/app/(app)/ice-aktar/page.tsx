@@ -2,7 +2,6 @@ import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/server"
 import { getYonetici } from "@/lib/auth"
-import { ExcelYukle } from "@/components/excel-yukle"
 import { FotoArsivSil } from "@/components/foto-arsiv-sil"
 import { buttonVariants } from "@/components/ui/button"
 
@@ -36,55 +35,15 @@ export default async function IceAktarSayfasi() {
           ← İşler
         </Link>
         <h1 className="mt-1 text-[21px] font-semibold tracking-tight">
-          İçe / Dışa Aktar
+          Dışa Aktar / Yedek
         </h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
-          Excel yükleyip yeni kayıt ekleyin, tüm verileri Excel indirin, fotoğrafları
-          arşivleyin.
+          Tüm verileri Excel'e indirin, fotoğrafları arşivleyin.
         </p>
       </div>
 
-      {/* ---------------- İÇE AKTAR ---------------- */}
-      <section className="grid gap-3">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5-5 5 5" /><path d="M12 5v12" /></svg>
-          </span>
-          İçe aktar (Excel → sisteme)
-        </h2>
-
-        <div className="rounded-2xl border border-border bg-muted/30 p-4 text-[12.5px] leading-relaxed">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className="mb-1 font-semibold text-emerald-700 dark:text-emerald-400">
-                ✓ Yaptıkları
-              </div>
-              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                <li>Sistemde <strong>olmayan</strong> yeni satırları ekler.</li>
-                <li><strong>Eşleşen kaydın BOŞ alanlarını doldurur</strong> (fiyat, çıkış tarihi, fatura durumu, telefon…). Eşleşme <strong>fiş no'nun son haneleri + müşteri + cihaz</strong>a göre — müdür fişte ayı girmese de tutar.</li>
-                <li>Aynı üründen çok satır varsa <strong>adet</strong> sayar (Excel'de 3, sistemde 2 → yalnız 1 ekler). Aynı dosyayı tekrar yüklemek kayıt çoğaltmaz.</li>
-                <li>Her sekmeyi ilgili <strong>firmaya</strong>, müşteri adı bir şubeyle aynıysa <strong>şubeye</strong> bağlar; eksik firma/müşteri/durum/personeli <strong>oluşturur</strong>.</li>
-                <li>Karşılığı olmayan sekme/başlık varsa <strong>eklemeden önce uyarır</strong>.</li>
-              </ul>
-            </div>
-            <div>
-              <div className="mb-1 font-semibold text-destructive">
-                ✗ Yapmadıkları
-              </div>
-              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                <li><strong>Dolu alanların üzerine YAZMAZ.</strong> Yalnız boş alanı doldurur. Uygulamada bir değeri değiştirdiyseniz Excel'deki eski değer onu ezmez.</li>
-                <li><strong>Kayıt silmez.</strong> Excel'den bir satır silmek sistemden silmez.</li>
-                <li><strong>Fotoğraf aktarmaz</strong> — Excel'deki resimler alınmaz (fotoğrafları uygulamadan ekleyin).</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <ExcelYukle />
-      </section>
-
       {/* ---------------- DIŞA AKTAR ---------------- */}
-      <section className="grid gap-3 border-t border-border pt-5">
+      <section className="grid gap-3">
         <h2 className="flex items-center gap-2 text-[15px] font-semibold">
           <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5M12 15V3" /></svg>

@@ -183,37 +183,39 @@ export default async function IslerSayfasi({
   }
 
   if (q) {
-    // Türkçe İ/i–I/ı için hem TR-büyük hem TR-küçük varyantla ara
-    const qTemiz = q.replace(/[%,()*\\]/g, " ").trim()
+    // or() sözdizimini bozan karakterleri temizle; Türkçe İ/i–I/ı için TR-büyük
+    // ve TR-küçük varyantla ara (ilike zaten harf-duyarsız ama İ/ı için şart).
+    const qTemiz = q.replace(/[%,().*\\:]/g, " ").replace(/\s+/g, " ").trim()
     const varyantlar = [
       ...new Set([
         qTemiz,
         qTemiz.toLocaleUpperCase("tr-TR"),
         qTemiz.toLocaleLowerCase("tr-TR"),
       ]),
-    ]
-    // Müşteri adına göre de aramak için önce eşleşen müşteri id'lerini bul.
-    const { data: eslesenMusteri } = await supabase
-      .from("musteri")
-      .select("id")
-      .or(varyantlar.map((v) => `ad.ilike.*${v}*`).join(","))
+    ].filter(Boolean)
+    const like = (alan: string) => varyantlar.map((v) => `${alan}.ilike.*${v}*`)
+    // İlişkili tablolarda ADA göre eşleşen id'ler (müşteri + durum + fatura durumu)
+    const [musteriM, durumM, faturaM] = await Promise.all([
+      supabase.from("musteri").select("id").or(like("ad").join(",")),
+      supabase.from("durum").select("id").or(like("ad").join(",")),
+      supabase.from("fatura_durumu").select("id").or(like("ad").join(",")),
+    ])
+    // Kayıt üzerindeki metin alanları
     const alanlar = [
-      "cihaz_adi",
-      "seri_no",
-      "servis_no",
-      "garanti_no",
-      "talep_no",
-      "kargo_takip_no",
-      "takip_no",
-      "ilgili_kisi",
-      "telefon",
-      "adres",
+      "cihaz_adi", "seri_no", "servis_no", "garanti_no", "talep_no",
+      "kargo_takip_no", "takip_no", "ilgili_kisi", "telefon", "adres",
     ]
-    const orParcalari = alanlar.flatMap((a) =>
-      varyantlar.map((v) => `${a}.ilike.*${v}*`)
-    )
-    if (eslesenMusteri && eslesenMusteri.length > 0) {
-      orParcalari.push(`musteri_id.in.(${eslesenMusteri.map((m) => m.id).join(",")})`)
+    const orParcalari = alanlar.flatMap(like)
+    if (musteriM.data?.length)
+      orParcalari.push(`musteri_id.in.(${musteriM.data.map((m) => m.id).join(",")})`)
+    if (durumM.data?.length)
+      orParcalari.push(`durum_id.in.(${durumM.data.map((d) => d.id).join(",")})`)
+    if (faturaM.data?.length)
+      orParcalari.push(`fatura_durumu_id.in.(${faturaM.data.map((f) => f.id).join(",")})`)
+    // Sayı yazıldıysa fiyat/tutar da ara
+    const sayi = Number(qTemiz.replace(",", "."))
+    if (qTemiz !== "" && Number.isFinite(sayi)) {
+      orParcalari.push(`fiyat_teklifi.eq.${sayi}`, `fatura_tutari.eq.${sayi}`)
     }
     query = query.or(orParcalari.join(","))
   }
