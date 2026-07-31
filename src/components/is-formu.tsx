@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { fotograflariYukle } from "@/lib/foto-istemci"
 import { kaydedildiGoster } from "@/lib/toast"
+import { subeSecenekleri } from "@/lib/sube"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KameraYakala } from "@/components/kamera-yakala"
@@ -47,7 +48,9 @@ type Props = {
   durumlar: Secenek[]
   personeller: Secenek[]
   faturaDurumlari: Secenek[]
-  subeler?: Secenek[] // seçili firmanın (grup) şubeleri — varsa "şube seç" çıkar
+  subeler?: Secenek[] // ön-seçili firmanın (grup) şubeleri — varsa "şube seç" çıkar
+  firmalar?: Secenek[] // sol menü firmaları (grup) — müşteri adı eşleşince şubeleri açmak için
+  tumSubeler?: { id: string; grup_id: string; ad: string; ust_sube_id: string | null }[]
   varsayilan?: IsFormVarsayilan
   gonderEtiketi?: string
   iptalHref?: string
@@ -89,6 +92,8 @@ export function IsFormu({
   personeller,
   faturaDurumlari,
   subeler = [],
+  firmalar = [],
+  tumSubeler = [],
   varsayilan = {},
   gonderEtiketi = "Kaydet",
   iptalHref = "/",
@@ -112,6 +117,26 @@ export function IsFormu({
   const [musteriAcik, setMusteriAcik] = useState(false)
   const musteriKutu = useRef<HTMLDivElement>(null)
   const seciliMusteriAd = musteriler.find((m) => m.id === musteriId)?.ad ?? ""
+  // Şube seçici: ön-seçili firma (subeler) varsa onu kullan; yoksa SEÇİLEN MÜŞTERİ
+  // adı bir sol-menü firmasıyla eşleşiyorsa (ör. HASÇELİK KABLO) o firmanın şubelerini
+  // aç → personel "şube seç" kutusunu görür ve şube seçebilir.
+  const seciliAd = (yeniMusteri ? yeniMusteriAd : seciliMusteriAd)
+    .trim()
+    .toLocaleUpperCase("tr-TR")
+  const eslesenFirma = useMemo(
+    () =>
+      subeler.length > 0
+        ? null
+        : firmalar.find((g) => g.ad.toLocaleUpperCase("tr-TR") === seciliAd) ?? null,
+    [subeler.length, firmalar, seciliAd]
+  )
+  const aktifSubeler = useMemo(() => {
+    if (subeler.length > 0) return subeler
+    if (!eslesenFirma) return []
+    return subeSecenekleri(tumSubeler.filter((s) => s.grup_id === eslesenFirma.id))
+  }, [subeler, eslesenFirma, tumSubeler])
+  // Firma değişince şube seçimi sıfırlansın diye <select> anahtarı
+  const subeAnahtar = subeler.length > 0 ? "onSecili" : eslesenFirma?.id ?? "yok"
   const filtreliMusteriler = useMemo(() => {
     const q = musteriAra.trim().toLocaleLowerCase("tr-TR")
     const kaynak = q
@@ -375,18 +400,19 @@ export function IsFormu({
           )}
           <Hata alan="musteri_id" />
         </div>
-        {/* Şube: yalnız şubeli firmalarda (yönetici) çıkar */}
-        {!personelMod && subeler.length > 0 && (
+        {/* Şube: seçilen firma şubeliyse çıkar (personel de seçebilir) */}
+        {aktifSubeler.length > 0 && (
           <div className="mb-3.5 grid gap-1.5">
-            <label className={labelClass} htmlFor="sube_id">Şube</label>
+            <label className={labelClass} htmlFor="sube_id">Şube seçin</label>
             <select
+              key={subeAnahtar}
               id="sube_id"
               name="sube_id"
               className={selectClass}
               defaultValue={varsayilan.sube_id ?? ""}
             >
               <option value="">Ana firma (şubesiz)</option>
-              {subeler.map((s) => (
+              {aktifSubeler.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.ad}
                 </option>

@@ -75,17 +75,16 @@ export default async function IsDetaySayfasi({
   }
 
   const secenekler = await getIsFormSecenekleri()
-  // İşin firmasının (grup) şubeleri + alt şubeleri — formda "şube seç" (yalnız yönetici)
-  let subeler: { id: string; ad: string }[] = []
-  if (kullanici.rol === "yonetici" && kayit.grup_id) {
-    const { data } = await supabase
-      .from("sube")
-      .select("id, ad, ust_sube_id")
-      .eq("grup_id", kayit.grup_id)
-      .eq("aktif", true)
-      .order("sira")
-    subeler = subeSecenekleri(data ?? [])
-  }
+  // Şubeler: işin firmasınınki (ön-seçili) + müşteri adına göre açılması için TÜMÜ
+  const { data: subeHam } = await supabase
+    .from("sube")
+    .select("id, grup_id, ad, ust_sube_id")
+    .eq("aktif", true)
+    .order("sira")
+  const tumSubeler = subeHam ?? []
+  const subeler = kayit.grup_id
+    ? subeSecenekleri(tumSubeler.filter((s) => s.grup_id === kayit.grup_id))
+    : []
   const guncelleAction = isGuncelle.bind(null, id)
   const silAction = isSil.bind(null, id)
 
@@ -127,6 +126,8 @@ export default async function IsDetaySayfasi({
         personeller={secenekler.personeller}
         faturaDurumlari={secenekler.faturaDurumlari}
         subeler={subeler}
+        firmalar={secenekler.gruplar}
+        tumSubeler={tumSubeler}
         varsayilan={{
           musteri_id: kayit.musteri_id,
           sube_id: kayit.sube_id,

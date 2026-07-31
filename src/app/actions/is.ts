@@ -237,6 +237,21 @@ export async function isOlustur(
   if (finansal && parsed.data.grup_id) {
     grupId = parsed.data.grup_id
     subeId = parsed.data.sube_id ?? null
+  } else if (parsed.data.sube_id) {
+    // Formda şube seçildi (personel de olabilir) → şubeden firmayı (grup) al
+    const { data: sb } = await supabase
+      .from("sube")
+      .select("grup_id")
+      .eq("id", parsed.data.sube_id)
+      .maybeSingle()
+    if (sb) {
+      grupId = sb.grup_id
+      subeId = parsed.data.sube_id
+    } else {
+      const c = await firmaSubeCozumle(supabase, m.ad)
+      grupId = c.grupId
+      subeId = c.subeId
+    }
   } else {
     const c = await firmaSubeCozumle(supabase, m.ad)
     grupId = c.grupId

@@ -28,18 +28,17 @@ export default async function YeniIsSayfasi({
   const grup = !personel
     ? secenekler.gruplar.find((g) => g.id === grupParam)
     : undefined
-  // Seçili firmanın şubeleri + alt şubeleri (varsa formda "şube seç" çıkar)
-  let subeler: { id: string; ad: string }[] = []
-  if (grup) {
-    const supabase = await createClient()
-    const { data } = await supabase
-      .from("sube")
-      .select("id, ad, ust_sube_id")
-      .eq("grup_id", grup.id)
-      .eq("aktif", true)
-      .order("sira")
-    subeler = subeSecenekleri(data ?? [])
-  }
+  // Şubeler: ön-seçili firmanınki (yeşil + ile) + müşteri adına göre açılması için TÜMÜ
+  const supabase = await createClient()
+  const { data: subeHam } = await supabase
+    .from("sube")
+    .select("id, grup_id, ad, ust_sube_id")
+    .eq("aktif", true)
+    .order("sira")
+  const tumSubeler = subeHam ?? []
+  const subeler = grup
+    ? subeSecenekleri(tumSubeler.filter((s) => s.grup_id === grup.id))
+    : []
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-5">
@@ -59,6 +58,8 @@ export default async function YeniIsSayfasi({
         personeller={secenekler.personeller}
         faturaDurumlari={secenekler.faturaDurumlari}
         subeler={subeler}
+        firmalar={secenekler.gruplar}
+        tumSubeler={tumSubeler}
         varsayilan={{
           gelis_tarihi: bugun,
           durum_id: personel ? bakilmadiId : undefined,
