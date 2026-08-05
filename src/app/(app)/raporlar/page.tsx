@@ -156,7 +156,7 @@ export default async function RaporlarSayfasi({
   // --- Aylık kırılım (tüm eşleşen kayıtlar) ---
   let aySorgu = supabase
     .from("is_kaydi")
-    .select("gelis_tarihi, cikis_tarihi, fatura_tutari")
+    .select("gelis_tarihi, cikis_tarihi, fatura_tutari, fiyat_teklifi, durum:durum_id ( ad )")
   if (filtre.durum) aySorgu = aySorgu.eq("durum_id", filtre.durum)
   if (filtre.personel) aySorgu = aySorgu.eq("teknik_personel_id", filtre.personel)
   if (filtre.fatura) aySorgu = aySorgu.eq("fatura_durumu_id", filtre.fatura)
@@ -175,9 +175,12 @@ export default async function RaporlarSayfasi({
     const [y, m] = anahtar.split("-")
     return `${AYLAR[Number(m) - 1]} ${y}`
   }
-  const aylik = new Map<string, { gelen: number; cikan: number; ciro: number }>()
+  const aylik = new Map<
+    string,
+    { gelen: number; cikan: number; ciroOnarim: number; ciroSatis: number }
+  >()
   const getAy = (k: string) =>
-    aylik.get(k) ?? { gelen: 0, cikan: 0, ciro: 0 }
+    aylik.get(k) ?? { gelen: 0, cikan: 0, ciroOnarim: 0, ciroSatis: 0 }
   for (const r of ayData ?? []) {
     if (r.gelis_tarihi) {
       const k = r.gelis_tarihi.slice(0, 7)
@@ -189,7 +192,11 @@ export default async function RaporlarSayfasi({
       const k = r.cikis_tarihi.slice(0, 7)
       const v = getAy(k)
       v.cikan++
-      v.ciro += r.fatura_tutari ?? 0
+      // SATIŞ durumundaki işler ürün satışı sayılır; tutarları çoğunlukla
+      // fiyat_teklifi'nde tutulur (fatura yoksa oradan alınır). Diğerleri onarım.
+      const durumAd = Array.isArray(r.durum) ? r.durum[0]?.ad : r.durum?.ad
+      if (durumAd === "SATIŞ") v.ciroSatis += r.fatura_tutari ?? r.fiyat_teklifi ?? 0
+      else v.ciroOnarim += r.fatura_tutari ?? 0
       aylik.set(k, v)
     }
   }
@@ -302,7 +309,9 @@ export default async function RaporlarSayfasi({
                   <TableHead>Ay</TableHead>
                   <TableHead className="text-right">Gelen</TableHead>
                   <TableHead className="text-right">Çıkan</TableHead>
-                  <TableHead className="text-right">Ciro</TableHead>
+                  <TableHead className="text-right">Onarım Cirosu</TableHead>
+                  <TableHead className="text-right">Satış Cirosu</TableHead>
+                  <TableHead className="text-right">Toplam Ciro</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -312,7 +321,13 @@ export default async function RaporlarSayfasi({
                     <TableCell className="text-right tabular-nums">{v.gelen}</TableCell>
                     <TableCell className="text-right tabular-nums">{v.cikan}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {tutarTR(v.ciro)}
+                      {tutarTR(v.ciroOnarim)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-emerald-700 dark:text-emerald-400">
+                      {tutarTR(v.ciroSatis)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {tutarTR(v.ciroOnarim + v.ciroSatis)}
                     </TableCell>
                   </TableRow>
                 ))}

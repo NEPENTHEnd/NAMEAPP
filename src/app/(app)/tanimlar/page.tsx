@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/server"
@@ -141,77 +142,136 @@ export default async function TanimlarSayfasi({
         </section>
       )}
 
-      {/* MÜŞTERİLER */}
-      {sekme === "musteri" && (
-        <section className="grid gap-3">
-          <p className="text-xs text-muted-foreground">
-            Bu liste <strong>otomatik büyür</strong>: personel ya da yönetici bir işe
-            firma yazdığında buraya eklenir. Her firmanın altında, o firmaya girilmiş
-            <strong> ilgili kişi + telefonlar</strong> otomatik birikir.
-          </p>
-          <form action={musteriEkle} className="flex flex-wrap gap-2">
-            <Input name="ad" placeholder="Müşteri adı" required className="max-w-xs" />
-            <Input name="sube_sehir" placeholder="Şube/şehir (ops.)" className="max-w-xs" />
-            <Button type="submit" size="sm">Ekle</Button>
-          </form>
-          <div className="text-xs text-muted-foreground">
-            Toplam {(musteriler.data ?? []).length} müşteri
-          </div>
-          <div className="grid gap-2">
-            {(musteriler.data ?? []).map((m) => {
-              const iletisimler = musteriIletisim.get(m.id) ?? []
-              const isSayisi = musteriIsSayisi.get(m.id) ?? 0
-              return (
-              <div key={m.id} className="grid gap-2 rounded-xl border border-border bg-card p-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <form action={musteriDuzenle} className="flex flex-1 flex-wrap items-center gap-2">
-                    <input type="hidden" name="id" value={m.id} />
-                    <Input name="ad" defaultValue={m.ad} className="max-w-xs" required />
-                    <Input name="sube_sehir" defaultValue={m.sube_sehir ?? ""} placeholder="Şube/şehir" className="max-w-[10rem]" />
-                    <Button type="submit" size="sm" variant="outline">Kaydet</Button>
-                  </form>
-                  {isSayisi > 0 && (
-                    <Link
-                      href={`/?musteri=${m.id}`}
-                      className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
-                      title="Bu firmanın işlerini gör"
-                    >
-                      {isSayisi} iş
-                    </Link>
-                  )}
-                  <form action={musteriAktiflik}>
-                    <input type="hidden" name="id" value={m.id} />
-                    <input type="hidden" name="aktif" value={m.aktif ? "false" : "true"} />
-                    <Button type="submit" size="sm" variant={m.aktif ? "ghost" : "secondary"}>
-                      {m.aktif ? "Pasifleştir" : "Aktifleştir"}
-                    </Button>
-                  </form>
-                  <MusteriSil id={m.id} ad={m.ad} isSayisi={isSayisi} />
-                  {!m.aktif && <span className="text-xs text-muted-foreground">(pasif)</span>}
-                </div>
-                {iletisimler.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 border-t border-border/60 pt-2">
-                    {iletisimler.map((c, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-[12px]"
-                      >
-                        {c.ad && <span className="font-medium">{c.ad}</span>}
-                        {c.telefon && (
-                          <a href={`tel:${c.telefon}`} className="text-primary hover:underline">
-                            {c.telefon}
-                          </a>
-                        )}
-                      </span>
-                    ))}
-                  </div>
+      {/* MÜŞTERİLER — firmalar ağacındaki gibi grup → şube → alt şube nested */}
+      {sekme === "musteri" && (() => {
+        type M = { id: string; ad: string; sube_sehir: string | null; aktif: boolean }
+        type S = { id: string; grup_id: string; ad: string; ust_sube_id: string | null }
+        const norm = (s: string) => s.toLocaleUpperCase("tr-TR").replace(/\s+/g, " ").trim()
+        const tumMusteri = (musteriler.data ?? []) as M[]
+        const musteriByAd = new Map(tumMusteri.map((m) => [norm(m.ad), m]))
+        const subeList = (subeler.data ?? []) as S[]
+        const grupList = gruplar.data ?? []
+        const agactaki = new Set<string>()
+
+        const renderMusteri = (m: M, seviye = 0) => {
+          const iletisimler = musteriIletisim.get(m.id) ?? []
+          const isSayisi = musteriIsSayisi.get(m.id) ?? 0
+          return (
+            <div
+              key={m.id}
+              className="grid gap-2 rounded-xl border border-border bg-card p-2"
+              style={seviye ? { marginLeft: seviye * 18 } : undefined}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={musteriDuzenle} className="flex flex-1 flex-wrap items-center gap-2">
+                  <input type="hidden" name="id" value={m.id} />
+                  <Input name="ad" defaultValue={m.ad} className="max-w-xs" required />
+                  <Input name="sube_sehir" defaultValue={m.sube_sehir ?? ""} placeholder="Şube/şehir" className="max-w-[10rem]" />
+                  <Button type="submit" size="sm" variant="outline">Kaydet</Button>
+                </form>
+                {isSayisi > 0 && (
+                  <Link
+                    href={`/?musteri=${m.id}`}
+                    className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                    title="Bu firmanın işlerini gör"
+                  >
+                    {isSayisi} iş
+                  </Link>
                 )}
+                <form action={musteriAktiflik}>
+                  <input type="hidden" name="id" value={m.id} />
+                  <input type="hidden" name="aktif" value={m.aktif ? "false" : "true"} />
+                  <Button type="submit" size="sm" variant={m.aktif ? "ghost" : "secondary"}>
+                    {m.aktif ? "Pasifleştir" : "Aktifleştir"}
+                  </Button>
+                </form>
+                <MusteriSil id={m.id} ad={m.ad} isSayisi={isSayisi} />
+                {!m.aktif && <span className="text-xs text-muted-foreground">(pasif)</span>}
               </div>
-              )
-            })}
+              {iletisimler.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 border-t border-border/60 pt-2">
+                  {iletisimler.map((c, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-[12px]">
+                      {c.ad && <span className="font-medium">{c.ad}</span>}
+                      {c.telefon && (
+                        <a href={`tel:${c.telefon}`} className="text-primary hover:underline">{c.telefon}</a>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        }
+
+        // Şube düğümü: eşleşen müşteri varsa o müşteri satırı, yoksa sadece şube adı (kayıt yok)
+        const renderSube = (sube: S, seviye: number): ReactNode => {
+          const m = musteriByAd.get(norm(sube.ad))
+          if (m) agactaki.add(m.id)
+          const altlar = subeList.filter((s) => s.ust_sube_id === sube.id)
+          return (
+            <div key={sube.id} className="grid gap-2">
+              {m ? (
+                renderMusteri(m, seviye)
+              ) : (
+                <div
+                  className="flex items-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-[13px]"
+                  style={seviye ? { marginLeft: seviye * 18 } : undefined}
+                >
+                  <span className="font-medium">{sube.ad}</span>
+                  <span className="text-[11px] text-muted-foreground">müşteri kaydı yok</span>
+                </div>
+              )}
+              {altlar.map((a) => renderSube(a, seviye + 1))}
+            </div>
+          )
+        }
+
+        // Şubesi olan firmalar → ağaç; diğer tüm müşteriler → düz liste
+        const grupAgac = grupList
+          .map((g) => ({ g, ust: subeList.filter((s) => s.grup_id === g.id && !s.ust_sube_id) }))
+          .filter((x) => x.ust.length > 0)
+        const agacJsx = grupAgac.map(({ g, ust }) => (
+          <div key={g.id} className="grid gap-2 rounded-2xl border border-border bg-muted/20 p-2.5">
+            <div className="px-1 text-[13px] font-semibold text-primary">{g.ad}</div>
+            {ust.map((s) => renderSube(s, 0))}
           </div>
-        </section>
-      )}
+        ))
+        const flatMusteriler = tumMusteri.filter((m) => !agactaki.has(m.id))
+
+        return (
+          <section className="grid gap-3">
+            <p className="text-xs text-muted-foreground">
+              Bu liste <strong>otomatik büyür</strong>: bir işe firma yazıldığında buraya eklenir.
+              Bir firmaya bağlı şubeler (ör. <strong>BELLONA-1, BELLONA-2</strong>) firmalar
+              menüsündeki gibi <strong>grup altında alt şube</strong> olarak gösterilir; diğer
+              müşteriler aşağıda düz listede. Her müşterinin altında ilgili kişi + telefonlar birikir.
+            </p>
+            <form action={musteriEkle} className="flex flex-wrap gap-2">
+              <Input name="ad" placeholder="Müşteri adı" required className="max-w-xs" />
+              <Input name="sube_sehir" placeholder="Şube/şehir (ops.)" className="max-w-xs" />
+              <Button type="submit" size="sm">Ekle</Button>
+            </form>
+            <div className="text-xs text-muted-foreground">
+              Toplam {tumMusteri.length} müşteri
+            </div>
+
+            {agacJsx.length > 0 && (
+              <div className="grid gap-2">
+                <h2 className="text-sm font-semibold">Firmalara bağlı müşteriler</h2>
+                {agacJsx}
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <h2 className="text-sm font-semibold">
+                Diğer müşteriler ({flatMusteriler.length})
+              </h2>
+              {flatMusteriler.map((m) => renderMusteri(m))}
+            </div>
+          </section>
+        )
+      })()}
 
       {/* PERSONEL */}
       {sekme === "personel" && (

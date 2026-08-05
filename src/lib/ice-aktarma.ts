@@ -191,11 +191,14 @@ export function iletisimAyir(metin: string | null): {
 // ---------------------------------------------------------------------------
 export type CozumSatir = {
   sayfa: string
+  satirNo: number // kaynak Excel satır numarası (foto eşlemesi için)
   grupAd: string | null // null → DİĞER (grupsuz)
   musteriAd: string | null
   cihaz_adi: string
   seri_no: string | null
   servis_no: string | null
+  hamServisNo: string | null // TEKNİK SERVİS NO ham değeri (stok override öncesi)
+  stokKodu: string | null // BOYTEKS FİRMA STOK KODU (varsa)
   gelis_tarihi: string | null
   cikis_tarihi: string | null
   durumAd: string | null
@@ -359,6 +362,7 @@ export async function exceliCozumle(
       // TEKNİK SERVİS NO değeri kaybolmasın diye nota düşer.
       const stok = temizle(hucreMetin(al("stok_kodu")))
       let servisNo = temizle(hucreMetin(al("servis_no")))
+      const hamServisNo = servisNo // stok override'dan ÖNCEKİ ham TEKNİK SERVİS NO
       const notlar: string[] = []
       if (stok) {
         if (servisNo) notlar.push(`SERVİS NO: ${servisNo}`)
@@ -395,11 +399,14 @@ export async function exceliCozumle(
 
       const satir: Omit<CozumSatir, "imza"> = {
         sayfa: sayfaAd,
+        satirNo: r,
         grupAd,
         musteriAd,
         cihaz_adi: cihaz,
         seri_no: buyuk(seri),
         servis_no: buyuk(servisNo),
+        hamServisNo: buyuk(hamServisNo),
+        stokKodu: buyuk(stok),
         gelis_tarihi: tarihCevir(al("gelis_tarihi")),
         cikis_tarihi: tarihCevir(al("cikis_tarihi")),
         durumAd: durumDuzelt(buyuk(temizle(hucreMetin(al("durum"))))),
