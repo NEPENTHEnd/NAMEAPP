@@ -109,18 +109,10 @@ function aramaEslesmesi(
     ["adres", k.adres],
   ]
   for (const [etiket, v] of gizliAlanlar) if (icerir(v)) return { etiket, deger: v! }
-  // 2) Telefon: rakamlar farklı biçimlenmiş olabilir (0507 151 44 29) — ARAMA ile AYNI
-  // mantık: sorgunun rakamları, alanın rakamlarında SIRAYLA geçiyorsa eşleşmedir.
-  if (telBenzeri) {
-    const rakamAltDizi = (v: string | null) => {
-      if (!v) return false
-      const h = v.replace(/\D/g, "")
-      let i = 0
-      for (let j = 0; j < h.length && i < dig.length; j++) if (h[j] === dig[i]) i++
-      return i === dig.length
-    }
-    if (rakamAltDizi(k.telefon)) return { etiket: "telefon", deger: k.telefon! }
-    if (rakamAltDizi(k.ilgili_kisi)) return { etiket: "ilgili kişi", deger: k.ilgili_kisi! }
+  // 2) Telefon: rakamlar biçimli saklanır (0507 151 44 29). ARAMA ile AYNI mantık —
+  // telefonun biçimsiz rakamları sorgu rakamlarını ARDIŞIK içeriyorsa eşleşmedir.
+  if (telBenzeri && k.telefon && k.telefon.replace(/\D/g, "").includes(dig)) {
+    return { etiket: "telefon", deger: k.telefon }
   }
   // 3) Son çare: eşleşme cihaz/müşteride olabilir (görünür sütunlar) — yine de belirt
   if (icerir(k.cihaz_adi)) return { etiket: "cihaz", deger: k.cihaz_adi }
@@ -609,6 +601,7 @@ export function IslerEkrani({
               <TableHead>
                 <Link href={siralaHref("cihaz")} scroll={false} className="hover:underline">Cihaz{ok("cihaz")}</Link>
               </TableHead>
+              {arama && <TableHead className="text-primary">Eşleşme</TableHead>}
               <TableHead>
                 <Link href={siralaHref("gelis")} scroll={false} className="hover:underline">Geliş{ok("gelis")}</Link>
               </TableHead>
@@ -631,7 +624,7 @@ export function IslerEkrani({
             {kayitlar.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={7 + (musteriGoster ? 1 : 0) + (finansal ? 5 : 0)}
+                  colSpan={7 + (musteriGoster ? 1 : 0) + (arama ? 1 : 0) + (finansal ? 5 : 0)}
                   className="p-10 text-center text-sm text-muted-foreground"
                 >
                   Bu görünümde kayıt yok. Soldaki firma adının yanındaki yeşil +
@@ -746,24 +739,29 @@ export function IslerEkrani({
                 <TableCell className="min-w-[130px] max-w-[210px]">
                   <HucreDuzenle isId={k.id} alan="cihaz_adi" deger={k.cihaz_adi} className="truncate" />
                   <HucreDuzenle isId={k.id} alan="seri_no" deger={k.seri_no} bosEtiket="SN ekle" className="truncate text-xs text-muted-foreground" />
-                  {/* Arama eşleşmesi: satır hangi (görünmeyen) alandan çıktı? */}
-                  {arama &&
-                    (() => {
-                      const e = aramaEslesmesi(k, arama)
-                      return e ? (
-                        <span
-                          className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-primary"
-                          title={`${e.etiket}: ${e.deger}`}
-                        >
-                          <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
-                            <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
-                          </svg>
-                          <span className="shrink-0 font-medium">{e.etiket}:</span>
-                          <span className="truncate">{aramaVurgula(e.deger, arama)}</span>
-                        </span>
-                      ) : null
-                    })()}
                 </TableCell>
+                {/* Eşleşme sütunu — YALNIZ arama yapılırken; cihaz ile geliş arasında, ortada */}
+                {arama &&
+                  (() => {
+                    const e = aramaEslesmesi(k, arama)
+                    return (
+                      <TableCell className="min-w-[150px] max-w-[240px]">
+                        {e ? (
+                          <span
+                            className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-background/90 px-2 py-1 text-[12.5px] font-medium text-foreground shadow-sm ring-1 ring-inset ring-border"
+                            title={`${e.etiket}: ${e.deger}`}
+                          >
+                            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              {e.etiket}
+                            </span>
+                            <span className="truncate">{aramaVurgula(e.deger, arama)}</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    )
+                  })()}
                 <TableCell className="min-w-[92px]">
                   <HucreDuzenle isId={k.id} alan="gelis_tarihi" tip="tarih" deger={k.gelis_tarihi} goster={() => tarihTR(k.gelis_tarihi)} />
                   <HucreDuzenle

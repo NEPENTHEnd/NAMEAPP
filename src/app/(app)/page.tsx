@@ -234,8 +234,9 @@ export default async function IslerSayfasi({
     const telRakam = q.replace(/\D/g, "")
     const telefonAramasi = telRakam.length >= 3 && q.replace(/[\d\s()+\-.]/g, "") === ""
     if (telefonAramasi) {
-      const tp = telRakam.split("").join("*")
-      orParcalari.push(`telefon.ilike.*${tp}*`, `ilgili_kisi.ilike.*${tp}*`)
+      // Biçimsiz rakam sütununda ARDIŞIK ara: "429" gerçekten 429 içeren telefonu bulur,
+      // 4-2-9'u dağınık içerenleri DEĞİL (yanlış pozitif olmaz).
+      orParcalari.push(`telefon_rakam.ilike.*${telRakam}*`)
     }
     query = query.or(orParcalari.join(","))
   }

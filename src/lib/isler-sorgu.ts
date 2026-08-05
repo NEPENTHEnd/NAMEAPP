@@ -73,12 +73,10 @@ export async function aramaOrIfadesi(
       `musteri_id.in.(${eslesenMusteri.map((m) => m.id).join(",")})`
     )
   }
-  // Telefon: rakamlar boşluk/tire ile saklanır; sorgu telefon-benzeriyse (yalnız rakam+işaret)
-  // rakamları joker'le ayırıp telefon + ilgili kişide ara — son 3 hane de bulur.
+  // Telefon: biçimsiz rakam sütununda ARDIŞIK ara (son 3 hane de bulur, yanlış pozitif olmaz).
   const telRakam = q.replace(/\D/g, "")
   if (telRakam.length >= 3 && q.replace(/[\d\s()+\-.]/g, "") === "") {
-    const tp = telRakam.split("").join("*")
-    orParcalari.push(`telefon.ilike.*${tp}*`, `ilgili_kisi.ilike.*${tp}*`)
+    orParcalari.push(`telefon_rakam.ilike.*${telRakam}*`)
   }
   return orParcalari.join(",")
 }
