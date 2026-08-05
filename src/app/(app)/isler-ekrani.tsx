@@ -739,15 +739,17 @@ export function IslerEkrani({
                       secenekler={faturaDurumlari}
                       goster={() => <FaturaRozeti ad={k.fatura_durumu?.ad} renk={k.fatura_durumu?.renk} />}
                     />
-                    {/* Fatura tarihi — fatura durumunun hemen altında (geliş tarihi gibi) */}
-                    <HucreDuzenle
-                      isId={k.id}
-                      alan="fatura_tarihi"
-                      tip="tarih"
-                      deger={k.fatura_tarihi}
-                      goster={() => (k.fatura_tarihi ? tarihTR(k.fatura_tarihi) : "tarih ekle")}
-                      className="mt-0.5 text-[11px] text-muted-foreground"
-                    />
+                    {/* Fatura tarihi — YALNIZ "FATURA EDİLDİ" durumunda görünür; oto gelir, düzenlenebilir */}
+                    {k.fatura_durumu?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ" && (
+                      <HucreDuzenle
+                        isId={k.id}
+                        alan="fatura_tarihi"
+                        tip="tarih"
+                        deger={k.fatura_tarihi}
+                        goster={() => (k.fatura_tarihi ? tarihTR(k.fatura_tarihi) : "tarih ekle")}
+                        className="mt-0.5 text-[11px] text-muted-foreground"
+                      />
+                    )}
                   </TableCell>
                 )}
                 {finansal && (
