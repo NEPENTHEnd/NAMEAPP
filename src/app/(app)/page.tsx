@@ -128,6 +128,7 @@ export default async function IslerSayfasi({
       `
         id, cihaz_adi, seri_no, servis_no, gelis_tarihi, gelis_saat, cikis_tarihi,
         fatura_tarihi, fiyat_teklifi, teklif_birim, fatura_tutari, garanti_no, talep_no, kargo_takip_no,
+        telefon, ilgili_kisi, adres,
         musteri_id, durum_id, fatura_durumu_id, grup_id, sube_id, teknik_personel_id, olusturan_id,
         musteri:musteri_id ( ad, sube_sehir ),
         durum:durum_id ( ad, renk ),
@@ -540,6 +541,7 @@ export default async function IslerSayfasi({
             seciliBilgi={seciliBilgi}
             aktifGrup={grupParam}
             aktifSube={subeParam}
+            arama={q}
             ustSlot={filtrelerBlogu}
           />
 

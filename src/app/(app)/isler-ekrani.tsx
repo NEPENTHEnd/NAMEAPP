@@ -43,6 +43,9 @@ export type Kayit = {
   garanti_no: string | null
   talep_no: string | null
   kargo_takip_no: string | null
+  telefon: string | null
+  ilgili_kisi: string | null
+  adres: string | null
   fiyat_teklifi: number | null
   teklif_birim: string | null
   fatura_tutari: number | null
@@ -82,6 +85,46 @@ function saatTR(s: string | null): string {
   return s ? s.slice(0, 5) : ""
 }
 
+// Arama sonucunda bir satır HANGİ alandan eşleşti? Görünmeyen alanları (telefon/seri/
+// fiş/takip/talep/ilgili/kargo/adres) öne alır; cihaz/müşteri zaten tabloda görünür.
+function aramaEslesmesi(
+  k: Kayit,
+  q: string
+): { etiket: string; deger: string } | null {
+  const s = q.trim()
+  if (s.length < 2) return null
+  const up = s.toLocaleUpperCase("tr-TR")
+  const dig = s.replace(/\D/g, "")
+  const telBenzeri = dig.length >= 3 && s.replace(/[\d\s()+\-.]/g, "") === ""
+  const icerir = (v: string | null) => !!v && v.toLocaleUpperCase("tr-TR").includes(up)
+  const digIcerir = (v: string | null) => !!v && v.replace(/\D/g, "").includes(dig)
+  if (telBenzeri && digIcerir(k.telefon)) return { etiket: "telefon", deger: k.telefon! }
+  if (telBenzeri && digIcerir(k.ilgili_kisi)) return { etiket: "ilgili kişi", deger: k.ilgili_kisi! }
+  if (icerir(k.telefon)) return { etiket: "telefon", deger: k.telefon! }
+  if (icerir(k.seri_no)) return { etiket: "seri no", deger: k.seri_no! }
+  if (icerir(k.servis_no)) return { etiket: "fiş no", deger: k.servis_no! }
+  if (icerir(k.garanti_no)) return { etiket: "takip no", deger: k.garanti_no! }
+  if (icerir(k.talep_no)) return { etiket: "talep no", deger: k.talep_no! }
+  if (icerir(k.ilgili_kisi)) return { etiket: "ilgili kişi", deger: k.ilgili_kisi! }
+  if (icerir(k.kargo_takip_no)) return { etiket: "kargo", deger: k.kargo_takip_no! }
+  if (icerir(k.adres)) return { etiket: "adres", deger: k.adres! }
+  return null // cihaz/müşteri zaten görünür — ayrıca göstermeye gerek yok
+}
+
+// Eşleşen alt-metni kalın/vurgulu göster (bulunamazsa düz metin)
+function aramaVurgula(deger: string, q: string): React.ReactNode {
+  const s = q.trim()
+  const i = s ? deger.toLocaleLowerCase("tr-TR").indexOf(s.toLocaleLowerCase("tr-TR")) : -1
+  if (i < 0) return deger
+  return (
+    <>
+      {deger.slice(0, i)}
+      <mark className="rounded bg-primary/25 px-0.5 text-inherit">{deger.slice(i, i + s.length)}</mark>
+      {deger.slice(i + s.length)}
+    </>
+  )
+}
+
 type Sube = {
   id: string
   grup_id: string
@@ -101,6 +144,7 @@ export function IslerEkrani({
   seciliBilgi,
   aktifGrup,
   aktifSube = "",
+  arama = "",
   ustSlot,
 }: {
   kayitlar: Kayit[]
@@ -114,6 +158,7 @@ export function IslerEkrani({
   seciliBilgi: SeciliBilgi | null
   aktifGrup: string // "" (tümü) | "diger" | grup id
   aktifSube?: string // belirli şube id
+  arama?: string // aktif arama metni — satırda "eşleşme nerede" göstermek için
   ustSlot?: React.ReactNode // arama+filtreler — tablo sütununun üstünde
 }) {
   const router = useRouter()
@@ -684,6 +729,23 @@ export function IslerEkrani({
                 <TableCell className="min-w-[130px] max-w-[210px]">
                   <HucreDuzenle isId={k.id} alan="cihaz_adi" deger={k.cihaz_adi} className="truncate" />
                   <HucreDuzenle isId={k.id} alan="seri_no" deger={k.seri_no} bosEtiket="SN ekle" className="truncate text-xs text-muted-foreground" />
+                  {/* Arama eşleşmesi: satır hangi (görünmeyen) alandan çıktı? */}
+                  {arama &&
+                    (() => {
+                      const e = aramaEslesmesi(k, arama)
+                      return e ? (
+                        <span
+                          className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-primary"
+                          title={`${e.etiket}: ${e.deger}`}
+                        >
+                          <svg aria-hidden width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
+                            <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+                          </svg>
+                          <span className="shrink-0 font-medium">{e.etiket}:</span>
+                          <span className="truncate">{aramaVurgula(e.deger, arama)}</span>
+                        </span>
+                      ) : null
+                    })()}
                 </TableCell>
                 <TableCell className="min-w-[92px]">
                   <HucreDuzenle isId={k.id} alan="gelis_tarihi" tip="tarih" deger={k.gelis_tarihi} goster={() => tarihTR(k.gelis_tarihi)} />
