@@ -38,7 +38,7 @@ export async function aramaOrIfadesi(
   // Türkçe İ/i–I/ı için hem TR-büyük hem TR-küçük varyantla ara.
   // Özel karakterleri boşlukla DEĞİL '*' (joker) ile değiştir ki "1.2KW" de eşleşsin.
   const qTemiz = q
-    .replace(/[%,().:*\\]/g, "*")
+    .replace(/[%,().:*\\&"]/g, "*")
     .replace(/\*{2,}/g, "*")
     .replace(/\s+/g, " ")
     .trim()
@@ -72,6 +72,13 @@ export async function aramaOrIfadesi(
     orParcalari.push(
       `musteri_id.in.(${eslesenMusteri.map((m) => m.id).join(",")})`
     )
+  }
+  // Telefon: rakamlar boşluk/tire ile saklanır; sorgu telefon-benzeriyse (yalnız rakam+işaret)
+  // rakamları joker'le ayırıp telefon + ilgili kişide ara — son 3 hane de bulur.
+  const telRakam = q.replace(/\D/g, "")
+  if (telRakam.length >= 3 && q.replace(/[\d\s()+\-.]/g, "") === "") {
+    const tp = telRakam.split("").join("*")
+    orParcalari.push(`telefon.ilike.*${tp}*`, `ilgili_kisi.ilike.*${tp}*`)
   }
   return orParcalari.join(",")
 }

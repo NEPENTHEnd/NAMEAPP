@@ -192,7 +192,7 @@ export default async function IslerSayfasi({
     // or() sözdizimini bozan/joker karakterleri BOŞLUKLA DEĞİL '*' (joker) ile değiştir:
     // böylece "1.2KW" araması veritabanındaki "1.2KW" ile de eşleşir (nokta silinmez).
     const qTemiz = q
-      .replace(/[%,().:*\\]/g, "*")
+      .replace(/[%,().:*\\&"]/g, "*")
       .replace(/\*{2,}/g, "*")
       .replace(/\s+/g, " ")
       .trim()
@@ -226,6 +226,15 @@ export default async function IslerSayfasi({
     const sayi = Number(qTemiz.replace(",", "."))
     if (qTemiz !== "" && Number.isFinite(sayi)) {
       orParcalari.push(`fiyat_teklifi.eq.${sayi}`, `fatura_tutari.eq.${sayi}`)
+    }
+    // Telefon: rakamlar boşluk/tire ile saklanır (0507 151 44 29). Sorgu telefon-benzeriyse
+    // (yalnız rakam + telefon işaretleri) rakamları joker'le ayırıp telefon + ilgili kişide ara —
+    // böylece SON 3 HANE ("429") bile boşluklara takılmadan bulunur.
+    const telRakam = q.replace(/\D/g, "")
+    const telefonAramasi = telRakam.length >= 3 && q.replace(/[\d\s()+\-.]/g, "") === ""
+    if (telefonAramasi) {
+      const tp = telRakam.split("").join("*")
+      orParcalari.push(`telefon.ilike.*${tp}*`, `ilgili_kisi.ilike.*${tp}*`)
     }
     query = query.or(orParcalari.join(","))
   }
