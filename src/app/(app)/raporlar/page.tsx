@@ -156,7 +156,7 @@ export default async function RaporlarSayfasi({
   // --- Aylık kırılım (tüm eşleşen kayıtlar) ---
   let aySorgu = supabase
     .from("is_kaydi")
-    .select("gelis_tarihi, cikis_tarihi, fatura_tutari, fiyat_teklifi, durum:durum_id ( ad )")
+    .select("gelis_tarihi, cikis_tarihi, fatura_tarihi, fatura_tutari, fiyat_teklifi, durum:durum_id ( ad )")
   if (filtre.durum) aySorgu = aySorgu.eq("durum_id", filtre.durum)
   if (filtre.personel) aySorgu = aySorgu.eq("teknik_personel_id", filtre.personel)
   if (filtre.fatura) aySorgu = aySorgu.eq("fatura_durumu_id", filtre.fatura)
@@ -192,6 +192,14 @@ export default async function RaporlarSayfasi({
       const k = r.cikis_tarihi.slice(0, 7)
       const v = getAy(k)
       v.cikan++
+      aylik.set(k, v)
+    }
+    // CİRO yalnız FATURA TARİHİNE göre işlenir (istenen). Fatura tarihi olmayan eski
+    // kayıtlar için çıkış tarihine düşülür ki ciro kaybolmasın.
+    const ciroTarih = r.fatura_tarihi ?? r.cikis_tarihi
+    if (ciroTarih) {
+      const k = ciroTarih.slice(0, 7)
+      const v = getAy(k)
       // SATIŞ durumundaki işler ürün satışı sayılır; tutarları çoğunlukla
       // fiyat_teklifi'nde tutulur (fatura yoksa oradan alınır). Diğerleri onarım.
       const durumAd = Array.isArray(r.durum) ? r.durum[0]?.ad : r.durum?.ad

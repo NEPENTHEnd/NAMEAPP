@@ -148,6 +148,11 @@ export function IslerEkrani({
 
   // Görünüm modları
   const grupGorunumu = aktifGrup !== "" && aktifGrup !== "diger" // belirli firma seçili
+  // Grup görünümünde müşteri sütunu normalde gizli (firma = müşteri). Ama grup birden çok
+  // FARKLI müşteri içeriyorsa (ör. SOLAR) müşteri adı görünmeye devam etmeli.
+  const cokMusteri =
+    new Set((kayitlar ?? []).map((k) => k.musteri?.ad ?? "").filter(Boolean)).size > 1
+  const musteriGoster = !grupGorunumu || cokMusteri
   const aktifGrupAd = gruplar.find((g) => g.id === aktifGrup)?.ad ?? null
   const stokKoduModu = aktifGrupAd === "BOYTEKS" // fiş no yerine firma stok kodu
 
@@ -542,7 +547,7 @@ export function IslerEkrani({
                 </Link>
               </TableHead>
               {finansal && <TableHead>Takip No</TableHead>}
-              {!grupGorunumu && <TableHead>Müşteri</TableHead>}
+              {musteriGoster && <TableHead>Müşteri</TableHead>}
               <TableHead>
                 <Link href={siralaHref("cihaz")} scroll={false} className="hover:underline">Cihaz{ok("cihaz")}</Link>
               </TableHead>
@@ -568,7 +573,7 @@ export function IslerEkrani({
             {kayitlar.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={7 + (grupGorunumu ? 0 : 1) + (finansal ? 5 : 0)}
+                  colSpan={7 + (musteriGoster ? 1 : 0) + (finansal ? 5 : 0)}
                   className="p-10 text-center text-sm text-muted-foreground"
                 >
                   Bu görünümde kayıt yok. Soldaki firma adının yanındaki yeşil +
@@ -666,7 +671,7 @@ export function IslerEkrani({
                     )}
                   </TableCell>
                 )}
-                {!grupGorunumu && (
+                {musteriGoster && (
                   <TableCell className="min-w-[120px] max-w-[170px]">
                     <HucreDuzenle isId={k.id} alan="musteri" deger={k.musteri?.ad ?? null} placeholder="Firma adı" className="truncate" />
                     {/* Müşteri adının altında şube adı (varsa ve addan farklıysa) */}

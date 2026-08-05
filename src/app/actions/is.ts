@@ -415,14 +415,29 @@ export async function isFinansalGuncelle(
   }
 
   const supabase = await createClient()
+  const faturaDurumuId = (formData.get("fatura_durumu_id") as string) || null
+  let faturaTarihi = tarihSec(formData.get("fatura_tarihi"))
+  // "FATURA EDİLDİ" seçilip tarih girilmemişse fatura tarihi otomatik bugün
+  if (!faturaTarihi && faturaDurumuId) {
+    const { data: fd } = await supabase
+      .from("fatura_durumu")
+      .select("ad")
+      .eq("id", faturaDurumuId)
+      .maybeSingle()
+    if (fd?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ") {
+      faturaTarihi = new Date().toLocaleDateString("en-CA", {
+        timeZone: "Europe/Istanbul",
+      })
+    }
+  }
   const { error } = await supabase
     .from("is_kaydi")
     .update({
-      fatura_durumu_id: (formData.get("fatura_durumu_id") as string) || null,
+      fatura_durumu_id: faturaDurumuId,
       fiyat_teklifi: sayiCevir(formData.get("fiyat_teklifi")),
       teklif_birim: birimSec(formData.get("teklif_birim")),
       fatura_tutari: sayiCevir(formData.get("fatura_tutari")),
-      fatura_tarihi: tarihSec(formData.get("fatura_tarihi")),
+      fatura_tarihi: faturaTarihi,
       garanti_no:
         buyuk((formData.get("garanti_no") as string)?.trim() ?? "") || null,
       talep_no:
@@ -602,9 +617,30 @@ export async function isHucreGuncelle(
       if (!t) return { ok: false, error: "Durum seçin." }
       guncelle.durum_id = t
       break
-    case "fatura_durumu_id":
+    case "fatura_durumu_id": {
       guncelle.fatura_durumu_id = t || null
+      // "FATURA EDİLDİ" seçilince fatura tarihi otomatik bugün (yalnız boşsa — mevcut tarihi ezme)
+      if (t) {
+        const { data: fd } = await supabase
+          .from("fatura_durumu")
+          .select("ad")
+          .eq("id", t)
+          .maybeSingle()
+        if (fd?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ") {
+          const { data: mevcut } = await supabase
+            .from("is_kaydi")
+            .select("fatura_tarihi")
+            .eq("id", id)
+            .maybeSingle()
+          if (!mevcut?.fatura_tarihi) {
+            guncelle.fatura_tarihi = new Date().toLocaleDateString("en-CA", {
+              timeZone: "Europe/Istanbul",
+            })
+          }
+        }
+      }
       break
+    }
     case "teklif_birim": {
       const b = t.toUpperCase()
       if (b !== "TL" && b !== "USD" && b !== "EUR" && b !== "CHF")

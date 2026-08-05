@@ -53,9 +53,11 @@ export async function aramaOrIfadesi(
     "seri_no",
     "servis_no",
     "garanti_no",
+    "talep_no",
     "kargo_takip_no",
     "takip_no",
     "ilgili_kisi",
+    "telefon",
     "adres",
   ]
   const orParcalari = alanlar.flatMap((a) =>

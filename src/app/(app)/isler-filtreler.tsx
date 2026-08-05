@@ -169,9 +169,16 @@ export function IslerFiltreler({
 
   // NOT: Yazarken tablo SORGULANMAZ (her tuşta sayfa kasmasın) — yalnız
   // öneriler güncellenir. Arama Enter'da ya da öneri seçiminde çalışır.
+  // Arama YAPINCA tüm filtreler iptal olur (grup/şube/ay/durum/personel/fatura/müşteri/
+  // tarih) — yalnız q kalır; böylece arama TÜM tarihleri ve TÜM firmaları kapsar.
   function aramayiCalistir(deger: string) {
     setOneriAcik(false)
-    if (deger.trim() !== urlQ) paramGuncelle("q", deger.trim())
+    const d = deger.trim()
+    startTransition(() => {
+      router.replace(d ? `${basePath}?q=${encodeURIComponent(d)}` : basePath, {
+        scroll: false,
+      })
+    })
   }
 
   const filtreVar =
