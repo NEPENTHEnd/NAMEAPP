@@ -165,6 +165,8 @@ export function IslerEkrani({
       subeMap.set(s.grup_id, l)
     }
   }
+  // Şube id → ad (tabloda müşteri altında şube adı göstermek için)
+  const subeAdMap = new Map(subeler.map((s) => [s.id, s.ad]))
   // Bir şubenin üst şube zinciri (aktif şubenin atalarını otomatik açmak için)
   function atalar(subeId: string): string[] {
     const yol: string[] = []
@@ -665,6 +667,15 @@ export function IslerEkrani({
                 {!grupGorunumu && (
                   <TableCell className="min-w-[120px] max-w-[170px]">
                     <HucreDuzenle isId={k.id} alan="musteri" deger={k.musteri?.ad ?? null} placeholder="Firma adı" className="truncate" />
+                    {/* Müşteri adının altında şube adı (varsa ve addan farklıysa) */}
+                    {(() => {
+                      const subeAd = k.sube_id ? subeAdMap.get(k.sube_id) : null
+                      return subeAd && subeAd !== (k.musteri?.ad ?? "") ? (
+                        <span className="block truncate text-[11px] text-muted-foreground" title={subeAd}>
+                          şube: {subeAd}
+                        </span>
+                      ) : null
+                    })()}
                   </TableCell>
                 )}
                 <TableCell className="min-w-[130px] max-w-[210px]">
