@@ -35,8 +35,13 @@ export async function aramaOrIfadesi(
   q: string
 ): Promise<string | null> {
   if (!q) return null
-  // Türkçe İ/i–I/ı için hem TR-büyük hem TR-küçük varyantla ara
-  const qTemiz = q.replace(/[%,()*\\]/g, " ").trim()
+  // Türkçe İ/i–I/ı için hem TR-büyük hem TR-küçük varyantla ara.
+  // Özel karakterleri boşlukla DEĞİL '*' (joker) ile değiştir ki "1.2KW" de eşleşsin.
+  const qTemiz = q
+    .replace(/[%,().:*\\]/g, "*")
+    .replace(/\*{2,}/g, "*")
+    .replace(/\s+/g, " ")
+    .trim()
   const varyantlar = [
     ...new Set([
       qTemiz,

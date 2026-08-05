@@ -137,6 +137,9 @@ export default async function IslerSayfasi({
       { count: "exact" }
     )
 
+  // ARAMA (q) yapılırken TÜM diğer filtreler devre dışı kalır — arama tüm firmaları,
+  // şubeleri, ayları, durumları kapsar. (Kullanıcı: aramada bir şeye tıklayınca her filtre iptal.)
+  if (!q) {
   if (durum) query = query.eq("durum_id", durum)
   // Sol menü grubu: "diger" = grupsuz (null), aksi halde grup id
   if (grupParam === "diger") query = query.is("grup_id", null)
@@ -181,11 +184,18 @@ export default async function IslerSayfasi({
       `and(gelis_tarihi.gte.${ayAralik.baslangic},gelis_tarihi.lte.${ayAralik.bitis}),${acikKosul}`
     )
   }
+  } // /if (!q) — arama yapılıyorsa hiçbir filtre uygulanmaz
 
   if (q) {
     // or() sözdizimini bozan karakterleri temizle; Türkçe İ/i–I/ı için TR-büyük
     // ve TR-küçük varyantla ara (ilike zaten harf-duyarsız ama İ/ı için şart).
-    const qTemiz = q.replace(/[%,().*\\:]/g, " ").replace(/\s+/g, " ").trim()
+    // or() sözdizimini bozan/joker karakterleri BOŞLUKLA DEĞİL '*' (joker) ile değiştir:
+    // böylece "1.2KW" araması veritabanındaki "1.2KW" ile de eşleşir (nokta silinmez).
+    const qTemiz = q
+      .replace(/[%,().:*\\]/g, "*")
+      .replace(/\*{2,}/g, "*")
+      .replace(/\s+/g, " ")
+      .trim()
     const varyantlar = [
       ...new Set([
         qTemiz,

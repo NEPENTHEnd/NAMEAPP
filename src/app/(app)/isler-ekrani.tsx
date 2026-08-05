@@ -147,12 +147,8 @@ export function IslerEkrani({
   const ok = (a: string) => (sirala !== a ? "" : yon === "asc" ? " ▲" : " ▼")
 
   // Görünüm modları
-  const grupGorunumu = aktifGrup !== "" && aktifGrup !== "diger" // belirli firma seçili
-  // Grup görünümünde müşteri sütunu normalde gizli (firma = müşteri). Ama grup birden çok
-  // FARKLI müşteri içeriyorsa (ör. SOLAR) müşteri adı görünmeye devam etmeli.
-  const cokMusteri =
-    new Set((kayitlar ?? []).map((k) => k.musteri?.ad ?? "").filter(Boolean)).size > 1
-  const musteriGoster = !grupGorunumu || cokMusteri
+  // Müşteri sütunu HER görünümde gösterilir — firma/grup içinde de müşteri + şube adı görünsün.
+  const musteriGoster = true
   const aktifGrupAd = gruplar.find((g) => g.id === aktifGrup)?.ad ?? null
   const stokKoduModu = aktifGrupAd === "BOYTEKS" // fiş no yerine firma stok kodu
 
@@ -742,6 +738,15 @@ export function IslerEkrani({
                       deger={k.fatura_durumu_id}
                       secenekler={faturaDurumlari}
                       goster={() => <FaturaRozeti ad={k.fatura_durumu?.ad} renk={k.fatura_durumu?.renk} />}
+                    />
+                    {/* Fatura tarihi — fatura durumunun hemen altında (geliş tarihi gibi) */}
+                    <HucreDuzenle
+                      isId={k.id}
+                      alan="fatura_tarihi"
+                      tip="tarih"
+                      deger={k.fatura_tarihi}
+                      goster={() => (k.fatura_tarihi ? tarihTR(k.fatura_tarihi) : "tarih ekle")}
+                      className="mt-0.5 text-[11px] text-muted-foreground"
                     />
                   </TableCell>
                 )}
