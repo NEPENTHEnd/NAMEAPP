@@ -97,18 +97,35 @@ function aramaEslesmesi(
   const dig = s.replace(/\D/g, "")
   const telBenzeri = dig.length >= 3 && s.replace(/[\d\s()+\-.]/g, "") === ""
   const icerir = (v: string | null) => !!v && v.toLocaleUpperCase("tr-TR").includes(up)
-  const digIcerir = (v: string | null) => !!v && v.replace(/\D/g, "").includes(dig)
-  if (telBenzeri && digIcerir(k.telefon)) return { etiket: "telefon", deger: k.telefon! }
-  if (telBenzeri && digIcerir(k.ilgili_kisi)) return { etiket: "ilgili kişi", deger: k.ilgili_kisi! }
-  if (icerir(k.telefon)) return { etiket: "telefon", deger: k.telefon! }
-  if (icerir(k.seri_no)) return { etiket: "seri no", deger: k.seri_no! }
-  if (icerir(k.servis_no)) return { etiket: "fiş no", deger: k.servis_no! }
-  if (icerir(k.garanti_no)) return { etiket: "takip no", deger: k.garanti_no! }
-  if (icerir(k.talep_no)) return { etiket: "talep no", deger: k.talep_no! }
-  if (icerir(k.ilgili_kisi)) return { etiket: "ilgili kişi", deger: k.ilgili_kisi! }
-  if (icerir(k.kargo_takip_no)) return { etiket: "kargo", deger: k.kargo_takip_no! }
-  if (icerir(k.adres)) return { etiket: "adres", deger: k.adres! }
-  return null // cihaz/müşteri zaten görünür — ayrıca göstermeye gerek yok
+  // 1) Görünmeyen alanlarda düz alt-metin eşleşmesi (en güvenilir sebep, öncelikli)
+  const gizliAlanlar: [string, string | null][] = [
+    ["telefon", k.telefon],
+    ["seri no", k.seri_no],
+    ["fiş no", k.servis_no],
+    ["takip no", k.garanti_no],
+    ["talep no", k.talep_no],
+    ["ilgili kişi", k.ilgili_kisi],
+    ["kargo", k.kargo_takip_no],
+    ["adres", k.adres],
+  ]
+  for (const [etiket, v] of gizliAlanlar) if (icerir(v)) return { etiket, deger: v! }
+  // 2) Telefon: rakamlar farklı biçimlenmiş olabilir (0507 151 44 29) — ARAMA ile AYNI
+  // mantık: sorgunun rakamları, alanın rakamlarında SIRAYLA geçiyorsa eşleşmedir.
+  if (telBenzeri) {
+    const rakamAltDizi = (v: string | null) => {
+      if (!v) return false
+      const h = v.replace(/\D/g, "")
+      let i = 0
+      for (let j = 0; j < h.length && i < dig.length; j++) if (h[j] === dig[i]) i++
+      return i === dig.length
+    }
+    if (rakamAltDizi(k.telefon)) return { etiket: "telefon", deger: k.telefon! }
+    if (rakamAltDizi(k.ilgili_kisi)) return { etiket: "ilgili kişi", deger: k.ilgili_kisi! }
+  }
+  // 3) Son çare: eşleşme cihaz/müşteride olabilir (görünür sütunlar) — yine de belirt
+  if (icerir(k.cihaz_adi)) return { etiket: "cihaz", deger: k.cihaz_adi }
+  if (icerir(k.musteri?.ad ?? null)) return { etiket: "müşteri", deger: k.musteri!.ad }
+  return null
 }
 
 // Eşleşen alt-metni kalın/vurgulu göster (bulunamazsa düz metin)
