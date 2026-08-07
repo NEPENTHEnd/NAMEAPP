@@ -109,7 +109,6 @@ export function FirmaGrafik({
   const svgRef = useRef<SVGSVGElement>(null)
 
   const deger = (n: { adet: number; tutar: number }) => (metrik === "adet" ? n.adet : n.tutar)
-  const etiket = (v: number) => (metrik === "adet" ? String(v) : kisaSayi.format(v) + " ₺")
   const uzunEtiket = (v: number) => (metrik === "adet" ? `${v} iş` : tamTutar.format(v))
 
   const sonAy = aylar[aylar.length - 1]?.key ?? ""
@@ -149,7 +148,6 @@ export function FirmaGrafik({
       .filter((x) => x.adet > 0)
       .sort((a, b) => b.adet - a.adet)
   }, [kapsamNokta, kapsamSube])
-  const firmaMaks = Math.max(1, ...firmaToplam.map((f) => deger(f)))
 
   // Pasta
   const dilimler = useMemo(() => {
@@ -229,8 +227,8 @@ export function FirmaGrafik({
     return () => el.removeEventListener("wheel", h)
   }, [tip])
 
-  // Balon sürükle (yaylanarak yerine döner)
-  function surukleBasla(ad: string, e: React.PointerEvent) {
+  // Balon: TEK dokunuş = aç (Diğer/şubeli firma), SÜRÜKLE = taşı + yaylanarak yerine dön.
+  function bubbleBasla(bb: Balon, e: React.PointerEvent) {
     if (!svgRef.current) return
     e.preventDefault()
     e.stopPropagation()
@@ -239,13 +237,24 @@ export function FirmaGrafik({
     const oy = ctm && ctm.d ? 1 / ctm.d : 1
     const bx = e.clientX
     const by = e.clientY
-    setSurukle({ ad, dx: 0, dy: 0, birak: false })
-    const move = (ev: PointerEvent) => setSurukle({ ad, dx: (ev.clientX - bx) * ox, dy: (ev.clientY - by) * oy, birak: false })
+    let hareket = 0
+    setSurukle({ ad: bb.ad, dx: 0, dy: 0, birak: false })
+    const move = (ev: PointerEvent) => {
+      hareket = Math.max(hareket, Math.hypot(ev.clientX - bx, ev.clientY - by))
+      setSurukle({ ad: bb.ad, dx: (ev.clientX - bx) * ox, dy: (ev.clientY - by) * oy, birak: false })
+    }
     const up = () => {
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
-      setSurukle({ ad, dx: 0, dy: 0, birak: true })
-      window.setTimeout(() => setSurukle((s) => (s && s.ad === ad ? null : s)), 420)
+      const acilir = bb.diger || bb.altVar
+      if (hareket < 6 && acilir) {
+        // neredeyse hiç hareket yok → TIKLAMA → aç
+        setSurukle(null)
+        drilleGit(bb.diger ? { tur: "diger" } : { tur: "firma", firma: bb.ad })
+      } else {
+        setSurukle({ ad: bb.ad, dx: 0, dy: 0, birak: true })
+        window.setTimeout(() => setSurukle((s) => (s && s.ad === bb.ad ? null : s)), 420)
+      }
     }
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)
@@ -300,7 +309,7 @@ export function FirmaGrafik({
           <button type="button" onClick={() => setTip("pasta")} className={secBtn(tip === "pasta")}>Pasta</button>
           <button type="button" onClick={() => setTip("firmalar")} className={secBtn(tip === "firmalar")}>Firmalar</button>
         </div>
-        {tip !== "aylik" && tip !== "balon" && (
+        {tip === "pasta" && (
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setMetrik("adet")} className={secBtn(metrik === "adet")}>İş adedi</button>
             <button type="button" onClick={() => setMetrik("tutar")} className={secBtn(metrik === "tutar")}>Kazanç ₺</button>
@@ -418,7 +427,7 @@ export function FirmaGrafik({
               ref={svgRef}
               viewBox={goruntuVb}
               onPointerDown={panBasla}
-              className="h-[360px] w-full cursor-grab touch-none select-none animate-[balonGir_.5s_ease-out] active:cursor-grabbing"
+              className="h-[520px] w-full cursor-grab touch-none select-none animate-[balonGir_.5s_ease-out] active:cursor-grabbing"
               preserveAspectRatio="xMidYMid meet"
             >
               {balon.bubbles.map((bb, i) => {
@@ -433,8 +442,7 @@ export function FirmaGrafik({
                 return (
                   <g key={bb.ad} transform={`translate(${bb.x} ${bb.y})`}>
                     <g
-                      onPointerDown={acilir ? (e) => e.stopPropagation() : (e) => surukleBasla(bb.ad, e)}
-                      onClick={acilir ? () => drilleGit(bb.diger ? { tur: "diger" } : { tur: "firma", firma: bb.ad }) : undefined}
+                      onPointerDown={(e) => bubbleBasla(bb, e)}
                       className={cn("hover:brightness-110", acilir ? "cursor-pointer" : "cursor-grab active:cursor-grabbing")}
                       style={{
                         animation: suruklenen ? "none" : `balonYuz ${(2.6 + (i % 4) * 0.5).toFixed(1)}s ease-in-out ${(i * 0.11).toFixed(2)}s infinite`,
@@ -485,24 +493,28 @@ export function FirmaGrafik({
           `}</style>
         </div>
       ) : (
-        <svg viewBox="0 0 760 320" className="h-auto w-full">
-          <line x1="8" y1="240" x2="752" y2="240" stroke="currentColor" strokeOpacity="0.15" />
-          {firmaToplam.length === 0 && <text x="380" y="130" textAnchor="middle" fontSize="13" fill="currentColor" opacity="0.5">Bu aralıkta veri yok</text>}
+        /* Tüm firmalar — yatay bar, iş adedi + kazanç birlikte (profesyonel, okunur) */
+        <div className="grid gap-1.5">
+          {firmaToplam.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Bu aralıkta veri yok.</p>}
           {firmaToplam.map((f, i) => {
-            const adim = 744 / Math.max(1, firmaToplam.length)
-            const bw = Math.min(26, adim * 0.6)
-            const x = 8 + adim * i + (adim - bw) / 2
-            const bh = Math.round((deger(f) / firmaMaks) * 195)
-            const y = 240 - bh
+            const w = Math.max(3, (f.adet / (firmaToplam[0]?.adet || 1)) * 100)
             return (
-              <g key={f.ad}>
-                <rect x={x} y={y} width={bw} height={Math.max(bh, 3)} rx={4} fill={PALET[i % PALET.length]}><title>{`${f.ad}: ${uzunEtiket(deger(f))}`}</title></rect>
-                <text transform={`rotate(-45 ${x + bw / 2} ${y - 6})`} x={x + bw / 2} y={y - 6} textAnchor="start" fontSize="10" fontWeight="700" fill="currentColor">{etiket(deger(f))}</text>
-                <text transform={`rotate(-45 ${x + bw / 2} 254)`} x={x + bw / 2} y={254} textAnchor="end" fontSize="9.5" fill="currentColor" opacity="0.65">{f.ad.length > 14 ? f.ad.slice(0, 13) + "…" : f.ad}</text>
-              </g>
+              <div key={f.ad} className="flex items-center gap-2.5 text-[12.5px]" title={`${f.ad}: ${f.adet} iş · ${tamTutar.format(f.tutar)}`}>
+                <span className="flex w-36 shrink-0 items-center justify-end gap-1 truncate text-right font-medium">
+                  {f.altVar && <span className="text-[10px] text-primary">▸</span>}
+                  <span className="truncate">{f.ad}</span>
+                </span>
+                <div className="h-5 flex-1 overflow-hidden rounded-md bg-muted/50">
+                  <div className="h-full rounded-md transition-all" style={{ width: `${w}%`, background: PALET[i % PALET.length] }} />
+                </div>
+                <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{f.adet} iş</span>
+                <span className="w-20 shrink-0 text-right font-mono text-[11.5px] tabular-nums text-muted-foreground">
+                  {f.tutar > 0 ? kisaSayi.format(f.tutar) + " ₺" : "—"}
+                </span>
+              </div>
             )
           })}
-        </svg>
+        </div>
       )}
     </div>
   )

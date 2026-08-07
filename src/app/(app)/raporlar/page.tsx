@@ -6,10 +6,6 @@ import { sonAylar, ayAraligi } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
 import { FirmaGrafik } from "@/components/firma-grafik"
-import { FotoArsivSil } from "@/components/foto-arsiv-sil"
-import { buttonVariants } from "@/components/ui/button"
-
-const FOTO_KOTA = 512 * 1024 * 1024 // 0,5 GB
 import {
   Table,
   TableBody,
@@ -53,34 +49,13 @@ export default async function RaporlarSayfasi({
   const supabase = await createClient()
   const secenekler = await getIsFormSecenekleri()
 
-  // Fotoğraf deposu kullanımı (bar) + seçili kapsamdaki foto sayısı
-  const rpc = supabase as unknown as {
-    rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown }>
-  }
-  const { data: kullanimData } = await rpc.rpc("foto_kullanim")
-  const ku = (Array.isArray(kullanimData) ? kullanimData[0] : kullanimData) as
-    | { toplam_byte?: number; adet?: number }
-    | null
-  const fotoByte = Number(ku?.toplam_byte ?? 0)
-  const fotoYuzde = Math.min(100, Math.round((fotoByte / FOTO_KOTA) * 100))
-  const mb = (b: number) => (b / 1024 / 1024).toFixed(0)
-
-  const { data: fotoListe } = await supabase
-    .from("foto")
-    .select("id, is_kaydi:is_kaydi_id ( gelis_tarihi )")
-  const kapsamAdet = (fotoListe ?? []).filter((f) => {
-    if (!ayAralik) return true
-    const g = f.is_kaydi?.gelis_tarihi
-    return g ? g >= ayAralik.baslangic && g <= ayAralik.bitis : false
-  }).length
-
   // Firma-ay grafiği: son 6 ayın firma × ay kırılımı (grafik bileşenine gider)
   const [{ data: grupListe }, { data: subeListe }, { data: firmaIsleri }] = await Promise.all([
     supabase.from("grup").select("id, ad").order("sira"),
     supabase.from("sube").select("id, ad, grup_id"),
     supabase
       .from("is_kaydi")
-      .select("grup_id, sube_id, gelis_tarihi, fatura_tutari")
+      .select("grup_id, sube_id, gelis_tarihi, fatura_tarihi, fatura_tutari")
       .range(0, 99999),
   ])
   const subeAdMap = new Map((subeListe ?? []).map((s) => [s.id, s.ad]))
@@ -101,9 +76,6 @@ export default async function RaporlarSayfasi({
       })
     }
   }
-  const grafikDonem = ayAralik
-    ? sonAylar(12).find((a) => a.key === ay)?.label ?? ayPencere[0].ad
-    : "son 6 ay"
   const grupAdMap = new Map((grupListe ?? []).map((g) => [g.id, g.ad]))
   const noktaMap = new Map<string, { adet: number; tutar: number }>()
   for (const j of firmaIsleri ?? []) {
@@ -113,7 +85,8 @@ export default async function RaporlarSayfasi({
     const anahtar = `${firmaAd}|${ayKey}`
     const v = noktaMap.get(anahtar) ?? { adet: 0, tutar: 0 }
     v.adet++
-    v.tutar += j.fatura_tutari ?? 0
+    // Kazanç yalnız FATURA TARİHLİ (kesilmiş) işlerden — tarihsiz fiyatlar sayılmaz
+    v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
     noktaMap.set(anahtar, v)
   }
   const grafikNoktalar = [...noktaMap.entries()].map(([anahtar, v]) => {
@@ -139,7 +112,7 @@ export default async function RaporlarSayfasi({
     const anahtar = `${firmaAd}|${subeAd}|${ayKey}`
     const v = subeMap.get(anahtar) ?? { adet: 0, tutar: 0 }
     v.adet++
-    v.tutar += j.fatura_tutari ?? 0
+    v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
     subeMap.set(anahtar, v)
   }
   const grafikSubeNoktalar = [...subeMap.entries()].map(([anahtar, v]) => {
@@ -216,11 +189,10 @@ export default async function RaporlarSayfasi({
       v.cikan++
       aylik.set(k, v)
     }
-    // CİRO yalnız FATURA TARİHİNE göre işlenir (istenen). Fatura tarihi olmayan eski
-    // kayıtlar için çıkış tarihine düşülür ki ciro kaybolmasın.
-    const ciroTarih = r.fatura_tarihi ?? r.cikis_tarihi
-    if (ciroTarih) {
-      const k = ciroTarih.slice(0, 7)
+    // CİRO YALNIZ fatura tarihli (kesilmiş) işlerden — fatura tarihi olmayan fiyatlar
+    // rapora GİRMEZ. Ay = fatura tarihinin ayı.
+    if (r.fatura_tarihi) {
+      const k = r.fatura_tarihi.slice(0, 7)
       const v = getAy(k)
       // SATIŞ durumundaki işler ürün satışı sayılır; tutarları çoğunlukla
       // fiyat_teklifi'nde tutulur (fatura yoksa oradan alınır). Diğerleri onarım.
@@ -258,11 +230,11 @@ export default async function RaporlarSayfasi({
         <AySecici aylar={sonAylar()} basePath="/raporlar" />
       </div>
 
-      {/* Firma grafiği: firma seç + sütun/çizgi/pasta + adet/kazanç (son 6 ay) */}
+      {/* Firma grafiği: aylık/balon/pasta/firmalar + adet/kazanç (dönem bileşen içinden) */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
-        <div className="mb-1 text-[13.5px] font-semibold">Firma grafiği — {grafikDonem}</div>
+        <div className="mb-1 text-[13.5px] font-semibold">Firma grafiği</div>
         <p className="mb-4 text-[11.5px] text-muted-foreground">
-          Dönemi üst bardaki ay kutucuklarından, firmayı/tipi/ölçüyü buradan değiştir.
+          Grafik tipini, firmayı, ölçüyü ve dönemi (Bu ay / Tüm aylar) aşağıdan değiştir.
         </p>
         <FirmaGrafik
           noktalar={grafikNoktalar}
@@ -270,49 +242,6 @@ export default async function RaporlarSayfasi({
           aylar={ayPencere}
           subeNoktalar={grafikSubeNoktalar}
         />
-      </div>
-
-      {/* Fotoğraf deposu: bar + arşivle (ZIP) + sil */}
-      <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-[220px] flex-1">
-            <div className="mb-1 flex items-center justify-between text-[13px]">
-              <span className="font-semibold">Fotoğraf deposu</span>
-              <span className="font-mono text-muted-foreground">
-                {mb(fotoByte)} / {mb(FOTO_KOTA)} MB · %{fotoYuzde}
-              </span>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${fotoYuzde}%`,
-                  background:
-                    fotoYuzde >= 90 ? "#dc2626" : fotoYuzde >= 70 ? "#f59e0b" : "#1e40af",
-                }}
-              />
-            </div>
-            {fotoYuzde >= 90 && (
-              <p className="mt-1 text-xs text-destructive">
-                Depo dolmak üzere — arşivleyip silin (dolunca foto yüklenemez).
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={`/raporlar/fotolar-zip${ay ? `?ay=${ay}` : ""}`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              {ay ? `${ayAdi(ay)} fotoğrafları (ZIP)` : "Tüm fotoğraflar (ZIP)"}
-            </a>
-            <FotoArsivSil ay={ay} adet={kapsamAdet} />
-          </div>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {ay ? "Seçili aya ait" : "Tüm"} fotoğraflar <strong>fiş no</strong>{" "}
-          isimleriyle ZIP'e iner ({kapsamAdet} adet); indirip yedekledikten sonra
-          "Fotoğrafları sil" ile depo boşaltılır. Fiş no ve kayıt bilgileri kalıcıdır.
-        </p>
       </div>
 
       <IslerFiltreler
