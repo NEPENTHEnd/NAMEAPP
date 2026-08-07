@@ -17,8 +17,9 @@ const PALET = [
   "#06b6d4", "#eab308", "#ec4899", "#84cc16", "#f97316",
   "#6366f1", "#14b8a6", "#f43f5e", "#8b5cf6", "#22c55e",
 ]
-const MAVI = "#3b82f6"
-const AMBER = "#f59e0b"
+const TEAL = "#0e7490" // aylık grafik: iş adedi sütunu
+const GOLD = "#ca8a04" // aylık grafik: kazanç sütunu
+const KIRMIZI = "#dc2626" // negatif % değişim
 
 const tamTutar = new Intl.NumberFormat("tr-TR", {
   style: "currency",
@@ -175,7 +176,8 @@ export function FirmaGrafik({
     const kalan = firmaToplam.slice(TOP)
     let items: { ad: string; deger: number; diger?: boolean }[]
     if (digerAcik) {
-      items = kalan.map((f) => ({ ad: f.ad, deger: f.deger }))
+      // "Diğer" açık: TÜM firmalar birlikte paketlenir — küçükler büyüklerin ETRAFINI doldurur
+      items = firmaToplam.map((f) => ({ ad: f.ad, deger: f.deger }))
     } else {
       items = firmaToplam.slice(0, TOP).map((f) => ({ ad: f.ad, deger: f.deger }))
       if (kalan.length)
@@ -268,83 +270,77 @@ export function FirmaGrafik({
       {tip === "aylik" ? (
         /* Birleşik: sütun = iş adedi (sol eksen), çizgi = kazanç ₺ (sağ eksen) */
         (() => {
-          const W = 680, H = 280, sol = 34, sag = 46, ust = 16, alt = 34
-          const cizH = H - ust - alt
-          const cizW = W - sol - sag
+          const W = 720, H = 300
+          const padSol = 42, padSag = 56, padUst = 40, padAlt = 26
+          const cizH = H - padUst - padAlt
+          const cizW = W - padSol - padSag
           const adim = cizW / Math.max(1, aylikSeri.length)
-          const bw = Math.min(46, adim * 0.5)
-          const noktalarLine = aylikSeri.map((s, i) => {
-            const x = sol + adim * i + adim / 2
-            const y = ust + cizH - (s.tutar / maxTutar) * cizH
-            return { x, y, s }
-          })
+          const bw = Math.min(18, adim * 0.26)
+          const taban = padUst + cizH
+          const yuzde = (i: number): number | null => {
+            if (i === 0) return null
+            const onc = aylikSeri[i - 1].tutar
+            if (!onc) return null
+            return Math.round(((aylikSeri[i].tutar - onc) / onc) * 100)
+          }
           return (
             <div className="grid gap-2">
-              <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px]" style={{ background: MAVI }} /> İş adedi</span>
-                <span className="flex items-center gap-1.5"><span className="h-[3px] w-4 rounded-full" style={{ background: AMBER }} /> Kazanç ₺</span>
+              {/* Legend — üçgen işaretli, profesyonel */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11.5px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span style={{ color: TEAL }}>▲</span> İş adedi
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span style={{ color: GOLD }}>▲</span> Kazanç ₺
+                </span>
+                <span className="text-[10.5px] opacity-80">üstteki % = bir önceki aya göre kazanç değişimi</span>
               </div>
               <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full">
-                {/* yatay ızgara + sol eksen (adet) */}
+                {/* Yatay ızgara + çift eksen (sol: adet teal, sağ: kazanç gold) */}
                 {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-                  const y = ust + cizH - f * cizH
+                  const y = taban - f * cizH
                   return (
                     <g key={f}>
-                      <line x1={sol} y1={y} x2={W - sag} y2={y} stroke="currentColor" strokeOpacity="0.1" />
-                      <text x={sol - 5} y={y + 3} textAnchor="end" fontSize="9" fill="currentColor" opacity="0.5">
+                      <line x1={padSol} y1={y} x2={W - padSag} y2={y} stroke="currentColor" strokeOpacity="0.08" />
+                      <text x={padSol - 6} y={y + 3} textAnchor="end" fontSize="9" fill={TEAL} opacity="0.85">
                         {Math.round(maxAdet * f)}
                       </text>
-                      <text x={W - sag + 5} y={y + 3} textAnchor="start" fontSize="9" fill={AMBER} opacity="0.75">
+                      <text x={W - padSag + 6} y={y + 3} textAnchor="start" fontSize="9" fill={GOLD} opacity="0.9">
                         {kisaSayi.format(maxTutar * f)}
                       </text>
                     </g>
                   )
                 })}
-                {/* Sütunlar (adet) */}
+                {/* Aylar: dikey ayraç + 2 sütun (adet + kazanç) + % değişim */}
                 {aylikSeri.map((s, i) => {
-                  const bh = (s.adet / maxAdet) * cizH
-                  const x = sol + adim * i + (adim - bw) / 2
-                  const y = ust + cizH - bh
+                  const cx = padSol + adim * i + adim / 2
+                  const adH = (s.adet / maxAdet) * cizH
+                  const kzH = (s.tutar / maxTutar) * cizH
+                  const y = yuzde(i)
                   return (
                     <g key={s.ad}>
-                      <rect x={x} y={y} width={bw} height={Math.max(bh, s.adet > 0 ? 2 : 0)} rx={5} fill={MAVI} opacity="0.9">
-                        <title>{`${s.ad}: ${s.adet} iş · ${tamTutar.format(s.tutar)}`}</title>
+                      {i > 0 && (
+                        <line x1={padSol + adim * i} y1={padUst - 2} x2={padSol + adim * i} y2={taban} stroke="currentColor" strokeOpacity="0.06" />
+                      )}
+                      <rect x={cx - bw - 2} y={taban - adH} width={bw} height={Math.max(adH, s.adet > 0 ? 2 : 0)} rx={3} fill={TEAL}>
+                        <title>{`${s.ad}: ${s.adet} iş`}</title>
                       </rect>
-                      {s.adet > 0 && (
-                        <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="10.5" fontWeight="700" fill={MAVI}>
-                          {s.adet}
+                      <rect x={cx + 2} y={taban - kzH} width={bw} height={Math.max(kzH, s.tutar > 0 ? 2 : 0)} rx={3} fill={GOLD}>
+                        <title>{`${s.ad}: ${tamTutar.format(s.tutar)}`}</title>
+                      </rect>
+                      {y != null && (
+                        <text x={cx} y={padUst - 8} textAnchor="middle" fontSize="10" fontWeight="800" fill={y >= 0 ? TEAL : KIRMIZI}>
+                          {y >= 0 ? "+" : ""}{y}%
                         </text>
                       )}
+                      <text x={cx} y={H - 8} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.7">
+                        {s.ad}
+                      </text>
                     </g>
                   )
                 })}
-                {/* Çizgi (kazanç) */}
-                <polyline
-                  fill="none"
-                  stroke={AMBER}
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  points={noktalarLine.map((p) => `${p.x},${p.y}`).join(" ")}
-                />
-                {noktalarLine.map((p) => (
-                  <g key={p.s.ad}>
-                    <circle cx={p.x} cy={p.y} r="4" fill={AMBER} stroke="var(--card)" strokeWidth="1.5">
-                      <title>{`${p.s.ad}: ${tamTutar.format(p.s.tutar)}`}</title>
-                    </circle>
-                    {p.s.tutar > 0 && (
-                      <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize="9.5" fontWeight="700" fill={AMBER}>
-                        {kisaSayi.format(p.s.tutar)}
-                      </text>
-                    )}
-                  </g>
-                ))}
-                {/* Ay etiketleri */}
-                {aylikSeri.map((s, i) => (
-                  <text key={s.ad + i} x={sol + adim * i + adim / 2} y={H - 10} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.65">
-                    {s.ad}
-                  </text>
-                ))}
+                {/* Taban çizgisi */}
+                <line x1={padSol} y1={taban} x2={W - padSag} y2={taban} stroke="currentColor" strokeOpacity="0.28" />
               </svg>
             </div>
           )
@@ -390,8 +386,8 @@ export function FirmaGrafik({
             )}
             <span className="text-[11.5px] text-muted-foreground">
               {digerAcik
-                ? "Diğer (küçük) firmalar"
-                : "Büyük ortada · balonu sürükle (yerine döner) · «Diğer» → küçükleri gör"}
+                ? "Tüm firmalar — küçükler büyüklerin etrafında"
+                : "Büyük ortada · balonu sürükle (yerine döner) · «Diğer» → küçükleri çevreye ekle"}
             </span>
           </div>
 
