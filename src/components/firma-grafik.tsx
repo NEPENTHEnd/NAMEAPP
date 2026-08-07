@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -17,6 +17,8 @@ const PALET = [
   "#06b6d4", "#eab308", "#ec4899", "#84cc16", "#f97316",
   "#6366f1", "#14b8a6", "#f43f5e", "#8b5cf6", "#22c55e",
 ]
+const MAVI = "#3b82f6"
+const AMBER = "#f59e0b"
 
 const tamTutar = new Intl.NumberFormat("tr-TR", {
   style: "currency",
@@ -28,23 +30,17 @@ const kisaSayi = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 1,
 })
 
-type Tip = "sutun" | "cizgi" | "pasta" | "firmalar" | "balon"
+type Tip = "aylik" | "balon" | "pasta" | "firmalar"
 type Metrik = "adet" | "tutar"
+type Pencere = "son1" | "tum"
 
-type Balon = {
-  ad: string
-  deger: number
-  diger?: boolean
-  r: number
-  x: number
-  y: number
-}
+type Balon = { ad: string; deger: number; diger?: boolean; r: number; x: number; y: number }
 
-// Paketli balon yerleşimi: değeri büyük olan ORTADA, küçükler dışa doğru.
-// Phyllotaxis (ayçiçeği) başlangıç + çakışmaları iterasyonla ayır + merkeze hafif çek.
-function balonYerlesim(
-  items: { ad: string; deger: number; diger?: boolean }[]
-): { bubbles: Balon[]; vb: string } {
+// Paketli balon yerleşimi: EN BÜYÜK ORTADA (merkeze sabit), küçükler dışa doğru.
+function balonYerlesim(items: { ad: string; deger: number; diger?: boolean }[]): {
+  bubbles: Balon[]
+  vb: string
+} {
   if (!items.length) return { bubbles: [], vb: "0 0 200 160" }
   const sirali = [...items].sort((a, b) => b.deger - a.deger)
   const maks = Math.max(1, ...sirali.map((i) => i.deger))
@@ -63,7 +59,7 @@ function balonYerlesim(
     bb.x = Math.cos(a) * rr
     bb.y = Math.sin(a) * rr
   })
-  for (let pass = 0; pass < 200; pass++) {
+  for (let pass = 0; pass < 240; pass++) {
     for (let i = 0; i < b.length; i++) {
       for (let j = i + 1; j < b.length; j++) {
         const dx = b[j].x - b[i].x
@@ -71,24 +67,34 @@ function balonYerlesim(
         const d = Math.hypot(dx, dy) || 0.001
         const min = b[i].r + b[j].r + 5
         if (d < min) {
-          const p = (min - d) / 2
+          const p = min - d
           const ux = dx / d
           const uy = dy / d
-          b[i].x -= ux * p
-          b[i].y -= uy * p
-          b[j].x += ux * p
-          b[j].y += uy * p
+          // 0. balon (en büyük) sabit; onun dışındakiler itilir
+          if (i === 0) {
+            b[j].x += ux * p
+            b[j].y += uy * p
+          } else {
+            b[i].x -= (ux * p) / 2
+            b[i].y -= (uy * p) / 2
+            b[j].x += (ux * p) / 2
+            b[j].y += (uy * p) / 2
+          }
         }
       }
-      b[i].x *= 0.99 // merkeze hafif çek → kompakt kalsın, büyükler ortada
-      b[i].y *= 0.99
+      if (i !== 0) {
+        b[i].x *= 0.985 // merkeze hafif çek (kompakt); en büyüğe dokunma
+        b[i].y *= 0.985
+      }
     }
+    b[0].x = 0 // en büyüğü her turda merkeze sabitle
+    b[0].y = 0
   }
   const minX = Math.min(...b.map((x) => x.x - x.r))
   const maxX = Math.max(...b.map((x) => x.x + x.r))
   const minY = Math.min(...b.map((x) => x.y - x.r))
   const maxY = Math.max(...b.map((x) => x.y + x.r))
-  const pad = 8
+  const pad = 10
   const vb = `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`
   return { bubbles: b, vb }
 }
@@ -102,69 +108,68 @@ export function FirmaGrafik({
   firmalar: string[]
   aylar: { key: string; ad: string }[]
 }) {
-  const [firma, setFirma] = useState<string>("") // "" = tüm firmalar
-  const [tip, setTip] = useState<Tip>("balon") // varsayılan: balon
+  const [firma, setFirma] = useState<string>("")
+  const [tip, setTip] = useState<Tip>("balon") // varsayılan: balon (bu ay ile başlar)
   const [metrik, setMetrik] = useState<Metrik>("adet")
-  const [digerAcik, setDigerAcik] = useState(false) // balon: "Diğer" grubunu açtı mı
+  const [pencere, setPencere] = useState<Pencere>("son1") // balon/pasta/firmalar: bu ay
+  const [digerAcik, setDigerAcik] = useState(false)
+  const [surukle, setSurukle] = useState<{ ad: string; dx: number; dy: number; birak: boolean } | null>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
 
-  const deger = (n: { adet: number; tutar: number }) =>
-    metrik === "adet" ? n.adet : n.tutar
-  const etiket = (v: number) =>
-    metrik === "adet" ? String(v) : kisaSayi.format(v) + " ₺"
-  const uzunEtiket = (v: number) =>
-    metrik === "adet" ? `${v} iş` : tamTutar.format(v)
+  const deger = (n: { adet: number; tutar: number }) => (metrik === "adet" ? n.adet : n.tutar)
+  const etiket = (v: number) => (metrik === "adet" ? String(v) : kisaSayi.format(v) + " ₺")
+  const uzunEtiket = (v: number) => (metrik === "adet" ? `${v} iş` : tamTutar.format(v))
 
-  // Ay bazında seri (seçili firma ya da tüm firmaların toplamı)
-  const seri = useMemo(
+  const sonAy = aylar[aylar.length - 1]?.key ?? ""
+  // balon/pasta/firmalar penceresi: son1 = yalnız son ay, tum = tüm aylar
+  const kapsamNokta = useMemo(
+    () => (pencere === "son1" && sonAy ? noktalar.filter((n) => n.ayKey === sonAy) : noktalar),
+    [noktalar, pencere, sonAy]
+  )
+
+  // Birleşik AYLIK grafik verisi: her ay için adet + kazanç (firma seçiliyse ona göre)
+  const aylikSeri = useMemo(
     () =>
       aylar.map((a) => {
-        const uyanlar = noktalar.filter(
-          (n) => n.ayKey === a.key && (!firma || n.firma === firma)
-        )
+        const uy = noktalar.filter((n) => n.ayKey === a.key && (!firma || n.firma === firma))
         return {
           ad: a.ad,
-          deger: uyanlar.reduce((t, n) => t + deger(n), 0),
+          adet: uy.reduce((t, n) => t + n.adet, 0),
+          tutar: uy.reduce((t, n) => t + n.tutar, 0),
         }
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [noktalar, aylar, firma, metrik]
+    [noktalar, aylar, firma]
   )
-  const maks = Math.max(1, ...seri.map((s) => s.deger))
+  const maxAdet = Math.max(1, ...aylikSeri.map((s) => s.adet))
+  const maxTutar = Math.max(1, ...aylikSeri.map((s) => s.tutar))
 
-  // Pasta dilimleri: tümü → firmalara göre; firma seçili → aylara göre
+  // Pasta dilimleri (kapsam penceresine göre)
   const dilimler = useMemo(() => {
-    let ham: { ad: string; deger: number }[]
-    if (!firma) {
-      const m = new Map<string, number>()
-      for (const n of noktalar) m.set(n.firma, (m.get(n.firma) ?? 0) + deger(n))
-      ham = [...m.entries()].map(([ad, d]) => ({ ad, deger: d }))
-      ham.sort((a, b) => b.deger - a.deger)
-      // En büyük 9 firma + gerisi tek dilim
-      if (ham.length > 10) {
-        const kalan = ham.slice(9).reduce((t, x) => t + x.deger, 0)
-        ham = [...ham.slice(0, 9), { ad: "Diğerleri", deger: kalan }]
-      }
-    } else {
-      ham = seri.map((s) => ({ ad: s.ad, deger: s.deger }))
+    const m = new Map<string, number>()
+    for (const n of kapsamNokta) m.set(n.firma, (m.get(n.firma) ?? 0) + deger(n))
+    let ham = [...m.entries()].map(([ad, d]) => ({ ad, deger: d })).sort((a, b) => b.deger - a.deger)
+    if (ham.length > 10) {
+      const kalan = ham.slice(9).reduce((t, x) => t + x.deger, 0)
+      ham = [...ham.slice(0, 9), { ad: "Diğerleri", deger: kalan }]
     }
     return ham.filter((x) => x.deger > 0)
-  }, [noktalar, seri, firma, deger])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kapsamNokta, metrik])
   const dilimToplam = Math.max(1, dilimler.reduce((t, d) => t + d.deger, 0))
 
-  // Firma bazlı toplamlar (Firmalar sütunu + Balon için; 6 aylık pencere)
+  // Firma toplamları (balon + firmalar) — kapsam penceresine göre
   const firmaToplam = useMemo(() => {
     const m = new Map<string, number>()
-    for (const n of noktalar) m.set(n.firma, (m.get(n.firma) ?? 0) + deger(n))
+    for (const n of kapsamNokta) m.set(n.firma, (m.get(n.firma) ?? 0) + deger(n))
     return [...m.entries()]
       .map(([ad, d]) => ({ ad, deger: d }))
       .filter((x) => x.deger > 0)
       .sort((a, b) => b.deger - a.deger)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noktalar, metrik])
+  }, [kapsamNokta, metrik])
   const firmaMaks = Math.max(1, ...firmaToplam.map((f) => f.deger))
 
-  // Balon verisi: ilk N firma tek tek + gerisi "Diğer" balonu. "Diğer" açıksa
-  // yalnız o küçük firmalar tek tek gösterilir (geri tuşuyla dönülür).
+  // Balon paketi: ilk 14 + "Diğer"; Diğer açıksa küçük firmalar
   const TOP = 14
   const balon = useMemo(() => {
     const kalan = firmaToplam.slice(TOP)
@@ -173,13 +178,8 @@ export function FirmaGrafik({
       items = kalan.map((f) => ({ ad: f.ad, deger: f.deger }))
     } else {
       items = firmaToplam.slice(0, TOP).map((f) => ({ ad: f.ad, deger: f.deger }))
-      if (kalan.length) {
-        items.push({
-          ad: `Diğer (${kalan.length})`,
-          deger: kalan.reduce((t, x) => t + x.deger, 0),
-          diger: true,
-        })
-      }
+      if (kalan.length)
+        items.push({ ad: `Diğer (${kalan.length})`, deger: kalan.reduce((t, x) => t + x.deger, 0), diger: true })
     }
     return { ...balonYerlesim(items), bos: items.length === 0, kalanSayi: kalan.length }
   }, [firmaToplam, digerAcik])
@@ -192,26 +192,37 @@ export function FirmaGrafik({
     acc += d.deger
     stops.push(`${PALET[i % PALET.length]} ${from}deg ${(acc / dilimToplam) * 360}deg`)
   })
-  const pastaBg = stops.length
-    ? `conic-gradient(${stops.join(",")})`
-    : "conic-gradient(var(--muted) 0deg 360deg)"
-
-  // SVG ölçüleri (sütun + çizgi)
-  const W = 640
-  const H = 230
-  const solPad = 8
-  const altPad = 28
-  const ustPad = 22
-  const cizimH = H - altPad - ustPad
-  const adimW = (W - solPad * 2) / seri.length
+  const pastaBg = stops.length ? `conic-gradient(${stops.join(",")})` : "conic-gradient(var(--muted) 0deg 360deg)"
 
   const secBtn = (aktif: boolean) =>
     cn(
       "rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors",
-      aktif
-        ? "bg-primary text-primary-foreground"
-        : "border border-border bg-card text-muted-foreground hover:bg-muted"
+      aktif ? "bg-primary text-primary-foreground" : "border border-border bg-card text-muted-foreground hover:bg-muted"
     )
+
+  // ---- Balon sürükleme ----
+  function surukleBasla(ad: string, e: React.PointerEvent) {
+    if (!svgRef.current) return
+    e.preventDefault()
+    const ctm = svgRef.current.getScreenCTM()
+    const olcekX = ctm && ctm.a ? 1 / ctm.a : 1
+    const olcekY = ctm && ctm.d ? 1 / ctm.d : 1
+    const bx = e.clientX
+    const by = e.clientY
+    setSurukle({ ad, dx: 0, dy: 0, birak: false })
+    const move = (ev: PointerEvent) => {
+      setSurukle({ ad, dx: (ev.clientX - bx) * olcekX, dy: (ev.clientY - by) * olcekY, birak: false })
+    }
+    const up = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", up)
+      // yerine yaylanarak dön
+      setSurukle({ ad, dx: 0, dy: 0, birak: true })
+      window.setTimeout(() => setSurukle((s) => (s && s.ad === ad ? null : s)), 420)
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", up)
+  }
 
   return (
     <div className="grid gap-4">
@@ -232,20 +243,113 @@ export function FirmaGrafik({
           ))}
         </select>
         <div className="flex flex-wrap items-center gap-1">
-          <button type="button" onClick={() => setTip("sutun")} className={secBtn(tip === "sutun")}>Sütun</button>
-          <button type="button" onClick={() => setTip("cizgi")} className={secBtn(tip === "cizgi")}>Çizgi</button>
+          <button type="button" onClick={() => setTip("aylik")} className={secBtn(tip === "aylik")}>Aylık</button>
+          <button type="button" onClick={() => setTip("balon")} className={secBtn(tip === "balon")}>Balon</button>
           <button type="button" onClick={() => setTip("pasta")} className={secBtn(tip === "pasta")}>Pasta</button>
           <button type="button" onClick={() => setTip("firmalar")} className={secBtn(tip === "firmalar")}>Firmalar</button>
-          <button type="button" onClick={() => setTip("balon")} className={secBtn(tip === "balon")}>Balon</button>
         </div>
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => setMetrik("adet")} className={secBtn(metrik === "adet")}>İş adedi</button>
-          <button type="button" onClick={() => setMetrik("tutar")} className={secBtn(metrik === "tutar")}>Kazanç ₺</button>
-        </div>
+        {/* metrik: aylık dışında (aylık zaten ikisini de gösterir) */}
+        {tip !== "aylik" && (
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setMetrik("adet")} className={secBtn(metrik === "adet")}>İş adedi</button>
+            <button type="button" onClick={() => setMetrik("tutar")} className={secBtn(metrik === "tutar")}>Kazanç ₺</button>
+          </div>
+        )}
+        {/* pencere: balon/pasta/firmalar için bu ay / tüm aylar */}
+        {tip !== "aylik" && (
+          <div className="ml-auto flex items-center gap-1">
+            <button type="button" onClick={() => setPencere("son1")} className={secBtn(pencere === "son1")}>Bu ay</button>
+            <button type="button" onClick={() => setPencere("tum")} className={secBtn(pencere === "tum")}>Tüm aylar</button>
+          </div>
+        )}
       </div>
 
-      {/* Grafik */}
-      {tip === "pasta" ? (
+      {/* GRAFİK */}
+      {tip === "aylik" ? (
+        /* Birleşik: sütun = iş adedi (sol eksen), çizgi = kazanç ₺ (sağ eksen) */
+        (() => {
+          const W = 680, H = 280, sol = 34, sag = 46, ust = 16, alt = 34
+          const cizH = H - ust - alt
+          const cizW = W - sol - sag
+          const adim = cizW / Math.max(1, aylikSeri.length)
+          const bw = Math.min(46, adim * 0.5)
+          const noktalarLine = aylikSeri.map((s, i) => {
+            const x = sol + adim * i + adim / 2
+            const y = ust + cizH - (s.tutar / maxTutar) * cizH
+            return { x, y, s }
+          })
+          return (
+            <div className="grid gap-2">
+              <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground">
+                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px]" style={{ background: MAVI }} /> İş adedi</span>
+                <span className="flex items-center gap-1.5"><span className="h-[3px] w-4 rounded-full" style={{ background: AMBER }} /> Kazanç ₺</span>
+              </div>
+              <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full">
+                {/* yatay ızgara + sol eksen (adet) */}
+                {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+                  const y = ust + cizH - f * cizH
+                  return (
+                    <g key={f}>
+                      <line x1={sol} y1={y} x2={W - sag} y2={y} stroke="currentColor" strokeOpacity="0.1" />
+                      <text x={sol - 5} y={y + 3} textAnchor="end" fontSize="9" fill="currentColor" opacity="0.5">
+                        {Math.round(maxAdet * f)}
+                      </text>
+                      <text x={W - sag + 5} y={y + 3} textAnchor="start" fontSize="9" fill={AMBER} opacity="0.75">
+                        {kisaSayi.format(maxTutar * f)}
+                      </text>
+                    </g>
+                  )
+                })}
+                {/* Sütunlar (adet) */}
+                {aylikSeri.map((s, i) => {
+                  const bh = (s.adet / maxAdet) * cizH
+                  const x = sol + adim * i + (adim - bw) / 2
+                  const y = ust + cizH - bh
+                  return (
+                    <g key={s.ad}>
+                      <rect x={x} y={y} width={bw} height={Math.max(bh, s.adet > 0 ? 2 : 0)} rx={5} fill={MAVI} opacity="0.9">
+                        <title>{`${s.ad}: ${s.adet} iş · ${tamTutar.format(s.tutar)}`}</title>
+                      </rect>
+                      {s.adet > 0 && (
+                        <text x={x + bw / 2} y={y - 4} textAnchor="middle" fontSize="10.5" fontWeight="700" fill={MAVI}>
+                          {s.adet}
+                        </text>
+                      )}
+                    </g>
+                  )
+                })}
+                {/* Çizgi (kazanç) */}
+                <polyline
+                  fill="none"
+                  stroke={AMBER}
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={noktalarLine.map((p) => `${p.x},${p.y}`).join(" ")}
+                />
+                {noktalarLine.map((p) => (
+                  <g key={p.s.ad}>
+                    <circle cx={p.x} cy={p.y} r="4" fill={AMBER} stroke="var(--card)" strokeWidth="1.5">
+                      <title>{`${p.s.ad}: ${tamTutar.format(p.s.tutar)}`}</title>
+                    </circle>
+                    {p.s.tutar > 0 && (
+                      <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize="9.5" fontWeight="700" fill={AMBER}>
+                        {kisaSayi.format(p.s.tutar)}
+                      </text>
+                    )}
+                  </g>
+                ))}
+                {/* Ay etiketleri */}
+                {aylikSeri.map((s, i) => (
+                  <text key={s.ad + i} x={sol + adim * i + adim / 2} y={H - 10} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.65">
+                    {s.ad}
+                  </text>
+                ))}
+              </svg>
+            </div>
+          )
+        })()
+      ) : tip === "pasta" ? (
         <div className="flex flex-wrap items-center gap-6">
           <div className="relative shrink-0">
             <div className="size-[180px] rounded-full" style={{ background: pastaBg }} />
@@ -255,29 +359,24 @@ export function FirmaGrafik({
                   {metrik === "adet" ? dilimToplam : kisaSayi.format(dilimToplam)}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  {firma || "tüm firmalar"} · {metrik === "adet" ? "iş" : "₺"}
+                  {pencere === "son1" ? "bu ay" : "tüm aylar"} · {metrik === "adet" ? "iş" : "₺"}
                 </span>
               </div>
             </div>
           </div>
           <div className="grid min-w-[220px] flex-1 gap-1.5">
-            {dilimler.length === 0 && (
-              <p className="text-sm text-muted-foreground">Bu aralıkta veri yok.</p>
-            )}
+            {dilimler.length === 0 && <p className="text-sm text-muted-foreground">Bu aralıkta veri yok.</p>}
             {dilimler.map((d, i) => (
               <div key={d.ad} className="flex items-center gap-2 text-[12.5px]">
                 <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: PALET[i % PALET.length] }} />
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">{d.ad}</span>
                 <span className="font-mono font-semibold">{uzunEtiket(d.deger)}</span>
-                <span className="w-10 text-right text-muted-foreground">
-                  %{Math.round((d.deger / dilimToplam) * 100)}
-                </span>
+                <span className="w-10 text-right text-muted-foreground">%{Math.round((d.deger / dilimToplam) * 100)}</span>
               </div>
             ))}
           </div>
         </div>
       ) : tip === "balon" ? (
-        /* Paketli balon: büyük ortada, küçükler dışta; yüzen; «Diğer» tıklanınca açılır */
         <div className="relative">
           <div className="mb-1 flex items-center gap-2">
             {digerAcik && (
@@ -292,9 +391,7 @@ export function FirmaGrafik({
             <span className="text-[11.5px] text-muted-foreground">
               {digerAcik
                 ? "Diğer (küçük) firmalar"
-                : balon.kalanSayi > 0
-                  ? "Büyük olan ortada · «Diğer» balonuna tıkla → küçük firmaları gör"
-                  : "Firma büyüklüğüne göre balonlar"}
+                : "Büyük ortada · balonu sürükle (yerine döner) · «Diğer» → küçükleri gör"}
             </span>
           </div>
 
@@ -302,8 +399,9 @@ export function FirmaGrafik({
             <p className="py-12 text-center text-sm text-muted-foreground">Bu aralıkta veri yok.</p>
           ) : (
             <svg
+              ref={svgRef}
               viewBox={balon.vb}
-              className="h-[330px] w-full animate-[balonGir_.5s_ease-out]"
+              className="h-[330px] w-full touch-none select-none animate-[balonGir_.5s_ease-out]"
               preserveAspectRatio="xMidYMid meet"
             >
               {balon.bubbles.map((bb, i) => {
@@ -311,32 +409,28 @@ export function FirmaGrafik({
                 const yaziGoster = bb.r >= 23
                 const anaBoyut = Math.max(9, Math.min(14, bb.r * 0.42))
                 const altBoyut = Math.max(7, Math.min(10.5, bb.r * 0.26))
+                const suruklenen = surukle?.ad === bb.ad
                 return (
                   <g key={bb.ad} transform={`translate(${bb.x} ${bb.y})`}>
                     <g
-                      className={cn(
-                        "transition-[filter] duration-200 hover:brightness-110",
-                        bb.diger && "cursor-pointer"
-                      )}
+                      onPointerDown={bb.diger ? undefined : (e) => surukleBasla(bb.ad, e)}
                       onClick={bb.diger ? () => setDigerAcik(true) : undefined}
+                      className={cn("hover:brightness-110", bb.diger ? "cursor-pointer" : "cursor-grab active:cursor-grabbing")}
                       style={{
-                        animation: `balonYuz ${(2.6 + (i % 4) * 0.5).toFixed(1)}s ease-in-out ${(i * 0.13).toFixed(2)}s infinite`,
+                        animation: suruklenen ? "none" : `balonYuz ${(2.6 + (i % 4) * 0.5).toFixed(1)}s ease-in-out ${(i * 0.13).toFixed(2)}s infinite`,
+                        transform: suruklenen ? `translate(${surukle!.dx}px, ${surukle!.dy}px)` : undefined,
+                        transition: suruklenen && surukle!.birak ? "transform .42s cubic-bezier(.34,1.56,.64,1)" : "none",
                       }}
                     >
                       <circle r={bb.r} fill={renk} style={{ filter: "drop-shadow(0 3px 7px rgba(2,6,23,.22))" }} />
-                      {/* Cam parlaklığı */}
                       <circle cx={-bb.r * 0.3} cy={-bb.r * 0.34} r={bb.r * 0.3} fill="#ffffff" opacity="0.18" />
                       {yaziGoster && (
                         <>
-                          <text textAnchor="middle" y={-1} fontSize={anaBoyut} fontWeight="800" fill="#fff">
+                          <text textAnchor="middle" y={-1} fontSize={anaBoyut} fontWeight="800" fill="#fff" pointerEvents="none">
                             {bb.diger ? "Diğer" : etiket(bb.deger)}
                           </text>
-                          <text textAnchor="middle" y={anaBoyut * 0.62 + 4} fontSize={altBoyut} fill="#fff" opacity="0.9">
-                            {bb.diger
-                              ? `${balon.kalanSayi} firma →`
-                              : bb.ad.length > 13
-                                ? bb.ad.slice(0, 12) + "…"
-                                : bb.ad}
+                          <text textAnchor="middle" y={anaBoyut * 0.62 + 4} fontSize={altBoyut} fill="#fff" opacity="0.9" pointerEvents="none">
+                            {bb.diger ? `${balon.kalanSayi} firma →` : bb.ad.length > 13 ? bb.ad.slice(0, 12) + "…" : bb.ad}
                           </text>
                         </>
                       )}
@@ -353,14 +447,12 @@ export function FirmaGrafik({
             @keyframes balonGir { from { opacity: 0; transform: scale(.92) } to { opacity: 1; transform: scale(1) } }
           `}</style>
         </div>
-      ) : tip === "firmalar" ? (
-        /* Tüm firmalar yan yana ince sütunlar — hepsinin değeri görünür */
+      ) : (
+        /* Firmalar: tüm firmalar ince sütun */
         <svg viewBox="0 0 760 320" className="h-auto w-full">
           <line x1="8" y1="240" x2="752" y2="240" stroke="currentColor" strokeOpacity="0.15" />
           {firmaToplam.length === 0 && (
-            <text x="380" y="130" textAnchor="middle" fontSize="13" fill="currentColor" opacity="0.5">
-              Bu aralıkta veri yok
-            </text>
+            <text x="380" y="130" textAnchor="middle" fontSize="13" fill="currentColor" opacity="0.5">Bu aralıkta veri yok</text>
           )}
           {firmaToplam.map((f, i) => {
             const adim = 744 / Math.max(1, firmaToplam.length)
@@ -373,101 +465,15 @@ export function FirmaGrafik({
                 <rect x={x} y={y} width={bw} height={Math.max(bh, 3)} rx={4} fill={PALET[i % PALET.length]}>
                   <title>{`${f.ad}: ${uzunEtiket(f.deger)}`}</title>
                 </rect>
-                {/* Değer — sütunun üstünde eğik */}
-                <text
-                  transform={`rotate(-45 ${x + bw / 2} ${y - 6})`}
-                  x={x + bw / 2}
-                  y={y - 6}
-                  textAnchor="start"
-                  fontSize="10"
-                  fontWeight="700"
-                  fill="currentColor"
-                >
+                <text transform={`rotate(-45 ${x + bw / 2} ${y - 6})`} x={x + bw / 2} y={y - 6} textAnchor="start" fontSize="10" fontWeight="700" fill="currentColor">
                   {etiket(f.deger)}
                 </text>
-                {/* Firma adı — altta eğik */}
-                <text
-                  transform={`rotate(-45 ${x + bw / 2} 254)`}
-                  x={x + bw / 2}
-                  y={254}
-                  textAnchor="end"
-                  fontSize="9.5"
-                  fill="currentColor"
-                  opacity="0.65"
-                >
+                <text transform={`rotate(-45 ${x + bw / 2} 254)`} x={x + bw / 2} y={254} textAnchor="end" fontSize="9.5" fill="currentColor" opacity="0.65">
                   {f.ad.length > 14 ? f.ad.slice(0, 13) + "…" : f.ad}
                 </text>
               </g>
             )
           })}
-        </svg>
-      ) : (
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full">
-          {/* taban çizgisi */}
-          <line x1={solPad} y1={H - altPad} x2={W - solPad} y2={H - altPad} stroke="currentColor" strokeOpacity="0.15" />
-          {tip === "sutun" &&
-            seri.map((s, i) => {
-              const bh = Math.round((s.deger / maks) * cizimH)
-              const bw = Math.min(64, adimW * 0.55)
-              const x = solPad + adimW * i + (adimW - bw) / 2
-              const y = H - altPad - bh
-              return (
-                <g key={s.ad}>
-                  <rect x={x} y={y} width={bw} height={Math.max(bh, s.deger > 0 ? 3 : 0)} rx={6} fill={PALET[i % PALET.length]}>
-                    <title>{`${s.ad}: ${uzunEtiket(s.deger)}`}</title>
-                  </rect>
-                  <text x={x + bw / 2} y={y - 6} textAnchor="middle" fontSize="11.5" fontWeight="600" fill="currentColor">
-                    {s.deger > 0 ? etiket(s.deger) : ""}
-                  </text>
-                </g>
-              )
-            })}
-          {tip === "cizgi" && (
-            <>
-              <polyline
-                fill="none"
-                stroke="#3b82f6"
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                points={seri
-                  .map((s, i) => {
-                    const x = solPad + adimW * i + adimW / 2
-                    const y = H - altPad - (s.deger / maks) * cizimH
-                    return `${x},${y}`
-                  })
-                  .join(" ")}
-              />
-              {seri.map((s, i) => {
-                const x = solPad + adimW * i + adimW / 2
-                const y = H - altPad - (s.deger / maks) * cizimH
-                return (
-                  <g key={s.ad}>
-                    <circle cx={x} cy={y} r="4.5" fill="#3b82f6">
-                      <title>{`${s.ad}: ${uzunEtiket(s.deger)}`}</title>
-                    </circle>
-                    <text x={x} y={y - 10} textAnchor="middle" fontSize="11.5" fontWeight="600" fill="currentColor">
-                      {s.deger > 0 ? etiket(s.deger) : ""}
-                    </text>
-                  </g>
-                )
-              })}
-            </>
-          )}
-          {/* Ay etiketleri */}
-          {seri.map((s, i) => (
-            <text
-              key={s.ad + i}
-              x={solPad + adimW * i + adimW / 2}
-              y={H - 8}
-              textAnchor="middle"
-              fontSize="11.5"
-              fill="currentColor"
-              opacity="0.6"
-            >
-              {s.ad}
-            </text>
-          ))}
         </svg>
       )}
     </div>
