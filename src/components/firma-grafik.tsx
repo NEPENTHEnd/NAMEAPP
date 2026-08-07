@@ -12,6 +12,9 @@ export type GrafikNokta = {
   tutar: number
 }
 export type SubeNokta = { firma: string; sube: string; ayKey: string; adet: number; tutar: number }
+export type DigerNokta = { musteri: string; ayKey: string; adet: number; tutar: number }
+
+const GRUPSUZ_AD = "DİĞER" // gruba atanmamış işlerin firma etiketi (page.tsx ile aynı)
 
 const PALET = [
   "#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444",
@@ -28,9 +31,9 @@ const kisaSayi = new Intl.NumberFormat("tr-TR", { notation: "compact", maximumFr
 type Tip = "aylik" | "balon" | "pasta" | "firmalar"
 type Metrik = "adet" | "tutar"
 type Pencere = "son1" | "tum"
-type Drill = { tur: "kok" } | { tur: "diger" } | { tur: "firma"; firma: string }
+type Drill = { tur: "kok" } | { tur: "diger" } | { tur: "grupsuz" } | { tur: "firma"; firma: string }
 
-type BalonHam = { ad: string; adet: number; tutar: number; diger?: boolean; altVar?: boolean }
+type BalonHam = { ad: string; adet: number; tutar: number; diger?: boolean; altVar?: boolean; grupsuz?: boolean }
 type Balon = BalonHam & { r: number; x: number; y: number }
 
 // Paketli yerleşim: adet'e göre büyük ORTADA (sabit), küçükler dışa doğru.
@@ -92,11 +95,13 @@ export function FirmaGrafik({
   firmalar,
   aylar,
   subeNoktalar = [],
+  digerNoktalar = [],
 }: {
   noktalar: GrafikNokta[]
   firmalar: string[]
   aylar: { key: string; ad: string }[]
   subeNoktalar?: SubeNokta[]
+  digerNoktalar?: DigerNokta[]
 }) {
   const [firma, setFirma] = useState<string>("")
   const [tip, setTip] = useState<Tip>("balon")
@@ -119,6 +124,10 @@ export function FirmaGrafik({
   const kapsamSube = useMemo(
     () => (pencere === "son1" && sonAy ? subeNoktalar.filter((n) => n.ayKey === sonAy) : subeNoktalar),
     [subeNoktalar, pencere, sonAy]
+  )
+  const kapsamDiger = useMemo(
+    () => (pencere === "son1" && sonAy ? digerNoktalar.filter((n) => n.ayKey === sonAy) : digerNoktalar),
+    [digerNoktalar, pencere, sonAy]
   )
 
   // Aylık birleşik grafik verisi
@@ -143,11 +152,18 @@ export function FirmaGrafik({
       m.set(n.firma, v)
     }
     const subeli = new Set(kapsamSube.map((s) => s.firma))
+    const grupsuzVar = kapsamDiger.length > 0
     return [...m.entries()]
-      .map(([ad, v]) => ({ ad, adet: v.adet, tutar: v.tutar, altVar: subeli.has(ad) }))
+      .map(([ad, v]) => ({
+        ad,
+        adet: v.adet,
+        tutar: v.tutar,
+        altVar: subeli.has(ad),
+        musteriVar: ad === GRUPSUZ_AD && grupsuzVar, // DİĞER içi müşterilere açılır
+      }))
       .filter((x) => x.adet > 0)
       .sort((a, b) => b.adet - a.adet)
-  }, [kapsamNokta, kapsamSube])
+  }, [kapsamNokta, kapsamSube, kapsamDiger])
 
   // Pasta
   const dilimler = useMemo(() => {
@@ -184,11 +200,21 @@ export function FirmaGrafik({
         m.set(n.sube, v)
       }
       items = [...m.entries()].map(([ad, v]) => ({ ad, adet: v.adet, tutar: v.tutar }))
+    } else if (drill.tur === "grupsuz") {
+      // DİĞER içi: gruba atanmamış işlerin tek tek MÜŞTERİleri
+      const m = new Map<string, { adet: number; tutar: number }>()
+      for (const n of kapsamDiger) {
+        const v = m.get(n.musteri) ?? { adet: 0, tutar: 0 }
+        v.adet += n.adet
+        v.tutar += n.tutar
+        m.set(n.musteri, v)
+      }
+      items = [...m.entries()].map(([ad, v]) => ({ ad, adet: v.adet, tutar: v.tutar }))
     } else if (drill.tur === "diger") {
       // "Diğer": TÜM firmalar birlikte — küçükler büyüklerin ETRAFINI doldurur
-      items = firmaToplam.map((f) => ({ ad: f.ad, adet: f.adet, tutar: f.tutar, altVar: f.altVar }))
+      items = firmaToplam.map((f) => ({ ad: f.ad, adet: f.adet, tutar: f.tutar, altVar: f.altVar, grupsuz: f.musteriVar }))
     } else {
-      items = firmaToplam.slice(0, TOP).map((f) => ({ ad: f.ad, adet: f.adet, tutar: f.tutar, altVar: f.altVar }))
+      items = firmaToplam.slice(0, TOP).map((f) => ({ ad: f.ad, adet: f.adet, tutar: f.tutar, altVar: f.altVar, grupsuz: f.musteriVar }))
       const kalan = firmaToplam.slice(TOP)
       if (kalan.length)
         items.push({
@@ -199,7 +225,7 @@ export function FirmaGrafik({
         })
     }
     return { ...balonYerlesim(items), bos: items.length === 0 }
-  }, [drill, firmaToplam, kapsamSube])
+  }, [drill, firmaToplam, kapsamSube, kapsamDiger])
 
   // Görüntü viewBox (zoom + pan)
   const [bMinX, bMinY, bW, bH] = balon.vb.split(" ").map(Number)
@@ -246,11 +272,13 @@ export function FirmaGrafik({
     const up = () => {
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
-      const acilir = bb.diger || bb.altVar
+      const acilir = bb.diger || bb.altVar || bb.grupsuz
       if (hareket < 6 && acilir) {
         // neredeyse hiç hareket yok → TIKLAMA → aç
         setSurukle(null)
-        drilleGit(bb.diger ? { tur: "diger" } : { tur: "firma", firma: bb.ad })
+        drilleGit(
+          bb.diger ? { tur: "diger" } : bb.grupsuz ? { tur: "grupsuz" } : { tur: "firma", firma: bb.ad }
+        )
       } else {
         setSurukle({ ad: bb.ad, dx: 0, dy: 0, birak: true })
         window.setTimeout(() => setSurukle((s) => (s && s.ad === bb.ad ? null : s)), 420)
@@ -285,7 +313,13 @@ export function FirmaGrafik({
     )
 
   const drillBaslik =
-    drill.tur === "firma" ? `${drill.firma} › şubeler` : drill.tur === "diger" ? "Tüm firmalar" : ""
+    drill.tur === "firma"
+      ? `${drill.firma} › şubeler`
+      : drill.tur === "grupsuz"
+        ? "DİĞER › müşteriler"
+        : drill.tur === "diger"
+          ? "Tüm firmalar"
+          : ""
 
   return (
     <div className="grid gap-4">
@@ -411,7 +445,7 @@ export function FirmaGrafik({
             <span className="text-[11.5px] text-muted-foreground">
               {drill.tur !== "kok"
                 ? drillBaslik
-                : "Sürükle (yerine döner) · scroll = yakınlaştır · «Diğer» ya da şubeli firmaya tıkla"}
+                : "Sürükle (yerine döner) · scroll = yakınlaştır · DİĞER veya şubeli firmaya tıkla → içi açılır"}
             </span>
             {zoom > 1.01 && (
               <button type="button" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} className="ml-auto rounded-lg border border-border bg-card px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted">
@@ -432,7 +466,7 @@ export function FirmaGrafik({
             >
               {balon.bubbles.map((bb, i) => {
                 const renk = bb.diger ? "#64748b" : PALET[i % PALET.length]
-                const acilir = bb.diger || bb.altVar
+                const acilir = bb.diger || bb.altVar || bb.grupsuz
                 const suruklenen = surukle?.ad === bb.ad
                 const buyuk = bb.r >= 40
                 const orta = bb.r >= 26
@@ -452,8 +486,8 @@ export function FirmaGrafik({
                     >
                       <circle r={bb.r} fill={renk} style={{ filter: "drop-shadow(0 4px 9px rgba(2,6,23,.24))" }} />
                       <circle cx={-bb.r * 0.3} cy={-bb.r * 0.34} r={bb.r * 0.3} fill="#ffffff" opacity="0.18" />
-                      {/* Şubeli firma: kesikli halka + hint */}
-                      {bb.altVar && <circle r={bb.r - 4} fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="1.5" strokeDasharray="4 4" />}
+                      {/* Şubeli firma / DİĞER: kesikli halka = "içi açılır" */}
+                      {(bb.altVar || bb.grupsuz) && <circle r={bb.r - 4} fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="1.5" strokeDasharray="4 4" />}
                       {orta && (
                         <g pointerEvents="none">
                           {bb.diger ? (
@@ -472,14 +506,16 @@ export function FirmaGrafik({
                               {buyuk && bb.tutar > 0 && (
                                 <text textAnchor="middle" y={bb.r * 0.3} fontSize={altBoyut} fill="#fff" opacity="0.9">{kisaSayi.format(bb.tutar)} ₺</text>
                               )}
-                              {bb.altVar && (
-                                <text textAnchor="middle" y={buyuk ? bb.r * 0.54 : anaBoyut * 0.7 + 4} fontSize={altBoyut} fill="#fff" opacity="0.85">▸ şubeler</text>
+                              {(bb.altVar || bb.grupsuz) && (
+                                <text textAnchor="middle" y={buyuk ? bb.r * 0.54 : anaBoyut * 0.7 + 4} fontSize={altBoyut} fill="#fff" opacity="0.85">
+                                  ▸ {bb.grupsuz ? "müşteriler" : "şubeler"}
+                                </text>
                               )}
                             </>
                           )}
                         </g>
                       )}
-                      <title>{`${bb.ad}: ${bb.adet} iş · ${tamTutar.format(bb.tutar)}${bb.altVar ? " · tıkla → şubeler" : ""}`}</title>
+                      <title>{`${bb.ad}: ${bb.adet} iş · ${tamTutar.format(bb.tutar)}${bb.altVar ? " · tıkla → şubeler" : bb.grupsuz ? " · tıkla → müşteriler" : ""}`}</title>
                     </g>
                   </g>
                 )

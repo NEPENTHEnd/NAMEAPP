@@ -55,7 +55,7 @@ export default async function RaporlarSayfasi({
     supabase.from("sube").select("id, ad, grup_id"),
     supabase
       .from("is_kaydi")
-      .select("grup_id, sube_id, gelis_tarihi, fatura_tarihi, fatura_tutari")
+      .select("grup_id, sube_id, gelis_tarihi, fatura_tarihi, fatura_tutari, musteri:musteri_id ( ad )")
       .range(0, 99999),
   ])
   const subeAdMap = new Map((subeListe ?? []).map((s) => [s.id, s.ad]))
@@ -118,6 +118,26 @@ export default async function RaporlarSayfasi({
   const grafikSubeNoktalar = [...subeMap.entries()].map(([anahtar, v]) => {
     const [firma, sube, ayKey] = anahtar.split("|")
     return { firma, sube, ayKey, ...v }
+  })
+
+  // "DİĞER" (gruba atanmamış) işlerin MÜŞTERİ kırılımı — balonda DİĞER'e tıklayınca
+  // içindeki tek tek müşteriler (küçük firmalar) balon olarak açılır.
+  const digerMap = new Map<string, { adet: number; tutar: number }>()
+  for (const j of firmaIsleri ?? []) {
+    if (j.grup_id) continue // yalnız grupsuzlar
+    const ayKey = j.gelis_tarihi?.slice(0, 7)
+    if (!ayKey || !ayPencere.some((a) => a.key === ayKey)) continue
+    const mus = Array.isArray(j.musteri) ? j.musteri[0] : j.musteri
+    const musteriAd = (mus?.ad ?? "—").toString()
+    const anahtar = `${musteriAd}|${ayKey}`
+    const v = digerMap.get(anahtar) ?? { adet: 0, tutar: 0 }
+    v.adet++
+    v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
+    digerMap.set(anahtar, v)
+  }
+  const grafikDigerNoktalar = [...digerMap.entries()].map(([anahtar, v]) => {
+    const [musteri, ayKey] = anahtar.split("|")
+    return { musteri, ayKey, ...v }
   })
 
   let sorgu = supabase.from("is_kaydi").select(
@@ -241,6 +261,7 @@ export default async function RaporlarSayfasi({
           firmalar={grafikFirmalar}
           aylar={ayPencere}
           subeNoktalar={grafikSubeNoktalar}
+          digerNoktalar={grafikDigerNoktalar}
         />
       </div>
 
