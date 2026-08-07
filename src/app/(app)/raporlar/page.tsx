@@ -98,7 +98,6 @@ export default async function RaporlarSayfasi({
       ...v,
     }
   })
-  const grafikFirmalar = [...(grupListe ?? []).map((g) => g.ad), "DİĞER"]
 
   // Şube kırılımı (firma × şube × ay) — balon grafiğinde firmaya tıklayınca alt şubeler
   const subeMap = new Map<string, { adet: number; tutar: number }>()
@@ -258,7 +257,6 @@ export default async function RaporlarSayfasi({
         </p>
         <FirmaGrafik
           noktalar={grafikNoktalar}
-          firmalar={grafikFirmalar}
           aylar={ayPencere}
           subeNoktalar={grafikSubeNoktalar}
           digerNoktalar={grafikDigerNoktalar}

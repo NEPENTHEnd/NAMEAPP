@@ -22,7 +22,6 @@ const PALET = [
   "#6366f1", "#14b8a6", "#f43f5e", "#8b5cf6", "#22c55e",
 ]
 const TEAL = "#0e7490"
-const GOLD = "#ca8a04"
 const KIRMIZI = "#dc2626"
 
 const tamTutar = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 })
@@ -92,18 +91,15 @@ function balonYerlesim(items: BalonHam[]): { bubbles: Balon[]; vb: string } {
 
 export function FirmaGrafik({
   noktalar,
-  firmalar,
   aylar,
   subeNoktalar = [],
   digerNoktalar = [],
 }: {
   noktalar: GrafikNokta[]
-  firmalar: string[]
   aylar: { key: string; ad: string }[]
   subeNoktalar?: SubeNokta[]
   digerNoktalar?: DigerNokta[]
 }) {
-  const [firma, setFirma] = useState<string>("")
   const [tip, setTip] = useState<Tip>("balon")
   const [metrik, setMetrik] = useState<Metrik>("adet")
   const [pencere, setPencere] = useState<Pencere>("son1")
@@ -130,17 +126,42 @@ export function FirmaGrafik({
     [digerNoktalar, pencere, sonAy]
   )
 
-  // Aylık birleşik grafik verisi
-  const aylikSeri = useMemo(
-    () =>
-      aylar.map((a) => {
-        const uy = noktalar.filter((n) => n.ayKey === a.key && (!firma || n.firma === firma))
-        return { ad: a.ad, adet: uy.reduce((t, n) => t + n.adet, 0), tutar: uy.reduce((t, n) => t + n.tutar, 0) }
-      }),
-    [noktalar, aylar, firma]
-  )
-  const maxAdet = Math.max(1, ...aylikSeri.map((s) => s.adet))
-  const maxTutar = Math.max(1, ...aylikSeri.map((s) => s.tutar))
+  // Aylık YIĞIN grafik: her ay bir sütun, sütun içi firmalara göre renkli dilimler.
+  // "Her şey burada ama düzenli" — tüm firmalar tek bakışta, aya göre.
+  const AYLIK_TOP = 9
+  const aylikYigin = useMemo(() => {
+    const ol = (n: GrafikNokta) => (metrik === "adet" ? n.adet : n.tutar)
+    const gorunur = noktalar.filter((n) => aylar.some((a) => a.key === n.ayKey))
+    // Firma toplamları (tüm görünen aylar) → en büyük AYLIK_TOP firma + "Diğer"
+    const tot = new Map<string, number>()
+    for (const n of gorunur) tot.set(n.firma, (tot.get(n.firma) ?? 0) + ol(n))
+    const sirali = [...tot.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+    const ustAdlar = sirali.slice(0, AYLIK_TOP).map(([ad]) => ad)
+    const digerVar = sirali.length > AYLIK_TOP
+    const renkMap = new Map(ustAdlar.map((ad, i) => [ad, PALET[i % PALET.length]]))
+    const DIGER_RENK = "#94a3b8"
+    // Her ay için dilimler (büyük firma altta)
+    const kolonlar = aylar.map((a) => {
+      const seg: { ad: string; deger: number; renk: string }[] = []
+      for (const ad of ustAdlar) {
+        const d = gorunur.filter((n) => n.firma === ad && n.ayKey === a.key).reduce((t, n) => t + ol(n), 0)
+        if (d > 0) seg.push({ ad, deger: d, renk: renkMap.get(ad) as string })
+      }
+      if (digerVar) {
+        const d = gorunur
+          .filter((n) => n.ayKey === a.key && !ustAdlar.includes(n.firma))
+          .reduce((t, n) => t + ol(n), 0)
+        if (d > 0) seg.push({ ad: "Diğer", deger: d, renk: DIGER_RENK })
+      }
+      return { ad: a.ad, seg, toplam: seg.reduce((t, s) => t + s.deger, 0) }
+    })
+    const maxToplam = Math.max(1, ...kolonlar.map((k) => k.toplam))
+    const legend = [
+      ...ustAdlar.map((ad) => ({ ad, renk: renkMap.get(ad) as string })),
+      ...(digerVar ? [{ ad: "Diğer", renk: DIGER_RENK }] : []),
+    ]
+    return { kolonlar, maxToplam, legend }
+  }, [noktalar, aylar, metrik])
 
   // Firma toplamları (adet + tutar + şubesi var mı)
   const firmaToplam = useMemo(() => {
@@ -325,25 +346,13 @@ export function FirmaGrafik({
     <div className="grid gap-4">
       {/* Kontroller */}
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={firma}
-          onChange={(e) => setFirma(e.target.value)}
-          disabled={tip === "firmalar" || tip === "balon"}
-          aria-label="Firma seç"
-          className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm outline-none transition focus:border-primary disabled:opacity-50"
-        >
-          <option value="">Tüm firmalar</option>
-          {firmalar.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </select>
         <div className="flex flex-wrap items-center gap-1">
           <button type="button" onClick={() => setTip("aylik")} className={secBtn(tip === "aylik")}>Aylık</button>
           <button type="button" onClick={() => setTip("balon")} className={secBtn(tip === "balon")}>Balon</button>
           <button type="button" onClick={() => setTip("pasta")} className={secBtn(tip === "pasta")}>Pasta</button>
           <button type="button" onClick={() => setTip("firmalar")} className={secBtn(tip === "firmalar")}>Firmalar</button>
         </div>
-        {tip === "pasta" && (
+        {(tip === "pasta" || tip === "aylik") && (
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setMetrik("adet")} className={secBtn(metrik === "adet")}>İş adedi</button>
             <button type="button" onClick={() => setMetrik("tutar")} className={secBtn(metrik === "tutar")}>Kazanç ₺</button>
@@ -360,25 +369,33 @@ export function FirmaGrafik({
       {/* GRAFİK */}
       {tip === "aylik" ? (
         (() => {
-          const W = 720, H = 300
-          const padSol = 42, padSag = 56, padUst = 40, padAlt = 26
+          const W = 760, H = 340
+          const padSol = 44, padSag = 16, padUst = 30, padAlt = 30
           const cizH = H - padUst - padAlt
           const cizW = W - padSol - padSag
-          const adim = cizW / Math.max(1, aylikSeri.length)
-          const bw = Math.min(18, adim * 0.26)
+          const n = aylikYigin.kolonlar.length
+          const adim = cizW / Math.max(1, n)
+          const bw = Math.min(58, adim * 0.6)
           const taban = padUst + cizH
+          const maxT = aylikYigin.maxToplam
+          const yEksen = (v: number) => taban - (v / maxT) * cizH
+          const eksenEtiket = (v: number) => (metrik === "adet" ? String(Math.round(v)) : kisaSayi.format(v))
           const yuzde = (i: number): number | null => {
             if (i === 0) return null
-            const onc = aylikSeri[i - 1].tutar
+            const onc = aylikYigin.kolonlar[i - 1].toplam
             if (!onc) return null
-            return Math.round(((aylikSeri[i].tutar - onc) / onc) * 100)
+            return Math.round(((aylikYigin.kolonlar[i].toplam - onc) / onc) * 100)
           }
           return (
-            <div className="grid gap-2">
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11.5px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span style={{ color: TEAL }}>▲</span> İş adedi</span>
-                <span className="flex items-center gap-1.5"><span style={{ color: GOLD }}>▲</span> Kazanç ₺</span>
-                <span className="text-[10.5px] opacity-80">üstteki % = bir önceki aya göre kazanç değişimi</span>
+            <div className="grid gap-3">
+              {/* Legend — hangi renk hangi firma */}
+              <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-[11.5px]">
+                {aylikYigin.legend.map((l) => (
+                  <span key={l.ad} className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: l.renk }} />
+                    <span className="max-w-[140px] truncate">{l.ad}</span>
+                  </span>
+                ))}
               </div>
               <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full">
                 {[0, 0.25, 0.5, 0.75, 1].map((f) => {
@@ -386,28 +403,45 @@ export function FirmaGrafik({
                   return (
                     <g key={f}>
                       <line x1={padSol} y1={y} x2={W - padSag} y2={y} stroke="currentColor" strokeOpacity="0.08" />
-                      <text x={padSol - 6} y={y + 3} textAnchor="end" fontSize="9" fill={TEAL} opacity="0.85">{Math.round(maxAdet * f)}</text>
-                      <text x={W - padSag + 6} y={y + 3} textAnchor="start" fontSize="9" fill={GOLD} opacity="0.9">{kisaSayi.format(maxTutar * f)}</text>
+                      <text x={padSol - 6} y={y + 3} textAnchor="end" fontSize="9" fill="currentColor" opacity="0.55">{eksenEtiket(maxT * f)}</text>
                     </g>
                   )
                 })}
-                {aylikSeri.map((s, i) => {
+                {aylikYigin.kolonlar.map((k, i) => {
                   const cx = padSol + adim * i + adim / 2
-                  const adH = (s.adet / maxAdet) * cizH
-                  const kzH = (s.tutar / maxTutar) * cizH
-                  const y = yuzde(i)
+                  const x = cx - bw / 2
+                  const p = yuzde(i)
+                  let yUst = taban
                   return (
-                    <g key={s.ad}>
-                      {i > 0 && <line x1={padSol + adim * i} y1={padUst - 2} x2={padSol + adim * i} y2={taban} stroke="currentColor" strokeOpacity="0.06" />}
-                      <rect x={cx - bw - 2} y={taban - adH} width={bw} height={Math.max(adH, s.adet > 0 ? 2 : 0)} rx={3} fill={TEAL}><title>{`${s.ad}: ${s.adet} iş`}</title></rect>
-                      <rect x={cx + 2} y={taban - kzH} width={bw} height={Math.max(kzH, s.tutar > 0 ? 2 : 0)} rx={3} fill={GOLD}><title>{`${s.ad}: ${tamTutar.format(s.tutar)}`}</title></rect>
-                      {y != null && <text x={cx} y={padUst - 8} textAnchor="middle" fontSize="10" fontWeight="800" fill={y >= 0 ? TEAL : KIRMIZI}>{y >= 0 ? "+" : ""}{y}%</text>}
-                      <text x={cx} y={H - 8} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.7">{s.ad}</text>
+                    <g key={k.ad}>
+                      {k.seg.map((s, si) => {
+                        const h = (s.deger / maxT) * cizH
+                        yUst -= h
+                        return (
+                          <rect key={s.ad + si} x={x} y={yUst} width={bw} height={Math.max(h, 0)} fill={s.renk} rx={si === k.seg.length - 1 ? 3 : 0} stroke="var(--card)" strokeWidth="0.75">
+                            <title>{`${s.ad} · ${k.ad}: ${metrik === "adet" ? `${s.deger} iş` : tamTutar.format(s.deger)}`}</title>
+                          </rect>
+                        )
+                      })}
+                      {k.toplam > 0 && (
+                        <text x={cx} y={yEksen(k.toplam) - 5} textAnchor="middle" fontSize="10.5" fontWeight="700" fill="currentColor" opacity="0.8">
+                          {metrik === "adet" ? k.toplam : kisaSayi.format(k.toplam)}
+                        </text>
+                      )}
+                      {p != null && (
+                        <text x={cx} y={yEksen(k.toplam) - 18} textAnchor="middle" fontSize="9" fontWeight="800" fill={p >= 0 ? TEAL : KIRMIZI}>
+                          {p >= 0 ? "+" : ""}{p}%
+                        </text>
+                      )}
+                      <text x={cx} y={H - 10} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.7">{k.ad}</text>
                     </g>
                   )
                 })}
                 <line x1={padSol} y1={taban} x2={W - padSag} y2={taban} stroke="currentColor" strokeOpacity="0.28" />
               </svg>
+              <p className="text-[10.5px] text-muted-foreground">
+                Her sütun bir ay; renkli dilimler firmalar (küçükler «Diğer»). Üstteki % = önceki aya göre toplam değişim · ölçü: {metrik === "adet" ? "iş adedi" : "kazanç ₺"}.
+              </p>
             </div>
           )
         })()
@@ -442,11 +476,9 @@ export function FirmaGrafik({
                 ‹ Geri
               </button>
             )}
-            <span className="text-[11.5px] text-muted-foreground">
-              {drill.tur !== "kok"
-                ? drillBaslik
-                : "Sürükle (yerine döner) · scroll = yakınlaştır · DİĞER veya şubeli firmaya tıkla → içi açılır"}
-            </span>
+            {drill.tur !== "kok" && (
+              <span className="text-[11.5px] text-muted-foreground">{drillBaslik}</span>
+            )}
             {zoom > 1.01 && (
               <button type="button" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} className="ml-auto rounded-lg border border-border bg-card px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted">
                 %{Math.round(zoom * 100)} · sıfırla
