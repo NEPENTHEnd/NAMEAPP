@@ -31,6 +31,68 @@ const kisaSayi = new Intl.NumberFormat("tr-TR", {
 type Tip = "sutun" | "cizgi" | "pasta" | "firmalar" | "balon"
 type Metrik = "adet" | "tutar"
 
+type Balon = {
+  ad: string
+  deger: number
+  diger?: boolean
+  r: number
+  x: number
+  y: number
+}
+
+// Paketli balon yerleşimi: değeri büyük olan ORTADA, küçükler dışa doğru.
+// Phyllotaxis (ayçiçeği) başlangıç + çakışmaları iterasyonla ayır + merkeze hafif çek.
+function balonYerlesim(
+  items: { ad: string; deger: number; diger?: boolean }[]
+): { bubbles: Balon[]; vb: string } {
+  if (!items.length) return { bubbles: [], vb: "0 0 200 160" }
+  const sirali = [...items].sort((a, b) => b.deger - a.deger)
+  const maks = Math.max(1, ...sirali.map((i) => i.deger))
+  const rMin = 15
+  const rMax = 66
+  const b: Balon[] = sirali.map((it) => ({
+    ...it,
+    r: rMin + (rMax - rMin) * Math.sqrt(it.deger / maks),
+    x: 0,
+    y: 0,
+  }))
+  const altin = Math.PI * (3 - Math.sqrt(5))
+  b.forEach((bb, i) => {
+    const rr = 30 * Math.sqrt(i)
+    const a = i * altin
+    bb.x = Math.cos(a) * rr
+    bb.y = Math.sin(a) * rr
+  })
+  for (let pass = 0; pass < 200; pass++) {
+    for (let i = 0; i < b.length; i++) {
+      for (let j = i + 1; j < b.length; j++) {
+        const dx = b[j].x - b[i].x
+        const dy = b[j].y - b[i].y
+        const d = Math.hypot(dx, dy) || 0.001
+        const min = b[i].r + b[j].r + 5
+        if (d < min) {
+          const p = (min - d) / 2
+          const ux = dx / d
+          const uy = dy / d
+          b[i].x -= ux * p
+          b[i].y -= uy * p
+          b[j].x += ux * p
+          b[j].y += uy * p
+        }
+      }
+      b[i].x *= 0.99 // merkeze hafif çek → kompakt kalsın, büyükler ortada
+      b[i].y *= 0.99
+    }
+  }
+  const minX = Math.min(...b.map((x) => x.x - x.r))
+  const maxX = Math.max(...b.map((x) => x.x + x.r))
+  const minY = Math.min(...b.map((x) => x.y - x.r))
+  const maxY = Math.max(...b.map((x) => x.y + x.r))
+  const pad = 8
+  const vb = `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`
+  return { bubbles: b, vb }
+}
+
 export function FirmaGrafik({
   noktalar,
   firmalar,
@@ -43,6 +105,7 @@ export function FirmaGrafik({
   const [firma, setFirma] = useState<string>("") // "" = tüm firmalar
   const [tip, setTip] = useState<Tip>("balon") // varsayılan: balon
   const [metrik, setMetrik] = useState<Metrik>("adet")
+  const [digerAcik, setDigerAcik] = useState(false) // balon: "Diğer" grubunu açtı mı
 
   const deger = (n: { adet: number; tutar: number }) =>
     metrik === "adet" ? n.adet : n.tutar
@@ -99,6 +162,27 @@ export function FirmaGrafik({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noktalar, metrik])
   const firmaMaks = Math.max(1, ...firmaToplam.map((f) => f.deger))
+
+  // Balon verisi: ilk N firma tek tek + gerisi "Diğer" balonu. "Diğer" açıksa
+  // yalnız o küçük firmalar tek tek gösterilir (geri tuşuyla dönülür).
+  const TOP = 14
+  const balon = useMemo(() => {
+    const kalan = firmaToplam.slice(TOP)
+    let items: { ad: string; deger: number; diger?: boolean }[]
+    if (digerAcik) {
+      items = kalan.map((f) => ({ ad: f.ad, deger: f.deger }))
+    } else {
+      items = firmaToplam.slice(0, TOP).map((f) => ({ ad: f.ad, deger: f.deger }))
+      if (kalan.length) {
+        items.push({
+          ad: `Diğer (${kalan.length})`,
+          deger: kalan.reduce((t, x) => t + x.deger, 0),
+          diger: true,
+        })
+      }
+    }
+    return { ...balonYerlesim(items), bos: items.length === 0, kalanSayi: kalan.length }
+  }, [firmaToplam, digerAcik])
 
   // Pasta conic-gradient
   let acc = 0
@@ -193,39 +277,81 @@ export function FirmaGrafik({
           </div>
         </div>
       ) : tip === "balon" ? (
-        /* Balon: kazancı (ya da adedi) büyük olanın balonu büyük */
-        <div className="flex flex-wrap items-end justify-center gap-x-5 gap-y-4 py-2">
-          {firmaToplam.length === 0 && (
-            <p className="text-sm text-muted-foreground">Bu aralıkta veri yok.</p>
-          )}
-          {firmaToplam.map((f, i) => {
-            const boyut = Math.round(36 + 96 * Math.sqrt(f.deger / firmaMaks))
-            return (
-              <div
-                key={f.ad}
-                className="flex flex-col items-center gap-1"
-                title={`${f.ad}: ${uzunEtiket(f.deger)}`}
+        /* Paketli balon: büyük ortada, küçükler dışta; yüzen; «Diğer» tıklanınca açılır */
+        <div className="relative">
+          <div className="mb-1 flex items-center gap-2">
+            {digerAcik && (
+              <button
+                type="button"
+                onClick={() => setDigerAcik(false)}
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:bg-muted"
               >
-                <div
-                  className="flex items-center justify-center rounded-full text-white shadow-[inset_0_0_0_2px_rgba(255,255,255,.15)]"
-                  style={{
-                    width: boyut,
-                    height: boyut,
-                    background: PALET[i % PALET.length],
-                  }}
-                >
-                  {boyut >= 52 && (
-                    <span className="px-1 text-center font-mono text-[11px] font-bold leading-tight">
-                      {etiket(f.deger)}
-                    </span>
-                  )}
-                </div>
-                <span className="max-w-[90px] truncate text-center text-[10.5px] text-muted-foreground">
-                  {f.ad}
-                </span>
-              </div>
-            )
-          })}
+                ‹ Geri
+              </button>
+            )}
+            <span className="text-[11.5px] text-muted-foreground">
+              {digerAcik
+                ? "Diğer (küçük) firmalar"
+                : balon.kalanSayi > 0
+                  ? "Büyük olan ortada · «Diğer» balonuna tıkla → küçük firmaları gör"
+                  : "Firma büyüklüğüne göre balonlar"}
+            </span>
+          </div>
+
+          {balon.bos ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">Bu aralıkta veri yok.</p>
+          ) : (
+            <svg
+              viewBox={balon.vb}
+              className="h-[330px] w-full animate-[balonGir_.5s_ease-out]"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {balon.bubbles.map((bb, i) => {
+                const renk = bb.diger ? "#64748b" : PALET[i % PALET.length]
+                const yaziGoster = bb.r >= 23
+                const anaBoyut = Math.max(9, Math.min(14, bb.r * 0.42))
+                const altBoyut = Math.max(7, Math.min(10.5, bb.r * 0.26))
+                return (
+                  <g key={bb.ad} transform={`translate(${bb.x} ${bb.y})`}>
+                    <g
+                      className={cn(
+                        "transition-[filter] duration-200 hover:brightness-110",
+                        bb.diger && "cursor-pointer"
+                      )}
+                      onClick={bb.diger ? () => setDigerAcik(true) : undefined}
+                      style={{
+                        animation: `balonYuz ${(2.6 + (i % 4) * 0.5).toFixed(1)}s ease-in-out ${(i * 0.13).toFixed(2)}s infinite`,
+                      }}
+                    >
+                      <circle r={bb.r} fill={renk} style={{ filter: "drop-shadow(0 3px 7px rgba(2,6,23,.22))" }} />
+                      {/* Cam parlaklığı */}
+                      <circle cx={-bb.r * 0.3} cy={-bb.r * 0.34} r={bb.r * 0.3} fill="#ffffff" opacity="0.18" />
+                      {yaziGoster && (
+                        <>
+                          <text textAnchor="middle" y={-1} fontSize={anaBoyut} fontWeight="800" fill="#fff">
+                            {bb.diger ? "Diğer" : etiket(bb.deger)}
+                          </text>
+                          <text textAnchor="middle" y={anaBoyut * 0.62 + 4} fontSize={altBoyut} fill="#fff" opacity="0.9">
+                            {bb.diger
+                              ? `${balon.kalanSayi} firma →`
+                              : bb.ad.length > 13
+                                ? bb.ad.slice(0, 12) + "…"
+                                : bb.ad}
+                          </text>
+                        </>
+                      )}
+                      <title>{`${bb.ad}: ${uzunEtiket(bb.deger)}`}</title>
+                    </g>
+                  </g>
+                )
+              })}
+            </svg>
+          )}
+
+          <style>{`
+            @keyframes balonYuz { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+            @keyframes balonGir { from { opacity: 0; transform: scale(.92) } to { opacity: 1; transform: scale(1) } }
+          `}</style>
         </div>
       ) : tip === "firmalar" ? (
         /* Tüm firmalar yan yana ince sütunlar — hepsinin değeri görünür */
