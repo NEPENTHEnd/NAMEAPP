@@ -192,10 +192,13 @@ export default async function IslerSayfasi({
     // ve TR-küçük varyantla ara (ilike zaten harf-duyarsız ama İ/ı için şart).
     // or() sözdizimini bozan/joker karakterleri BOŞLUKLA DEĞİL '*' (joker) ile değiştir:
     // böylece "1.2KW" araması veritabanındaki "1.2KW" ile de eşleşir (nokta silinmez).
+    // Özel karakterler VE boşluk(lar) joker '*' olur: böylece "GEMO ... PLC" (çok boşluklu),
+    // "1.2KW", "firma cihaz" gibi aramalar boşluk/karakter farkına takılmadan eşleşir.
     const qTemiz = q
       .replace(/[%,().:*\\&"]/g, "*")
+      .replace(/\s+/g, "*")
       .replace(/\*{2,}/g, "*")
-      .replace(/\s+/g, " ")
+      .replace(/^\*|\*$/g, "")
       .trim()
     const varyantlar = [
       ...new Set([

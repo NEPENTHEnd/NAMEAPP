@@ -80,8 +80,9 @@ export function IslerFiltreler({
       // öneri ile sonuç birebir tutsun ("1.2KW" hem öneride hem sonuçta çıksın).
       const temiz = q
         .replace(/[%,().:*\\&"]/g, "*")
+        .replace(/\s+/g, "*")
         .replace(/\*{2,}/g, "*")
-        .replace(/\s+/g, " ")
+        .replace(/^\*|\*$/g, "")
         .trim()
       if (!temiz || temiz === "*") {
         setOneriler([])

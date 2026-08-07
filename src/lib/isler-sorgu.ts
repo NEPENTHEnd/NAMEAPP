@@ -37,10 +37,12 @@ export async function aramaOrIfadesi(
   if (!q) return null
   // Türkçe İ/i–I/ı için hem TR-büyük hem TR-küçük varyantla ara.
   // Özel karakterleri boşlukla DEĞİL '*' (joker) ile değiştir ki "1.2KW" de eşleşsin.
+  // Özel karakterler VE boşluk(lar) joker '*' olur (çok boşluklu adlar + kelime-arası ara).
   const qTemiz = q
     .replace(/[%,().:*\\&"]/g, "*")
+    .replace(/\s+/g, "*")
     .replace(/\*{2,}/g, "*")
-    .replace(/\s+/g, " ")
+    .replace(/^\*|\*$/g, "")
     .trim()
   const varyantlar = [
     ...new Set([
