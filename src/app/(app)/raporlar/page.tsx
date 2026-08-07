@@ -75,13 +75,15 @@ export default async function RaporlarSayfasi({
   }).length
 
   // Firma-ay grafiği: son 6 ayın firma × ay kırılımı (grafik bileşenine gider)
-  const [{ data: grupListe }, { data: firmaIsleri }] = await Promise.all([
+  const [{ data: grupListe }, { data: subeListe }, { data: firmaIsleri }] = await Promise.all([
     supabase.from("grup").select("id, ad").order("sira"),
+    supabase.from("sube").select("id, ad, grup_id"),
     supabase
       .from("is_kaydi")
-      .select("grup_id, gelis_tarihi, fatura_tutari")
+      .select("grup_id, sube_id, gelis_tarihi, fatura_tutari")
       .range(0, 99999),
   ])
+  const subeAdMap = new Map((subeListe ?? []).map((s) => [s.id, s.ad]))
   const AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
   const simdi = new Date()
   // Üst bardaki ay seçimi grafiği de yönetir: ay seçiliyse yalnız o ay,
@@ -124,6 +126,26 @@ export default async function RaporlarSayfasi({
     }
   })
   const grafikFirmalar = [...(grupListe ?? []).map((g) => g.ad), "DİĞER"]
+
+  // Şube kırılımı (firma × şube × ay) — balon grafiğinde firmaya tıklayınca alt şubeler
+  const subeMap = new Map<string, { adet: number; tutar: number }>()
+  for (const j of firmaIsleri ?? []) {
+    if (!j.sube_id) continue
+    const ayKey = j.gelis_tarihi?.slice(0, 7)
+    if (!ayKey || !ayPencere.some((a) => a.key === ayKey)) continue
+    const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
+    const subeAd = subeAdMap.get(j.sube_id)
+    if (!subeAd) continue
+    const anahtar = `${firmaAd}|${subeAd}|${ayKey}`
+    const v = subeMap.get(anahtar) ?? { adet: 0, tutar: 0 }
+    v.adet++
+    v.tutar += j.fatura_tutari ?? 0
+    subeMap.set(anahtar, v)
+  }
+  const grafikSubeNoktalar = [...subeMap.entries()].map(([anahtar, v]) => {
+    const [firma, sube, ayKey] = anahtar.split("|")
+    return { firma, sube, ayKey, ...v }
+  })
 
   let sorgu = supabase.from("is_kaydi").select(
     `
@@ -246,6 +268,7 @@ export default async function RaporlarSayfasi({
           noktalar={grafikNoktalar}
           firmalar={grafikFirmalar}
           aylar={ayPencere}
+          subeNoktalar={grafikSubeNoktalar}
         />
       </div>
 
