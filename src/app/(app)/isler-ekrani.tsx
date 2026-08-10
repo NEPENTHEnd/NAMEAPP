@@ -312,7 +312,7 @@ export function IslerEkrani({
 
   // ---- Satır foto önizleme: satırda ~3 sn beklenince imlecin sağ-üstünde ----
   const ONIZLEME_BOY = 200 // px (kare kutu — çok büyük değil)
-  const ONIZLEME_GECIKME = 3000 // ms — hemen değil, bu kadar durunca açılır
+  const ONIZLEME_GECIKME = 1500 // ms — hemen değil, bu kadar durunca açılır
   const [onizlemeUrl, setOnizlemeUrl] = useState<string | null>(null)
   const onizlemeRef = useRef<HTMLDivElement>(null)
   const imlecRef = useRef({ x: 0, y: 0 })
