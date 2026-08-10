@@ -1,15 +1,31 @@
-import { cn } from "@/lib/utils"
+// Müdürün Excel "2026_GENEL" takibinin canlı, RENKLİ hâli:
+// satır = firma, sütun = 12 ay, hücre = iş adedi. Excel paleti (teal-yeşil başlık
+// #356854 + ısı haritası). Temadan bağımsız açık "gömülü sayfa" görünümü.
 
-// Müdürün Excel "2026_GENEL" takibinin canlı hâli:
-// satır = firma, sütun = 12 ay, hücre = o ay o firmadaki iş adedi.
 export type MatrisSatir = {
   firma: string
   aylar: number[] // 12 eleman (Ocak..Aralık)
   toplam: number
-  ort: number // ortalama ay (geçmiş ay sayısına bölünür)
+  ort: number
 }
 
 const AY_KISA = ["OCA", "ŞUB", "MAR", "NİS", "MAY", "HAZ", "TEM", "AĞU", "EYL", "EKİ", "KAS", "ARA"]
+
+// Excel teal-yeşil ailesi
+const TEAL = "#356854" // başlık / toplam satırı
+const TEAL_KOYU = "#274d3e"
+const ZEBRA = "#f6f8f9"
+const CIZGI = "#dfe7e3"
+
+// Isı haritası: açık teal → koyu teal (Excel ailesi). Küçük değerler de görünür.
+function isi(n: number, maks: number): { bg: string; fg: string } {
+  if (n <= 0) return { bg: ZEBRA, fg: "#b6c2bd" }
+  const t = 0.16 + 0.84 * Math.sqrt(n / Math.max(1, maks))
+  const a = [225, 245, 238] // #E1F5EE
+  const b = [15, 110, 86] // #0F6E56
+  const c = a.map((av, i) => Math.round(av + (b[i] - av) * t))
+  return { bg: `rgb(${c[0]},${c[1]},${c[2]})`, fg: t > 0.52 ? "#ffffff" : "#0a3d30" }
+}
 
 export function FirmaAyMatris({
   yil,
@@ -17,7 +33,7 @@ export function FirmaAyMatris({
   aylikToplam,
   genelToplam,
   genelOrt,
-  aktifAy, // 1-12 → o sütun vurgulanır (0 = yok)
+  aktifAy, // 1-12 → o sütun işaretlenir
 }: {
   yil: number
   satirlar: MatrisSatir[]
@@ -26,91 +42,169 @@ export function FirmaAyMatris({
   genelOrt: number
   aktifAy: number
 }) {
-  const sayi = (n: number, dim = true) =>
-    n > 0 ? (
-      <span className="tabular-nums">{n}</span>
-    ) : (
-      <span className={cn("tabular-nums", dim && "text-muted-foreground/30")}>·</span>
-    )
+  const maks = Math.max(1, ...satirlar.flatMap((s) => s.aylar))
 
-  const ayBaslik = (i: number) =>
-    cn(
-      "px-2 py-1.5 text-center text-[11px] font-semibold",
-      aktifAy === i + 1 && "bg-primary/10 text-primary"
-    )
-  const ayHucre = (i: number) =>
-    cn("px-2 py-1 text-center", aktifAy === i + 1 && "bg-primary/5")
+  const thBase: React.CSSProperties = {
+    background: TEAL,
+    color: "#fff",
+    fontWeight: 600,
+    padding: "7px 5px",
+    textAlign: "center",
+    fontSize: 11,
+    letterSpacing: ".02em",
+    whiteSpace: "nowrap",
+  }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
-      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-        <div className="text-[13.5px] font-semibold">{yil} GENEL — Firma × Ay (iş adedi)</div>
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[13.5px] font-semibold" style={{ color: TEAL }}>
+          {yil} GENEL — Firma × Ay (iş adedi)
+        </div>
         <div className="text-[11px] text-muted-foreground">
-          Tüm yıl · geliş tarihine göre · Ort./ay = geçen aylara bölünür
+          Renk koyulaştıkça iş yoğun · sarı çizgi = bu ay · Ort./ay = geçen aylara bölünür
         </div>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full border-collapse text-[12px]">
+
+      {/* Gömülü "Excel sayfası": sabit açık palet, temadan bağımsız */}
+      <div className="overflow-x-auto rounded-lg" style={{ border: `1px solid ${TEAL}`, background: "#fff" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11.5, color: "#0a3d30" }}>
+          <caption className="sr-only">{yil} firma × ay iş adedi matrisi</caption>
           <thead>
-            <tr className="border-b border-border bg-muted/40">
-              <th className="sticky left-0 z-10 bg-muted/40 px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide">
-                Firma
+            <tr>
+              <th style={{ ...thBase, textAlign: "left", position: "sticky", left: 0, zIndex: 2, minWidth: 128 }}>
+                FİRMA
               </th>
               {AY_KISA.map((a, i) => (
-                <th key={a} className={ayBaslik(i)}>
+                <th
+                  key={a}
+                  style={{
+                    ...thBase,
+                    background: aktifAy === i + 1 ? TEAL_KOYU : TEAL,
+                    borderBottom: aktifAy === i + 1 ? "2px solid #f5b400" : undefined,
+                  }}
+                >
                   {a}
                 </th>
               ))}
-              <th className="px-2 py-1.5 text-center text-[11px] font-semibold uppercase">Toplam</th>
-              <th className="px-2 py-1.5 text-center text-[11px] font-semibold uppercase text-muted-foreground">
-                Ort./ay
-              </th>
+              <th style={{ ...thBase, background: TEAL_KOYU }}>TOP</th>
+              <th style={{ ...thBase, background: TEAL_KOYU }}>ORT/AY</th>
             </tr>
           </thead>
           <tbody>
-            {satirlar.map((s, r) => (
-              <tr
-                key={s.firma}
-                className={cn(
-                  "border-b border-border/60 last:border-0",
-                  r % 2 === 1 && "bg-muted/20",
-                  s.toplam === 0 && "opacity-50"
-                )}
-              >
-                <th
-                  scope="row"
-                  className={cn(
-                    "sticky left-0 z-10 max-w-[170px] truncate px-2 py-1 text-left font-medium",
-                    r % 2 === 1 ? "bg-[color-mix(in_oklab,var(--muted)_20%,var(--card))]" : "bg-card"
-                  )}
-                  title={s.firma}
-                >
-                  {s.firma}
-                </th>
-                {s.aylar.map((n, i) => (
-                  <td key={i} className={ayHucre(i)}>
-                    {sayi(n)}
+            {satirlar.map((s, r) => {
+              const zebra = r % 2 === 1 ? ZEBRA : "#fff"
+              return (
+                <tr key={s.firma} style={{ opacity: s.toplam === 0 ? 0.55 : 1 }}>
+                  <th
+                    scope="row"
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      zIndex: 1,
+                      background: zebra,
+                      color: TEAL_KOYU,
+                      fontWeight: 600,
+                      textAlign: "left",
+                      padding: "4px 8px",
+                      maxWidth: 150,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      borderRight: `2px solid ${TEAL}`,
+                      borderBottom: `1px solid ${CIZGI}`,
+                    }}
+                    title={s.firma}
+                  >
+                    {s.firma}
+                  </th>
+                  {s.aylar.map((n, i) => {
+                    const { bg, fg } = isi(n, maks)
+                    return (
+                      <td
+                        key={i}
+                        style={{
+                          background: bg,
+                          color: fg,
+                          textAlign: "center",
+                          padding: "4px 5px",
+                          fontVariantNumeric: "tabular-nums",
+                          fontWeight: n > 0 ? 600 : 400,
+                          borderBottom: `1px solid ${CIZGI}`,
+                          boxShadow: aktifAy === i + 1 ? "inset 2px 0 0 rgba(245,180,0,.6), inset -2px 0 0 rgba(245,180,0,.6)" : undefined,
+                        }}
+                      >
+                        {n > 0 ? n : "·"}
+                      </td>
+                    )
+                  })}
+                  <td
+                    style={{
+                      textAlign: "center",
+                      padding: "4px 6px",
+                      fontWeight: 700,
+                      background: "#e7f2ec",
+                      color: TEAL_KOYU,
+                      fontVariantNumeric: "tabular-nums",
+                      borderBottom: `1px solid ${CIZGI}`,
+                      borderLeft: `2px solid ${TEAL}`,
+                    }}
+                  >
+                    {s.toplam || "—"}
                   </td>
-                ))}
-                <td className="px-2 py-1 text-center font-semibold tabular-nums">{s.toplam || "—"}</td>
-                <td className="px-2 py-1 text-center tabular-nums text-muted-foreground">
-                  {s.ort > 0 ? s.ort.toFixed(1) : "—"}
-                </td>
-              </tr>
-            ))}
+                  <td
+                    style={{
+                      textAlign: "center",
+                      padding: "4px 6px",
+                      background: zebra,
+                      color: "#5f7169",
+                      fontVariantNumeric: "tabular-nums",
+                      borderBottom: `1px solid ${CIZGI}`,
+                    }}
+                  >
+                    {s.ort > 0 ? s.ort.toFixed(1) : "—"}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-border bg-muted/50 font-semibold">
-              <th className="sticky left-0 z-10 bg-muted/50 px-2 py-1.5 text-left uppercase">
-                Genel Toplam
+            <tr>
+              <th
+                scope="row"
+                style={{
+                  position: "sticky",
+                  left: 0,
+                  zIndex: 1,
+                  background: TEAL,
+                  color: "#fff",
+                  fontWeight: 700,
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                GENEL TOPLAM
               </th>
               {aylikToplam.map((n, i) => (
-                <td key={i} className={cn("px-2 py-1.5 text-center tabular-nums", aktifAy === i + 1 && "bg-primary/10 text-primary")}>
+                <td
+                  key={i}
+                  style={{
+                    background: aktifAy === i + 1 ? TEAL_KOYU : TEAL,
+                    color: "#fff",
+                    fontWeight: 700,
+                    textAlign: "center",
+                    padding: "6px 5px",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
                   {n || "·"}
                 </td>
               ))}
-              <td className="px-2 py-1.5 text-center tabular-nums text-primary">{genelToplam}</td>
-              <td className="px-2 py-1.5 text-center tabular-nums text-muted-foreground">
+              <td style={{ background: TEAL_KOYU, color: "#fff", fontWeight: 700, textAlign: "center", padding: "6px 6px", fontVariantNumeric: "tabular-nums" }}>
+                {genelToplam}
+              </td>
+              <td style={{ background: TEAL_KOYU, color: "#d7ede4", fontWeight: 700, textAlign: "center", padding: "6px 6px", fontVariantNumeric: "tabular-nums" }}>
                 {genelOrt > 0 ? genelOrt.toFixed(1) : "—"}
               </td>
             </tr>
