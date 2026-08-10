@@ -148,17 +148,28 @@ export default async function RaporlarSayfasi({
   const matrisMap = new Map<string, number[]>(
     matrisSatirSira.map((ad) => [ad, new Array(12).fill(0)])
   )
+  const matris2025 = new Map<string, number>(matrisSatirSira.map((ad) => [ad, 0]))
   for (const j of firmaIsleri ?? []) {
-    if (!j.gelis_tarihi || j.gelis_tarihi.slice(0, 4) !== String(matrisYil)) continue
+    if (!j.gelis_tarihi) continue
+    const yilStr = j.gelis_tarihi.slice(0, 4)
     const ay = Number(j.gelis_tarihi.slice(5, 7)) - 1
     if (ay < 0 || ay > 11) continue
     const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
-    ;(matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
+    if (yilStr === String(matrisYil)) {
+      ;(matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
+    } else if (yilStr === String(matrisYil - 1)) {
+      const k = matris2025.has(firmaAd) ? firmaAd : "DİĞER"
+      matris2025.set(k, (matris2025.get(k) ?? 0) + 1)
+    }
   }
   const matrisSatirlar = matrisSatirSira.map((firma) => {
     const aylar = matrisMap.get(firma)!
     const toplam = aylar.reduce((t, n) => t + n, 0)
-    return { firma, aylar, toplam, ort: gecenAy > 0 ? toplam / gecenAy : 0 }
+    const ort = gecenAy > 0 ? toplam / gecenAy : 0
+    const ort2025 = (matris2025.get(firma) ?? 0) / 12 // geçen yıl aylık ort (kısmi veri)
+    // % değişim: 2025 tabanı yoksa null → "yeni"
+    const degisim = ort2025 > 0 ? ((ort - ort2025) / ort2025) * 100 : null
+    return { firma, aylar, toplam, ort, ort2025, degisim }
   })
   const matrisAylikToplam = Array.from({ length: 12 }, (_, i) =>
     matrisSatirlar.reduce((t, s) => t + s.aylar[i], 0)
