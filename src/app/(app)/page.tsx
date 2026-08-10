@@ -8,6 +8,7 @@ import { sonAylar, ayAraligi } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { IslerFiltreler } from "./isler-filtreler"
 import { IslerEkrani } from "./isler-ekrani"
+import { ExcelIndirModal } from "@/components/excel-indir-modal"
 
 const SAYFA_BOYUTU = 50
 
@@ -419,6 +420,16 @@ export default async function IslerSayfasi({
   // Üst şerit: Bakılmadı + hızlı fatura-durumu butonları (tıkla=filtrele, tekrar tıkla=kaldır)
   const hizliButonlar = (
     <div className="flex flex-wrap items-center gap-1.5">
+      <ExcelIndirModal
+        gruplar={gruplar}
+        durumlar={durumlarRes.data ?? []}
+        faturaDurumlari={faturaDurumlari}
+        aylar={sonAylar(12)}
+        defGrup={grupParam}
+        defAy={ay}
+        defDurum={durum}
+        defFatura={fatura}
+      />
       <Link
         href={linkUret({ bakilmadi: bakilmadiFiltre ? "" : "1", sayfa: 1 })}
         className={
