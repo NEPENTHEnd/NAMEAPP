@@ -6,6 +6,7 @@ import { sonAylar, ayAraligi } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
 import { FirmaGrafik } from "@/components/firma-grafik"
+import { FirmaAyMatris } from "@/components/firma-ay-matris"
 import {
   Table,
   TableBody,
@@ -139,6 +140,32 @@ export default async function RaporlarSayfasi({
     return { musteri, ayKey, ...v }
   })
 
+  // ---- Müdür Excel'i "2026_GENEL": Firma × Ay iş adedi matrisi (canlı) ----
+  // Satır = firma (DİĞER + firmalar, sıra sırasına göre), sütun = 12 ay, hücre = iş adedi.
+  const matrisYil = new Date().getFullYear()
+  const gecenAy = new Date().getMonth() + 1 // matris bu yıl → ort./ay geçen aylara bölünür
+  const matrisSatirSira = ["DİĞER", ...(grupListe ?? []).map((g) => g.ad)]
+  const matrisMap = new Map<string, number[]>(
+    matrisSatirSira.map((ad) => [ad, new Array(12).fill(0)])
+  )
+  for (const j of firmaIsleri ?? []) {
+    if (!j.gelis_tarihi || j.gelis_tarihi.slice(0, 4) !== String(matrisYil)) continue
+    const ay = Number(j.gelis_tarihi.slice(5, 7)) - 1
+    if (ay < 0 || ay > 11) continue
+    const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
+    ;(matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
+  }
+  const matrisSatirlar = matrisSatirSira.map((firma) => {
+    const aylar = matrisMap.get(firma)!
+    const toplam = aylar.reduce((t, n) => t + n, 0)
+    return { firma, aylar, toplam, ort: gecenAy > 0 ? toplam / gecenAy : 0 }
+  })
+  const matrisAylikToplam = Array.from({ length: 12 }, (_, i) =>
+    matrisSatirlar.reduce((t, s) => t + s.aylar[i], 0)
+  )
+  const matrisGenelToplam = matrisAylikToplam.reduce((t, n) => t + n, 0)
+  const matrisGenelOrt = gecenAy > 0 ? matrisGenelToplam / gecenAy : 0
+
   let sorgu = supabase.from("is_kaydi").select(
     `
       id, cihaz_adi, seri_no, servis_no, gelis_tarihi, cikis_tarihi,
@@ -248,6 +275,16 @@ export default async function RaporlarSayfasi({
       <div className="xl:hidden">
         <AySecici aylar={sonAylar()} basePath="/raporlar" />
       </div>
+
+      {/* Müdür Excel takibinin canlı hâli: Firma × Ay iş adedi matrisi */}
+      <FirmaAyMatris
+        yil={matrisYil}
+        satirlar={matrisSatirlar}
+        aylikToplam={matrisAylikToplam}
+        genelToplam={matrisGenelToplam}
+        genelOrt={matrisGenelOrt}
+        aktifAy={gecenAy}
+      />
 
       {/* Firma grafiği: aylık/balon/pasta/firmalar + adet/kazanç (dönem bileşen içinden) */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
