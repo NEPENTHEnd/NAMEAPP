@@ -27,7 +27,7 @@ const KIRMIZI = "#dc2626"
 const tamTutar = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 })
 const kisaSayi = new Intl.NumberFormat("tr-TR", { notation: "compact", maximumFractionDigits: 1 })
 
-type Tip = "aylik" | "balon" | "pasta" | "firmalar"
+type Tip = "aylik" | "yillik" | "balon" | "pasta" | "firmalar"
 type Metrik = "adet" | "tutar"
 type Pencere = "son1" | "tum"
 type Drill = { tur: "kok" } | { tur: "diger" } | { tur: "grupsuz" } | { tur: "firma"; firma: string }
@@ -161,6 +161,28 @@ export function FirmaGrafik({
       ...(digerVar ? [{ ad: "Diğer", renk: DIGER_RENK }] : []),
     ]
     return { kolonlar, maxToplam, legend }
+  }, [noktalar, aylar, metrik])
+
+  // Yıllık: FİRMA satır, AYLAR renkli yığın (müdür Excel'inin alttaki grafiği).
+  // Her firma bir çubuk; içindeki renkli dilimler o firmanın aylık dağılımı.
+  const yillikFirma = useMemo(() => {
+    const ol = (n: GrafikNokta) => (metrik === "adet" ? n.adet : n.tutar)
+    const ayIdx = new Map(aylar.map((a, i) => [a.key, i]))
+    const m = new Map<string, number[]>()
+    for (const n of noktalar) {
+      const i = ayIdx.get(n.ayKey)
+      if (i == null) continue
+      const arr = m.get(n.firma) ?? new Array(aylar.length).fill(0)
+      arr[i] += ol(n)
+      m.set(n.firma, arr)
+    }
+    const list = [...m.entries()]
+      .map(([firma, dizi]) => ({ firma, dizi, toplam: dizi.reduce((a, b) => a + b, 0) }))
+      .filter((x) => x.toplam > 0)
+      .sort((a, b) => b.toplam - a.toplam)
+    const maxTot = Math.max(1, ...list.map((x) => x.toplam))
+    const ayRenk = aylar.map((_, i) => PALET[i % PALET.length])
+    return { list, maxTot, ayRenk }
   }, [noktalar, aylar, metrik])
 
   // Firma toplamları (adet + tutar + şubesi var mı)
@@ -348,17 +370,18 @@ export function FirmaGrafik({
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap items-center gap-1">
           <button type="button" onClick={() => setTip("aylik")} className={secBtn(tip === "aylik")}>Aylık</button>
+          <button type="button" onClick={() => setTip("yillik")} className={secBtn(tip === "yillik")}>Yıllık</button>
           <button type="button" onClick={() => setTip("balon")} className={secBtn(tip === "balon")}>Balon</button>
           <button type="button" onClick={() => setTip("pasta")} className={secBtn(tip === "pasta")}>Pasta</button>
           <button type="button" onClick={() => setTip("firmalar")} className={secBtn(tip === "firmalar")}>Firmalar</button>
         </div>
-        {(tip === "pasta" || tip === "aylik") && (
+        {(tip === "pasta" || tip === "aylik" || tip === "yillik") && (
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setMetrik("adet")} className={secBtn(metrik === "adet")}>İş adedi</button>
             <button type="button" onClick={() => setMetrik("tutar")} className={secBtn(metrik === "tutar")}>Kazanç ₺</button>
           </div>
         )}
-        {tip !== "aylik" && (
+        {tip !== "aylik" && tip !== "yillik" && (
           <div className="ml-auto flex items-center gap-1">
             <button type="button" onClick={() => setPencere("son1")} className={secBtn(pencere === "son1")}>Bu ay</button>
             <button type="button" onClick={() => setPencere("tum")} className={secBtn(pencere === "tum")}>Tüm aylar</button>
@@ -445,6 +468,49 @@ export function FirmaGrafik({
             </div>
           )
         })()
+      ) : tip === "yillik" ? (
+        /* Yıllık: FİRMA çubukları, içleri AYLARA göre renkli (müdür Excel'inin alt grafiği) */
+        <div className="grid gap-2.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {aylar.map((a, i) => (
+              <span key={a.key} className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-[3px]" style={{ background: yillikFirma.ayRenk[i] }} />
+                {a.ad}
+              </span>
+            ))}
+          </div>
+          {yillikFirma.list.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">Bu yıl veri yok.</p>
+          )}
+          {yillikFirma.list.map((f) => (
+            <div
+              key={f.firma}
+              className="flex items-center gap-2.5 text-[12.5px]"
+              title={`${f.firma}: ${metrik === "adet" ? `${f.toplam} iş` : tamTutar.format(f.toplam)}`}
+            >
+              <span className="w-36 shrink-0 truncate text-right font-medium">{f.firma}</span>
+              <div className="h-5 flex-1 overflow-hidden rounded-md bg-muted/40">
+                <div className="flex h-full" style={{ width: `${Math.max(2, (f.toplam / yillikFirma.maxTot) * 100)}%` }}>
+                  {f.dizi.map((n, i) =>
+                    n > 0 ? (
+                      <div
+                        key={i}
+                        style={{ width: `${(n / f.toplam) * 100}%`, background: yillikFirma.ayRenk[i] }}
+                        title={`${aylar[i].ad}: ${metrik === "adet" ? `${n} iş` : tamTutar.format(n)}`}
+                      />
+                    ) : null
+                  )}
+                </div>
+              </div>
+              <span className="w-14 shrink-0 text-right font-semibold tabular-nums">
+                {metrik === "adet" ? f.toplam : kisaSayi.format(f.toplam)}
+              </span>
+            </div>
+          ))}
+          <p className="text-[10.5px] text-muted-foreground">
+            Her çubuk bir firma; renkli dilimler aylar (tüm yıl). Ölçü: {metrik === "adet" ? "iş adedi" : "kazanç ₺"}.
+          </p>
+        </div>
       ) : tip === "pasta" ? (
         <div className="flex flex-wrap items-center gap-6">
           <div className="relative shrink-0">
