@@ -681,22 +681,6 @@ export function IslerEkrani({
                 key={k.id}
                 data-selected={k.id === seciliId}
                 onDoubleClick={() => git({ secili: k.id })}
-                // Satırda ~3 sn beklenince ilk fotoğrafı imlecin sağ-üstünde göster
-                onMouseEnter={(e) => {
-                  if (surukle || !k.ilk_foto_url) return
-                  imlecRef.current = { x: e.clientX, y: e.clientY }
-                  const url = k.ilk_foto_url
-                  gecikmeIptal()
-                  beklemeRef.current = window.setTimeout(() => setOnizlemeUrl(url), ONIZLEME_GECIKME)
-                }}
-                // Bekleme sırasında imleci izle → önizleme güncel konumda açılsın
-                onMouseMove={(e) => {
-                  if (beklemeRef.current != null || onizlemeUrl) imlecRef.current = { x: e.clientX, y: e.clientY }
-                }}
-                onMouseLeave={() => {
-                  gecikmeIptal()
-                  setOnizlemeUrl(null)
-                }}
                 // Ctrl (Mac'te ⌘) + tıkla → satırı seç. Capture: hücre düzenleyiciler
                 // kendi onClick'lerinde durdurduğu için onlardan ÖNCE yakalanmalı.
                 onClickCapture={(e) => {
@@ -796,7 +780,24 @@ export function IslerEkrani({
                     })()}
                   </TableCell>
                 )}
-                <TableCell className="min-w-[130px] max-w-[210px]">
+                <TableCell
+                  className="min-w-[130px] max-w-[210px]"
+                  // Önizleme YALNIZ Cihaz hücresinde ~3 sn beklenince açılır
+                  onMouseEnter={(e) => {
+                    if (surukle || !k.ilk_foto_url) return
+                    imlecRef.current = { x: e.clientX, y: e.clientY }
+                    const url = k.ilk_foto_url
+                    gecikmeIptal()
+                    beklemeRef.current = window.setTimeout(() => setOnizlemeUrl(url), ONIZLEME_GECIKME)
+                  }}
+                  onMouseMove={(e) => {
+                    if (beklemeRef.current != null || onizlemeUrl) imlecRef.current = { x: e.clientX, y: e.clientY }
+                  }}
+                  onMouseLeave={() => {
+                    gecikmeIptal()
+                    setOnizlemeUrl(null)
+                  }}
+                >
                   <HucreDuzenle isId={k.id} alan="cihaz_adi" deger={k.cihaz_adi} className="truncate" />
                   <HucreDuzenle isId={k.id} alan="seri_no" deger={k.seri_no} bosEtiket="SN ekle" className="truncate text-xs text-muted-foreground" />
                 </TableCell>
