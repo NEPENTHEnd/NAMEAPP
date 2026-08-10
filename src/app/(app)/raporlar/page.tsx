@@ -63,17 +63,17 @@ export default async function RaporlarSayfasi({
   const AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
   const simdi = new Date()
   // Üst bardaki ay seçimi grafiği de yönetir: ay seçiliyse yalnız o ay,
-  // "Tümü"deyse son 6 aylık pencere gösterilir.
+  // "Tümü"deyse bu YILIN başından bu aya kadar tüm aylar (müdür Excel'i gibi).
   const ayPencere: { key: string; ad: string }[] = []
   if (ayAralik) {
     const key = ayAralik.baslangic.slice(0, 7)
     ayPencere.push({ key, ad: AY_KISA[Number(key.split("-")[1]) - 1] })
   } else {
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(simdi.getFullYear(), simdi.getMonth() - i, 1)
+    const yil = simdi.getFullYear()
+    for (let m = 0; m <= simdi.getMonth(); m++) {
       ayPencere.push({
-        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-        ad: AY_KISA[d.getMonth()],
+        key: `${yil}-${String(m + 1).padStart(2, "0")}`,
+        ad: AY_KISA[m],
       })
     }
   }
