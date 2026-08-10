@@ -52,6 +52,7 @@ export type Kayit = {
   grup_id: string | null
   sube_id: string | null
   olusturan_ad: string | null
+  ilk_foto_url: string | null // satır üzerine gelince gösterilen küçük önizleme
 }
 
 export type SeciliBilgi = {
@@ -308,6 +309,39 @@ export function IslerEkrani({
   const [hedef, setHedef] = useState<string | null>(null) // "diger" | grup id | "sube:<id>"
   const [pending, startTransition] = useTransition()
   const ogeRef = useRef<Map<string, HTMLElement>>(new Map())
+
+  // ---- Satır foto önizleme: mouse ile satır üzerine gelince imlecin sağ-üstünde ----
+  const ONIZLEME_BOY = 200 // px (kare kutu — çok büyük değil)
+  const [onizlemeUrl, setOnizlemeUrl] = useState<string | null>(null)
+  const onizlemeRef = useRef<HTMLDivElement>(null)
+  const imlecRef = useRef({ x: 0, y: 0 })
+  // Kutu imlecin sağ-üstünde; ekran kenarına taşarsa içe alınır
+  const konumHesapla = useCallback((x: number, y: number) => {
+    const bosluk = 16
+    let sol = x + bosluk
+    let ust = y - ONIZLEME_BOY - bosluk
+    if (typeof window !== "undefined" && sol + ONIZLEME_BOY > window.innerWidth - 8)
+      sol = x - ONIZLEME_BOY - bosluk
+    if (ust < 8) ust = y + bosluk // yukarı sığmazsa imlecin altına
+    return { sol, ust }
+  }, [])
+  const onizlemeKonumla = useCallback(() => {
+    const el = onizlemeRef.current
+    if (!el) return
+    const { sol, ust } = konumHesapla(imlecRef.current.x, imlecRef.current.y)
+    el.style.left = `${sol}px`
+    el.style.top = `${ust}px`
+  }, [konumHesapla])
+  useEffect(() => {
+    if (!onizlemeUrl) return
+    onizlemeKonumla() // ilk konum
+    function move(e: MouseEvent) {
+      imlecRef.current = { x: e.clientX, y: e.clientY }
+      onizlemeKonumla()
+    }
+    window.addEventListener("mousemove", move)
+    return () => window.removeEventListener("mousemove", move)
+  }, [onizlemeUrl, onizlemeKonumla])
 
   // "Diğer" + gruplar sürükleme hedefleri
   const hedefler: { anahtar: string; ad: string }[] = [
@@ -637,6 +671,13 @@ export function IslerEkrani({
                 key={k.id}
                 data-selected={k.id === seciliId}
                 onDoubleClick={() => git({ secili: k.id })}
+                // Mouse ile satır üzerine gelince ilk fotoğrafı imlecin sağ-üstünde göster
+                onMouseEnter={(e) => {
+                  if (surukle || !k.ilk_foto_url) return
+                  imlecRef.current = { x: e.clientX, y: e.clientY }
+                  setOnizlemeUrl(k.ilk_foto_url)
+                }}
+                onMouseLeave={() => setOnizlemeUrl(null)}
                 // Ctrl (Mac'te ⌘) + tıkla → satırı seç. Capture: hücre düzenleyiciler
                 // kendi onClick'lerinde durdurduğu için onlardan ÖNCE yakalanmalı.
                 onClickCapture={(e) => {
@@ -1008,6 +1049,28 @@ export function IslerEkrani({
           </div>
         </aside>
       )}
+
+      {/* Satır foto önizlemesi — mouse imlecinin sağ-üstünde küçük görsel */}
+      {onizlemeUrl &&
+        (() => {
+          const { sol, ust } = konumHesapla(imlecRef.current.x, imlecRef.current.y)
+          return (
+            <div
+              ref={onizlemeRef}
+              className="pointer-events-none fixed z-[60] overflow-hidden rounded-lg border-2 border-primary/50 bg-card shadow-2xl"
+              style={{ left: sol, top: ust, width: ONIZLEME_BOY, height: ONIZLEME_BOY }}
+            >
+              <Image
+                src={onizlemeUrl}
+                alt="Önizleme"
+                fill
+                sizes="200px"
+                quality={60}
+                className="object-cover"
+              />
+            </div>
+          )
+        })()}
 
       {/* Sürükleme sırasında imleci takip eden etiket */}
       {surukle && (

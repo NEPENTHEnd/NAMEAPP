@@ -261,9 +261,40 @@ export default async function IslerSayfasi({
   const profilAd = new Map(
     (profillerRes.data ?? []).map((p) => [p.id, p.ad ?? "—"])
   )
+  // Her görünen satır için İLK fotoğraf (mouse ile üzerine gelince önizleme) —
+  // tek sorgu + tek toplu imzalı URL çağrısı (özel bucket, 1 saat geçerli).
+  const satirIdler = (data ?? []).map((k) => k.id)
+  const ilkFotoMap = new Map<string, string>()
+  if (satirIdler.length > 0) {
+    const { data: fotolarR } = await supabase
+      .from("foto")
+      .select("is_kaydi_id, dosya_yolu, sira")
+      .in("is_kaydi_id", satirIdler)
+      .order("sira", { ascending: true })
+    const ilkYol = new Map<string, string>() // is_id → ilk (en küçük sıra) dosya yolu
+    for (const f of fotolarR ?? []) {
+      if (!ilkYol.has(f.is_kaydi_id)) ilkYol.set(f.is_kaydi_id, f.dosya_yolu)
+    }
+    if (ilkYol.size > 0) {
+      const yollar = [...ilkYol.values()]
+      const { data: imzali } = await supabase.storage
+        .from("foto")
+        .createSignedUrls(yollar, 60 * 60)
+      const yolUrl = new Map<string, string>()
+      yollar.forEach((y, i) => {
+        const u = imzali?.[i]?.signedUrl
+        if (u) yolUrl.set(y, u)
+      })
+      for (const [isId, yol] of ilkYol) {
+        const u = yolUrl.get(yol)
+        if (u) ilkFotoMap.set(isId, u)
+      }
+    }
+  }
   const kayitlar = (data ?? []).map((k) => ({
     ...k,
     olusturan_ad: k.olusturan_id ? profilAd.get(k.olusturan_id) ?? null : null,
+    ilk_foto_url: ilkFotoMap.get(k.id) ?? null,
   }))
 
   // Seçili işin fotoğrafları (yan önizleme paneli için)
