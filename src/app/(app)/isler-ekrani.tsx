@@ -310,11 +310,21 @@ export function IslerEkrani({
   const [pending, startTransition] = useTransition()
   const ogeRef = useRef<Map<string, HTMLElement>>(new Map())
 
-  // ---- Satır foto önizleme: mouse ile satır üzerine gelince imlecin sağ-üstünde ----
+  // ---- Satır foto önizleme: satırda ~3 sn beklenince imlecin sağ-üstünde ----
   const ONIZLEME_BOY = 200 // px (kare kutu — çok büyük değil)
+  const ONIZLEME_GECIKME = 3000 // ms — hemen değil, bu kadar durunca açılır
   const [onizlemeUrl, setOnizlemeUrl] = useState<string | null>(null)
   const onizlemeRef = useRef<HTMLDivElement>(null)
   const imlecRef = useRef({ x: 0, y: 0 })
+  const beklemeRef = useRef<number | null>(null) // gecikme zamanlayıcısı
+  const gecikmeIptal = useCallback(() => {
+    if (beklemeRef.current != null) {
+      window.clearTimeout(beklemeRef.current)
+      beklemeRef.current = null
+    }
+  }, [])
+  // Bileşen kalkarsa bekleyen zamanlayıcı sızmasın
+  useEffect(() => gecikmeIptal, [gecikmeIptal])
   // Kutu imlecin sağ-üstünde; ekran kenarına taşarsa içe alınır
   const konumHesapla = useCallback((x: number, y: number) => {
     const bosluk = 16
@@ -671,13 +681,22 @@ export function IslerEkrani({
                 key={k.id}
                 data-selected={k.id === seciliId}
                 onDoubleClick={() => git({ secili: k.id })}
-                // Mouse ile satır üzerine gelince ilk fotoğrafı imlecin sağ-üstünde göster
+                // Satırda ~3 sn beklenince ilk fotoğrafı imlecin sağ-üstünde göster
                 onMouseEnter={(e) => {
                   if (surukle || !k.ilk_foto_url) return
                   imlecRef.current = { x: e.clientX, y: e.clientY }
-                  setOnizlemeUrl(k.ilk_foto_url)
+                  const url = k.ilk_foto_url
+                  gecikmeIptal()
+                  beklemeRef.current = window.setTimeout(() => setOnizlemeUrl(url), ONIZLEME_GECIKME)
                 }}
-                onMouseLeave={() => setOnizlemeUrl(null)}
+                // Bekleme sırasında imleci izle → önizleme güncel konumda açılsın
+                onMouseMove={(e) => {
+                  if (beklemeRef.current != null || onizlemeUrl) imlecRef.current = { x: e.clientX, y: e.clientY }
+                }}
+                onMouseLeave={() => {
+                  gecikmeIptal()
+                  setOnizlemeUrl(null)
+                }}
                 // Ctrl (Mac'te ⌘) + tıkla → satırı seç. Capture: hücre düzenleyiciler
                 // kendi onClick'lerinde durdurduğu için onlardan ÖNCE yakalanmalı.
                 onClickCapture={(e) => {
