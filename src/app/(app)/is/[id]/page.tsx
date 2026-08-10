@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/server"
@@ -11,6 +10,7 @@ import { SilButonu } from "@/components/sil-butonu"
 import { FotoBolumu, type FotoOgesi } from "@/components/foto-bolumu"
 import { DurumRozeti } from "@/components/rozet"
 import { TakipKodu } from "@/components/takip-kodu"
+import { GeriButonu } from "@/components/geri-butonu"
 
 function tarihSaatTR(s: string | null): string {
   if (!s) return "—"
@@ -91,9 +91,7 @@ export default async function IsDetaySayfasi({
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-5">
       <div>
-        <Link href="/" className="text-sm text-muted-foreground hover:underline">
-          ← İşler
-        </Link>
+        <GeriButonu className="text-sm text-muted-foreground hover:underline" />
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold">
