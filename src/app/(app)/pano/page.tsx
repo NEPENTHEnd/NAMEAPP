@@ -186,6 +186,43 @@ export default async function PanoSayfasi({
     .sort((a, b) => b.adet - a.adet)
   const personelMaks = Math.max(1, ...personelAdet.map((p) => p.adet))
 
+  // Teknik personel — TÜM ZAMANLAR onarım & fatura performansı
+  // Onarıldı = ONARILDI · Çalışmadı = ÇALIŞMADI + GERİ GELEN · fatura% = tüm işlerinin oranı
+  const onarildiId = durumlar.find((d) => d.ad === "ONARILDI")?.id
+  const calismadiIdSet = new Set(
+    durumlar.filter((d) => d.ad === "ÇALIŞMADI" || d.ad === "GERİ GELEN").map((d) => d.id)
+  )
+  const faturaEdildiId = faturalar.find(
+    (f) => (f.ad ?? "").toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ"
+  )?.id
+  const teknikPerf = personeller
+    .map((p) => {
+      const kendi = isler.filter((j) => j.teknik_personel_id === p.id)
+      const toplam = kendi.length
+      const onarildi = kendi.filter((j) => j.durum_id === onarildiId).length
+      const calismadi = kendi.filter((j) => calismadiIdSet.has(j.durum_id)).length
+      const faturaAdet = faturaEdildiId
+        ? kendi.filter((j) => j.fatura_durumu_id === faturaEdildiId).length
+        : 0
+      const pieTop = onarildi + calismadi
+      const onarPay = pieTop > 0 ? (onarildi / pieTop) * 360 : 0
+      return {
+        ad: p.ad,
+        toplam,
+        onarildi,
+        calismadi,
+        faturaAdet,
+        faturaYuzde: toplam > 0 ? Math.round((faturaAdet / toplam) * 100) : 0,
+        basari: pieTop > 0 ? Math.round((onarildi / pieTop) * 100) : 0,
+        pasta:
+          pieTop > 0
+            ? `conic-gradient(#10b981 0deg ${onarPay}deg, #ef4444 ${onarPay}deg 360deg)`
+            : null,
+      }
+    })
+    .filter((t) => t.toplam > 0)
+    .sort((a, b) => b.toplam - a.toplam)
+
   // Aylık trend (son 3 ay)
   const ayMap = new Map<string, { gelen: number; cikan: number }>()
   const getAy = (k: string) => ayMap.get(k) ?? { gelen: 0, cikan: 0 }
@@ -305,6 +342,61 @@ export default async function PanoSayfasi({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Teknik personel — onarım & fatura performansı (tüm zamanlar) */}
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
+        <div className="mb-1 text-[13.5px] font-semibold">
+          Teknik personel — onarım & fatura (tüm zamanlar)
+        </div>
+        <p className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: "#10b981" }} /> Onarıldı</span>
+          <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: "#ef4444" }} /> Çalışmadı (çalışmadı + geri gelen)</span>
+          <span className="opacity-80">· ortadaki % = onarım başarısı · alttaki bar = eline geçen işin % kaçı fatura edildi</span>
+        </p>
+        {teknikPerf.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Henüz atanmış iş yok.</p>
+        ) : (
+          <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            {teknikPerf.map((t) => (
+              <div key={t.ad} className="rounded-xl border border-border/70 p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <div
+                      className="size-14 rounded-full shadow-[inset_0_0_0_1px_rgba(148,163,184,.3)]"
+                      style={{ background: t.pasta ?? "var(--muted)" }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="flex size-8 items-center justify-center rounded-full bg-card text-[11px] font-semibold">
+                        {t.onarildi + t.calismadi > 0 ? `%${t.basari}` : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px] font-semibold">{t.ad}</div>
+                    <div className="text-[11px] text-muted-foreground">{t.toplam} iş atandı</div>
+                    <div className="mt-0.5 flex gap-2.5 text-[11.5px] font-medium">
+                      <span className="text-emerald-600 dark:text-emerald-400">✓ {t.onarildi}</span>
+                      <span className="text-rose-600 dark:text-rose-400">✗ {t.calismadi}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="mb-1 flex items-baseline justify-between text-[11px]">
+                    <span className="text-muted-foreground">Fatura edilen</span>
+                    <span className="font-semibold">
+                      %{t.faturaYuzde}{" "}
+                      <span className="font-normal text-muted-foreground">({t.faturaAdet}/{t.toplam})</span>
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-violet-500" style={{ width: `${t.faturaYuzde}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Grafikler */}
