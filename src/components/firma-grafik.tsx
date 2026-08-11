@@ -43,8 +43,8 @@ function balonYerlesim(items: BalonHam[]): { bubbles: Balon[]; vb: string } {
   if (!items.length) return { bubbles: [], vb: "0 0 200 160" }
   const sirali = [...items].sort((a, b) => b.adet - a.adet)
   const maks = Math.max(1, ...sirali.map((i) => i.adet))
-  const rMin = 24
-  const rMax = 94
+  const rMin = 32
+  const rMax = 98
   const b: Balon[] = sirali.map((it) => ({ ...it, r: rMin + (rMax - rMin) * Math.sqrt(it.adet / maks), x: 0, y: 0 }))
   const altin = Math.PI * (3 - Math.sqrt(5))
   b.forEach((bb, i) => {
@@ -599,10 +599,11 @@ export function FirmaGrafik({
                 const acilir = bb.diger || bb.altVar || bb.grupsuz
                 const suruklenen = surukle?.ad === bb.ad
                 const buyuk = bb.r >= 40
-                const orta = bb.r >= 26
-                const anaBoyut = Math.max(10, Math.min(18, bb.r * 0.34))
-                const altBoyut = Math.max(8, Math.min(12, bb.r * 0.22))
-                const adBoyut = Math.max(8, Math.min(11, bb.r * 0.2))
+                const orta = bb.r >= 20
+                const anaBoyut = Math.max(9, Math.min(18, bb.r * 0.32))
+                const altBoyut = Math.max(7, Math.min(12, bb.r * 0.2))
+                const adBoyut = Math.max(7, Math.min(11, bb.r * 0.19))
+                const adUzun = Math.max(6, Math.floor(bb.r / 5)) // sığacak isim uzunluğu
                 return (
                   <g key={bb.ad} transform={`translate(${bb.x} ${bb.y})`}>
                     <g
@@ -627,22 +628,19 @@ export function FirmaGrafik({
                             </>
                           ) : (
                             <>
-                              {buyuk && (
-                                <text textAnchor="middle" y={-bb.r * 0.32} fontSize={adBoyut} fontWeight="600" fill="#fff" opacity="0.92">
-                                  {bb.ad.length > 15 ? bb.ad.slice(0, 14) + "…" : bb.ad}
-                                </text>
-                              )}
-                              <text textAnchor="middle" y={buyuk ? 0 : -1} fontSize={anaBoyut} fontWeight="800" fill="#fff">{bb.adet} iş</text>
+                              {/* İSİM — her balonda (küçükte kısaltılır) */}
+                              <text textAnchor="middle" y={-bb.r * 0.34} fontSize={adBoyut} fontWeight="600" fill="#fff" opacity="0.95">
+                                {bb.ad.length > adUzun ? bb.ad.slice(0, adUzun - 1) + "…" : bb.ad}
+                              </text>
+                              <text textAnchor="middle" y={-bb.r * 0.02} fontSize={anaBoyut} fontWeight="800" fill="#fff">{bb.adet} iş</text>
                               {buyuk && bb.tutar > 0 && (
-                                <text textAnchor="middle" y={bb.r * 0.3} fontSize={altBoyut} fill="#fff" opacity="0.9">{kisaSayi.format(bb.tutar)} ₺</text>
+                                <text textAnchor="middle" y={bb.r * 0.28} fontSize={altBoyut} fill="#fff" opacity="0.9">{kisaSayi.format(bb.tutar)} ₺</text>
                               )}
-                              {(bb.altVar || bb.grupsuz) && (
-                                <text textAnchor="middle" y={buyuk ? bb.r * 0.54 : anaBoyut * 0.7 + 4} fontSize={altBoyut} fill="#fff" opacity="0.85">
-                                  ▸ {bb.grupsuz ? "müşteriler" : "şubeler"}
+                              {/* İpucu — şubeli/DİĞER içine açılır; yaprak → işlere gider */}
+                              {(bb.grupsuz || bb.altVar || bb.hedef) && (
+                                <text textAnchor="middle" y={bb.r * 0.52} fontSize={altBoyut} fill="#fff" opacity="0.85">
+                                  ▸ {bb.grupsuz ? "müşteriler" : bb.altVar ? "şubeler" : "işler"}
                                 </text>
-                              )}
-                              {bb.hedef && buyuk && (
-                                <text textAnchor="middle" y={bb.r * 0.54} fontSize={altBoyut} fill="#fff" opacity="0.85">▸ işler</text>
                               )}
                             </>
                           )}

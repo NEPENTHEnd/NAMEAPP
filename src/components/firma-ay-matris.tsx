@@ -84,6 +84,9 @@ export function FirmaAyMatris({
   const ortBic = (v: number) => (v > 0 ? (para ? kisaTutar.format(v) : v.toFixed(1)) : "—")
 
   const maks = Math.max(1, ...satirlar.flatMap((s) => satirAylar(s)))
+  // Yalnız OCAK'tan bu aya kadar göster; gelecek (boş) aylar gizli — ay gelince eklenir
+  const ayN = aktifAy >= 1 && aktifAy <= 12 ? aktifAy : 12
+  const gorunenAylar = AY_KISA.slice(0, ayN)
 
   const thBase: React.CSSProperties = {
     background: TEAL, color: "#fff", fontWeight: 600, padding: "8px 5px",
@@ -117,7 +120,7 @@ export function FirmaAyMatris({
           <thead>
             <tr>
               <th style={{ ...thBase, textAlign: "left", position: "sticky", left: 0, zIndex: 2, minWidth: 132, paddingLeft: 10 }}>FİRMA</th>
-              {AY_KISA.map((a, i) => {
+              {gorunenAylar.map((a, i) => {
                 const bu = aktifAy === i + 1
                 return (
                   <th key={a} style={{ ...thBase, background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: bu ? 800 : 600 }}>{a}</th>
@@ -144,7 +147,7 @@ export function FirmaAyMatris({
                   <th scope="row" style={{ position: "sticky", left: 0, zIndex: 1, background: zebra, color: TEAL_KOYU, fontWeight: 600, textAlign: "left", padding: "5px 10px", maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderRight: `2px solid ${TEAL}`, borderBottom: `1px solid ${CIZGI}` }} title={s.firma}>
                     {s.firma}
                   </th>
-                  {aylar.map((n, i) => {
+                  {aylar.slice(0, ayN).map((n, i) => {
                     const { bg, fg } = isi(n, maks)
                     const bu = aktifAy === i + 1
                     return (
@@ -169,7 +172,7 @@ export function FirmaAyMatris({
           <tfoot>
             <tr>
               <th scope="row" style={{ position: "sticky", left: 0, zIndex: 1, background: TEAL, color: "#fff", fontWeight: 800, textAlign: "left", padding: "7px 10px", whiteSpace: "nowrap" }}>GENEL TOPLAM</th>
-              {ayTop.map((n, i) => {
+              {ayTop.slice(0, ayN).map((n, i) => {
                 const bu = aktifAy === i + 1
                 return (
                   <td key={i} style={{ background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: 800, textAlign: "center", padding: "7px 5px", whiteSpace: "nowrap" }}>{n > 0 ? (para ? kisaTutar.format(n) : n) : "·"}</td>
