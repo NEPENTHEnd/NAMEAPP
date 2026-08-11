@@ -282,8 +282,11 @@ export default async function PanoSayfasi({
     .map((p) => perfHesapla(p.ad, isler.filter((j) => j.teknik_personel_id === p.id)))
     .filter((t) => t.toplam > 0)
     .sort((a, b) => b.toplam - a.toplam)
-  // PERSONEL (kaydeden = olusturan) — teknikerden FARKLI: ÇOĞU DURUM gösterilir
-  const kaydedenIdler = [...new Set(isler.map((j) => j.olusturan_id).filter(Boolean))] as string[]
+  // PERSONEL (kaydeden = olusturan) — teknikerden FARKLI: ÇOĞU DURUM gösterilir.
+  // Yönetici rolündekiler (admin dâhil) burada GÖSTERİLMEZ; yalnız teknisyen personel.
+  const yoneticiIdSet = new Set(profiller.filter((p) => p.rol === "yonetici").map((p) => p.id))
+  const kaydedenIdler = ([...new Set(isler.map((j) => j.olusturan_id).filter(Boolean))] as string[])
+    .filter((id) => !yoneticiIdSet.has(id))
   const personelDurum: PersonelSatir[] = kaydedenIdler
     .map((id) => {
       const kendi = isler.filter((j) => j.olusturan_id === id)
