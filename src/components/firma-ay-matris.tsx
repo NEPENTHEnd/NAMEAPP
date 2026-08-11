@@ -1,25 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+
+import { firmaHedefKaydet, type HedefAlan } from "@/app/actions/firma-hedef"
 
 // Müdürün Excel "2026_GENEL" takibinin canlı, RENKLİ hâli — Adet / ₺ (ciro) geçişli.
-// satır = firma, sütun = 12 ay + özet sütunlar. Excel teal-yeşil paleti + ısı haritası.
-// Bu ay AMBER ile öne çıkar. Temadan bağımsız açık "gömülü sayfa" görünümü.
+// ORTALAMA (önceki yıl) ve ORTALAMA HEDEF elle girilir (mod başına); diğer 3 sütun türetilir.
 
+export type HedefDeger = {
+  ort_gecen_adet: number | null
+  ort_hedef_adet: number | null
+  ort_gecen_para: number | null
+  ort_hedef_para: number | null
+}
 export type MatrisSatir = {
   firma: string
-  // Adet (geliş ayına göre)
+  grupId: string | null // null = DİĞER
   aylar: number[]
   toplam: number
   ort: number
-  ort2025: number
-  degisim: number | null
-  // ₺ ciro (fatura ayına göre — yalnız faturalı işler)
   aylarPara: number[]
   toplamPara: number
   ortPara: number
-  ort2025Para: number
-  degisimPara: number | null
+  hedef: HedefDeger
 }
 
 const AY_KISA = ["OCA", "ŞUB", "MAR", "NİS", "MAY", "HAZ", "TEM", "AĞU", "EYL", "EKİ", "KAS", "ARA"]
@@ -34,7 +38,6 @@ const AMBER_KOYU = "#8a5a00"
 const tamTutar = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 })
 const kisaTutar = new Intl.NumberFormat("tr-TR", { notation: "compact", maximumFractionDigits: 1 })
 
-// Isı haritası: açık teal → koyu teal. Küçük değerler de görünür.
 function isi(n: number, maks: number): { bg: string; fg: string } {
   if (n <= 0) return { bg: ZEBRA, fg: "#b6c2bd" }
   const t = 0.16 + 0.84 * Math.sqrt(n / Math.max(1, maks))
@@ -65,27 +68,55 @@ export function FirmaAyMatris({
   genelOrtPara: number
   aktifAy: number
 }) {
+  const router = useRouter()
+  const [, startTransition] = useTransition()
   const [mod, setMod] = useState<"adet" | "para">("para")
   const para = mod === "para"
+
+  // Elle girilen hedef değerleri — yerel state (anında hesap), server'a da yazılır
+  const [yerel, setYerel] = useState<Record<string, HedefDeger>>({})
+  useEffect(() => {
+    const o: Record<string, HedefDeger> = {}
+    for (const s of satirlar) o[s.firma] = { ...s.hedef }
+    setYerel(o)
+  }, [satirlar])
+
+  const gecenAlan: HedefAlan = para ? "ort_gecen_para" : "ort_gecen_adet"
+  const hedefAlan: HedefAlan = para ? "ort_hedef_para" : "ort_hedef_adet"
+  const oku = (firma: string, alan: HedefAlan): number | null => yerel[firma]?.[alan] ?? null
+  function yaz(firma: string, alan: HedefAlan, str: string) {
+    const t = str.trim().replace(/\./g, "").replace(",", ".")
+    const v = t === "" ? null : Number(t)
+    setYerel((p) => ({
+      ...p,
+      [firma]: { ...(p[firma] ?? { ort_gecen_adet: null, ort_hedef_adet: null, ort_gecen_para: null, ort_hedef_para: null }), [alan]: v == null || isNaN(v) ? null : v },
+    }))
+  }
+  function kaydet(s: MatrisSatir, alan: HedefAlan) {
+    const yeni = oku(s.firma, alan)
+    if (yeni === (s.hedef[alan] ?? null)) return // değişmedi
+    startTransition(async () => {
+      await firmaHedefKaydet(s.grupId, yil, alan, yeni)
+      router.refresh()
+    })
+  }
 
   // Aktif metrik erişimcileri
   const satirAylar = (s: MatrisSatir) => (para ? s.aylarPara : s.aylar)
   const satirToplam = (s: MatrisSatir) => (para ? s.toplamPara : s.toplam)
   const satirOrt = (s: MatrisSatir) => (para ? s.ortPara : s.ort)
-  const satirOrt25 = (s: MatrisSatir) => (para ? s.ort2025Para : s.ort2025)
-  const satirDeg = (s: MatrisSatir) => (para ? s.degisimPara : s.degisim)
   const ayTop = para ? aylikToplamPara : aylikToplam
   const gTop = para ? genelToplamPara : genelToplam
   const gOrt = para ? genelOrtPara : genelOrt
 
-  // Hücre / özet biçimi
   const hucre = (v: number) => (v > 0 ? (para ? kisaTutar.format(v) : String(v)) : "·")
   const buyuk = (v: number) => (v > 0 ? (para ? tamTutar.format(v) : String(v)) : "—")
-  const ortBic = (v: number) => (v > 0 ? (para ? kisaTutar.format(v) : v.toFixed(1)) : "—")
+  const ortBic = (v: number | null) => (v != null && v > 0 ? (para ? kisaTutar.format(v) : v.toFixed(1)) : "—")
+  const bicimSayi = (v: number) => (para ? kisaTutar.format(v) : Number.isInteger(v) ? String(v) : v.toFixed(1))
+  const yuzde = (v: number | null) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${Math.round(v)}%`)
 
   const maks = Math.max(1, ...satirlar.flatMap((s) => satirAylar(s)))
-  // Yalnız OCAK'tan bu aya kadar göster; gelecek (boş) aylar gizli — ay gelince eklenir
-  const ayN = aktifAy >= 1 && aktifAy <= 12 ? aktifAy : 12
+  const ayN = aktifAy >= 1 && aktifAy <= 12 ? aktifAy : 12 // yalnız Ocak..bu ay
   const gorunenAylar = AY_KISA.slice(0, ayN)
 
   const thBase: React.CSSProperties = {
@@ -97,6 +128,7 @@ export function FirmaAyMatris({
     `rounded-lg px-2.5 py-1 text-[12px] font-semibold transition-colors ${
       aktif ? "bg-primary text-primary-foreground" : "border border-border bg-card text-muted-foreground hover:bg-muted"
     }`
+  const tdBase: React.CSSProperties = { textAlign: "center", padding: "5px 7px", borderBottom: `1px solid ${CIZGI}`, whiteSpace: "nowrap" }
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
@@ -110,8 +142,9 @@ export function FirmaAyMatris({
         </div>
       </div>
       <p className="mb-3 text-[11px] text-muted-foreground">
-        Renk koyulaştıkça {para ? "yüksek ciro" : "yoğun"} · <span style={{ color: AMBER_KOYU, fontWeight: 600 }}>amber</span> = bu ay
-        {para ? " · ay = FATURA ayı, yalnız faturalanan işler" : " · ay = GELİŞ ayı"}
+        <span style={{ color: AMBER_KOYU, fontWeight: 600 }}>amber</span> = bu ay ·
+        {para ? " ay = FATURA ayı" : " ay = GELİŞ ayı"} · <b>Ortalama {yil - 1}</b> ve <b>Hedef {yil}</b> hücrelerine
+        tıklayıp elle gir ({para ? "₺" : "adet"}); diğer sütunlar otomatik hesaplanır.
       </p>
 
       <div className="overflow-x-auto rounded-lg" style={{ border: `1px solid ${TEAL}`, background: "#fff" }}>
@@ -122,16 +155,14 @@ export function FirmaAyMatris({
               <th style={{ ...thBase, textAlign: "left", position: "sticky", left: 0, zIndex: 2, minWidth: 132, paddingLeft: 10 }}>FİRMA</th>
               {gorunenAylar.map((a, i) => {
                 const bu = aktifAy === i + 1
-                return (
-                  <th key={a} style={{ ...thBase, background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: bu ? 800 : 600 }}>{a}</th>
-                )
+                return <th key={a} style={{ ...thBase, background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: bu ? 800 : 600 }}>{a}</th>
               })}
               <th style={{ ...ozetTh, minWidth: 64, whiteSpace: "normal" }}>GENEL TOPLAM {yil}</th>
               <th style={{ ...ozetTh, minWidth: 60, whiteSpace: "normal" }}>ORTALAMA {yil}</th>
-              <th style={{ ...ozetTh, minWidth: 60, whiteSpace: "normal" }}>ORTALAMA {yil - 1}</th>
-              <th style={{ ...ozetTh, minWidth: 64, whiteSpace: "normal" }}>ORTALAMA HEDEF {yil}</th>
+              <th style={{ ...ozetTh, minWidth: 74, whiteSpace: "normal" }}>ORTALAMA {yil - 1} ✎</th>
+              <th style={{ ...ozetTh, minWidth: 76, whiteSpace: "normal" }}>ORTALAMA HEDEF {yil} ✎</th>
               <th style={{ ...ozetTh, minWidth: 62, whiteSpace: "normal" }}>YÜZDESEL DEĞİŞİM</th>
-              <th style={{ ...ozetTh, minWidth: 60, whiteSpace: "normal" }}>{yil} HEDEF ARTIŞ</th>
+              <th style={{ ...ozetTh, minWidth: 62, whiteSpace: "normal" }}>{yil} HEDEF ARTIŞ</th>
               <th style={{ ...ozetTh, minWidth: 58, whiteSpace: "normal" }}>HEDEF FARKI</th>
             </tr>
           </thead>
@@ -140,10 +171,16 @@ export function FirmaAyMatris({
               const zebra = r % 2 === 1 ? ZEBRA : "#fff"
               const aylar = satirAylar(s)
               const top = satirToplam(s)
-              const deg = satirDeg(s)
-              const degRenk = deg == null ? "#9a8748" : deg >= 0 ? "#0a7a4f" : "#b3261e"
+              const gercekOrt = satirOrt(s)
+              const gecen = oku(s.firma, gecenAlan)
+              const hedef = oku(s.firma, hedefAlan)
+              const yuzdeDeg = gecen != null && gecen !== 0 && hedef != null ? ((hedef - gecen) / gecen) * 100 : null
+              const hedefArtis = gecen != null && hedef != null ? hedef - gecen : null
+              const hedefFarki = hedef != null && hedef !== 0 ? ((gercekOrt - hedef) / hedef) * 100 : null
+              const degR = (v: number | null) => (v == null ? "#9a8748" : v >= 0 ? "#0a7a4f" : "#b3261e")
+              const inputStil: React.CSSProperties = { width: "100%", background: "transparent", border: "none", outline: "none", textAlign: "center", color: "#0a3d30", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }
               return (
-                <tr key={s.firma} style={{ opacity: top === 0 ? 0.5 : 1 }}>
+                <tr key={s.firma} style={{ opacity: top === 0 && gecen == null && hedef == null ? 0.5 : 1 }}>
                   <th scope="row" style={{ position: "sticky", left: 0, zIndex: 1, background: zebra, color: TEAL_KOYU, fontWeight: 600, textAlign: "left", padding: "5px 10px", maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderRight: `2px solid ${TEAL}`, borderBottom: `1px solid ${CIZGI}` }} title={s.firma}>
                     {s.firma}
                   </th>
@@ -156,15 +193,32 @@ export function FirmaAyMatris({
                       </td>
                     )
                   })}
-                  <td style={{ textAlign: "center", padding: "5px 7px", fontWeight: 800, background: "#e7f2ec", color: TEAL_KOYU, borderBottom: `1px solid ${CIZGI}`, borderLeft: `2px solid ${TEAL}`, whiteSpace: "nowrap" }}>{buyuk(top)}</td>
-                  <td style={{ textAlign: "center", padding: "5px 7px", fontWeight: 600, background: zebra, color: "#3f5148", borderBottom: `1px solid ${CIZGI}`, whiteSpace: "nowrap" }}>{ortBic(satirOrt(s))}</td>
-                  <td style={{ textAlign: "center", padding: "5px 7px", background: zebra, color: "#85938c", borderBottom: `1px solid ${CIZGI}`, whiteSpace: "nowrap" }}>{ortBic(satirOrt25(s))}</td>
-                  <td style={{ textAlign: "center", padding: "5px 7px", background: "#fbfbf8", color: "#c2c7c4", borderBottom: `1px solid ${CIZGI}` }}>—</td>
-                  <td style={{ textAlign: "center", padding: "5px 7px", background: zebra, color: degRenk, fontWeight: 600, borderBottom: `1px solid ${CIZGI}`, whiteSpace: "nowrap" }}>
-                    {deg == null ? "yeni" : `${deg >= 0 ? "+" : ""}${Math.round(deg)}%`}
+                  {/* N: GENEL TOPLAM */}
+                  <td style={{ ...tdBase, fontWeight: 800, background: "#e7f2ec", color: TEAL_KOYU, borderLeft: `2px solid ${TEAL}` }}>{buyuk(top)}</td>
+                  {/* O: ORTALAMA (gerçekleşen) */}
+                  <td style={{ ...tdBase, fontWeight: 600, background: zebra, color: "#3f5148" }}>{ortBic(gercekOrt)}</td>
+                  {/* P: ORTALAMA {yıl-1} — ELLE */}
+                  <td style={{ ...tdBase, padding: 0, background: "#fffdf5" }}>
+                    <input inputMode="decimal" value={gecen == null ? "" : String(gecen)} placeholder="gir"
+                      onChange={(e) => yaz(s.firma, gecenAlan, e.target.value)}
+                      onBlur={() => kaydet(s, gecenAlan)}
+                      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+                      style={{ ...inputStil, padding: "5px 4px" }} />
                   </td>
-                  <td style={{ textAlign: "center", padding: "5px 7px", background: "#fbfbf8", color: "#c2c7c4", borderBottom: `1px solid ${CIZGI}` }}>—</td>
-                  <td style={{ textAlign: "center", padding: "5px 7px", background: "#fbfbf8", color: "#c2c7c4", borderBottom: `1px solid ${CIZGI}` }}>—</td>
+                  {/* Q: ORTALAMA HEDEF — ELLE */}
+                  <td style={{ ...tdBase, padding: 0, background: "#fffdf5" }}>
+                    <input inputMode="decimal" value={hedef == null ? "" : String(hedef)} placeholder="gir"
+                      onChange={(e) => yaz(s.firma, hedefAlan, e.target.value)}
+                      onBlur={() => kaydet(s, hedefAlan)}
+                      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+                      style={{ ...inputStil, padding: "5px 4px", color: TEAL_KOYU, fontWeight: 700 }} />
+                  </td>
+                  {/* R: YÜZDESEL DEĞİŞİM (hedef vs geçen) */}
+                  <td style={{ ...tdBase, background: zebra, color: degR(yuzdeDeg), fontWeight: 600 }}>{yuzde(yuzdeDeg)}</td>
+                  {/* S: HEDEF ARTIŞ (hedef − geçen, ham) */}
+                  <td style={{ ...tdBase, background: zebra, color: "#3f5148" }}>{hedefArtis == null ? "—" : bicimSayi(hedefArtis)}</td>
+                  {/* T: HEDEF FARKI (gerçek vs hedef) */}
+                  <td style={{ ...tdBase, background: zebra, color: degR(hedefFarki), fontWeight: 600 }}>{yuzde(hedefFarki)}</td>
                 </tr>
               )
             })}
@@ -174,12 +228,11 @@ export function FirmaAyMatris({
               <th scope="row" style={{ position: "sticky", left: 0, zIndex: 1, background: TEAL, color: "#fff", fontWeight: 800, textAlign: "left", padding: "7px 10px", whiteSpace: "nowrap" }}>GENEL TOPLAM</th>
               {ayTop.slice(0, ayN).map((n, i) => {
                 const bu = aktifAy === i + 1
-                return (
-                  <td key={i} style={{ background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: 800, textAlign: "center", padding: "7px 5px", whiteSpace: "nowrap" }}>{n > 0 ? (para ? kisaTutar.format(n) : n) : "·"}</td>
-                )
+                return <td key={i} style={{ background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: 800, textAlign: "center", padding: "7px 5px", whiteSpace: "nowrap" }}>{n > 0 ? (para ? kisaTutar.format(n) : n) : "·"}</td>
               })}
               <td style={{ background: TEAL_KOYU, color: "#fff", fontWeight: 800, textAlign: "center", padding: "7px 7px", whiteSpace: "nowrap" }}>{para ? tamTutar.format(gTop) : gTop}</td>
               <td style={{ background: TEAL_KOYU, color: "#d7ede4", fontWeight: 700, textAlign: "center", padding: "7px 7px", whiteSpace: "nowrap" }}>{gOrt > 0 ? (para ? kisaTutar.format(gOrt) : gOrt.toFixed(1)) : "—"}</td>
+              <td style={{ background: TEAL_KOYU, color: "#9fbdb0", textAlign: "center", padding: "7px 7px" }}>—</td>
               <td style={{ background: TEAL_KOYU, color: "#9fbdb0", textAlign: "center", padding: "7px 7px" }}>—</td>
               <td style={{ background: TEAL_KOYU, color: "#9fbdb0", textAlign: "center", padding: "7px 7px" }}>—</td>
               <td style={{ background: TEAL_KOYU, color: "#9fbdb0", textAlign: "center", padding: "7px 7px" }}>—</td>

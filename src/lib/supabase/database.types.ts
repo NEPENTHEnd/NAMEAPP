@@ -127,6 +127,47 @@ export type Database = {
         }
         Relationships: []
       }
+      firma_hedef: {
+        Row: {
+          grup_id: string | null
+          id: string
+          ort_gecen_adet: number | null
+          ort_gecen_para: number | null
+          ort_hedef_adet: number | null
+          ort_hedef_para: number | null
+          updated_at: string
+          yil: number
+        }
+        Insert: {
+          grup_id?: string | null
+          id?: string
+          ort_gecen_adet?: number | null
+          ort_gecen_para?: number | null
+          ort_hedef_adet?: number | null
+          ort_hedef_para?: number | null
+          updated_at?: string
+          yil: number
+        }
+        Update: {
+          grup_id?: string | null
+          id?: string
+          ort_gecen_adet?: number | null
+          ort_gecen_para?: number | null
+          ort_hedef_adet?: number | null
+          ort_hedef_para?: number | null
+          updated_at?: string
+          yil?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firma_hedef_grup_id_fkey"
+            columns: ["grup_id"]
+            isOneToOne: false
+            referencedRelation: "grup"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fis_sayac: {
         Row: {
           donem: string
@@ -238,6 +279,7 @@ export type Database = {
           teklif_birim: string
           teknik_personel_id: string | null
           telefon: string | null
+          telefon_rakam: string | null
           updated_at: string
           yonetici_gordu: boolean
         }
@@ -269,6 +311,7 @@ export type Database = {
           teklif_birim?: string
           teknik_personel_id?: string | null
           telefon?: string | null
+          telefon_rakam?: string | null
           updated_at?: string
           yonetici_gordu?: boolean
         }
@@ -300,6 +343,7 @@ export type Database = {
           teklif_birim?: string
           teknik_personel_id?: string | null
           telefon?: string | null
+          telefon_rakam?: string | null
           updated_at?: string
           yonetici_gordu?: boolean
         }

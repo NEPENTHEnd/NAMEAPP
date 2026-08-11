@@ -51,14 +51,18 @@ export default async function RaporlarSayfasi({
   const secenekler = await getIsFormSecenekleri()
 
   // Firma-ay grafiği: son 6 ayın firma × ay kırılımı (grafik bileşenine gider)
-  const [{ data: grupListe }, { data: subeListe }, { data: firmaIsleri }] = await Promise.all([
-    supabase.from("grup").select("id, ad").order("sira"),
-    supabase.from("sube").select("id, ad, grup_id"),
-    supabase
-      .from("is_kaydi")
-      .select("grup_id, sube_id, musteri_id, gelis_tarihi, fatura_tarihi, fatura_tutari, musteri:musteri_id ( ad )")
-      .range(0, 99999),
-  ])
+  const [{ data: grupListe }, { data: subeListe }, { data: firmaIsleri }, { data: hedefListe }] =
+    await Promise.all([
+      supabase.from("grup").select("id, ad").order("sira"),
+      supabase.from("sube").select("id, ad, grup_id"),
+      supabase
+        .from("is_kaydi")
+        .select("grup_id, sube_id, musteri_id, gelis_tarihi, fatura_tarihi, fatura_tutari, musteri:musteri_id ( ad )")
+        .range(0, 99999),
+      supabase
+        .from("firma_hedef")
+        .select("grup_id, yil, ort_gecen_adet, ort_hedef_adet, ort_gecen_para, ort_hedef_para"),
+    ])
   const subeAdMap = new Map((subeListe ?? []).map((s) => [s.id, s.ad]))
   const AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
   const simdi = new Date()
@@ -148,54 +152,50 @@ export default async function RaporlarSayfasi({
   const matrisMap = new Map<string, number[]>(
     matrisSatirSira.map((ad) => [ad, new Array(12).fill(0)])
   )
-  const matris2025 = new Map<string, number>(matrisSatirSira.map((ad) => [ad, 0]))
   // ₺ ciro (fatura ayına göre, yalnız faturalı işlerin fatura_tutari'si)
   const matrisPara = new Map<string, number[]>(
     matrisSatirSira.map((ad) => [ad, new Array(12).fill(0)])
   )
-  const matris2025Para = new Map<string, number>(matrisSatirSira.map((ad) => [ad, 0]))
   for (const j of firmaIsleri ?? []) {
     const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
-    // ADET — geliş ayına göre
-    if (j.gelis_tarihi) {
-      const yilStr = j.gelis_tarihi.slice(0, 4)
+    // ADET — geliş ayına göre (yalnız bu yıl)
+    if (j.gelis_tarihi && j.gelis_tarihi.slice(0, 4) === String(matrisYil)) {
       const ay = Number(j.gelis_tarihi.slice(5, 7)) - 1
-      if (ay >= 0 && ay <= 11) {
-        if (yilStr === String(matrisYil)) {
-          ;(matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
-        } else if (yilStr === String(matrisYil - 1)) {
-          const k = matris2025.has(firmaAd) ? firmaAd : "DİĞER"
-          matris2025.set(k, (matris2025.get(k) ?? 0) + 1)
-        }
-      }
+      if (ay >= 0 && ay <= 11) (matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
     }
-    // CİRO — fatura ayına göre, yalnız faturalı işler
-    if (j.fatura_tarihi) {
-      const yilStr = j.fatura_tarihi.slice(0, 4)
+    // CİRO — fatura ayına göre, yalnız faturalı işler (bu yıl)
+    if (j.fatura_tarihi && j.fatura_tarihi.slice(0, 4) === String(matrisYil)) {
       const ay = Number(j.fatura_tarihi.slice(5, 7)) - 1
-      const tutar = j.fatura_tutari ?? 0
-      if (ay >= 0 && ay <= 11) {
-        if (yilStr === String(matrisYil)) {
-          ;(matrisPara.get(firmaAd) ?? matrisPara.get("DİĞER")!)[ay] += tutar
-        } else if (yilStr === String(matrisYil - 1)) {
-          const k = matris2025Para.has(firmaAd) ? firmaAd : "DİĞER"
-          matris2025Para.set(k, (matris2025Para.get(k) ?? 0) + tutar)
-        }
-      }
+      if (ay >= 0 && ay <= 11) (matrisPara.get(firmaAd) ?? matrisPara.get("DİĞER")!)[ay] += j.fatura_tutari ?? 0
     }
   }
+  // Elle girilen hedef değerleri (bu yıl) — grup_id (DİĞER = "DIGER") ile eşle
+  const num = (v: unknown): number | null => (v == null || v === "" ? null : Number(v))
+  const hedefMap = new Map<
+    string,
+    { ort_gecen_adet: number | null; ort_hedef_adet: number | null; ort_gecen_para: number | null; ort_hedef_para: number | null }
+  >()
+  for (const h of hedefListe ?? []) {
+    if (h.yil !== matrisYil) continue
+    hedefMap.set(h.grup_id ?? "DIGER", {
+      ort_gecen_adet: num(h.ort_gecen_adet),
+      ort_hedef_adet: num(h.ort_hedef_adet),
+      ort_gecen_para: num(h.ort_gecen_para),
+      ort_hedef_para: num(h.ort_hedef_para),
+    })
+  }
+  const grupIdByAd = new Map((grupListe ?? []).map((g) => [g.ad, g.id]))
+  const bosHedef = { ort_gecen_adet: null, ort_hedef_adet: null, ort_gecen_para: null, ort_hedef_para: null }
   const matrisSatirlar = matrisSatirSira.map((firma) => {
     const aylar = matrisMap.get(firma)!
     const toplam = aylar.reduce((t, n) => t + n, 0)
     const ort = gecenAy > 0 ? toplam / gecenAy : 0
-    const ort2025 = (matris2025.get(firma) ?? 0) / 12
-    const degisim = ort2025 > 0 ? ((ort - ort2025) / ort2025) * 100 : null
     const aylarPara = matrisPara.get(firma)!
     const toplamPara = aylarPara.reduce((t, n) => t + n, 0)
     const ortPara = gecenAy > 0 ? toplamPara / gecenAy : 0
-    const ort2025Para = (matris2025Para.get(firma) ?? 0) / 12
-    const degisimPara = ort2025Para > 0 ? ((ortPara - ort2025Para) / ort2025Para) * 100 : null
-    return { firma, aylar, toplam, ort, ort2025, degisim, aylarPara, toplamPara, ortPara, ort2025Para, degisimPara }
+    const grupId = grupIdByAd.get(firma) ?? null
+    const hedef = hedefMap.get(grupId ?? "DIGER") ?? bosHedef
+    return { firma, grupId, aylar, toplam, ort, aylarPara, toplamPara, ortPara, hedef }
   })
   const matrisAylikToplam = Array.from({ length: 12 }, (_, i) =>
     matrisSatirlar.reduce((t, s) => t + s.aylar[i], 0)
