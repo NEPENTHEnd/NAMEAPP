@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 
@@ -10,9 +11,10 @@ export type GrafikNokta = {
   ayAd: string // "Tem"
   adet: number
   tutar: number
+  grupId?: string | null // firmaya tıklayınca İşler listesine gitmek için
 }
-export type SubeNokta = { firma: string; sube: string; ayKey: string; adet: number; tutar: number }
-export type DigerNokta = { musteri: string; ayKey: string; adet: number; tutar: number }
+export type SubeNokta = { firma: string; sube: string; ayKey: string; adet: number; tutar: number; subeId?: string }
+export type DigerNokta = { musteri: string; ayKey: string; adet: number; tutar: number; musteriId?: string | null }
 
 const GRUPSUZ_AD = "DİĞER" // gruba atanmamış işlerin firma etiketi (page.tsx ile aynı)
 
@@ -32,7 +34,8 @@ type Metrik = "adet" | "tutar"
 type Pencere = "son1" | "tum"
 type Drill = { tur: "kok" } | { tur: "diger" } | { tur: "grupsuz" } | { tur: "firma"; firma: string }
 
-type BalonHam = { ad: string; adet: number; tutar: number; diger?: boolean; altVar?: boolean; grupsuz?: boolean }
+type Hedef = { tur: "grup" | "sube" | "musteri"; id: string }
+type BalonHam = { ad: string; adet: number; tutar: number; diger?: boolean; altVar?: boolean; grupsuz?: boolean; hedef?: Hedef }
 type Balon = BalonHam & { r: number; x: number; y: number }
 
 // Paketli yerleşim: adet'e göre büyük ORTADA (sabit), küçükler dışa doğru.
@@ -100,6 +103,7 @@ export function FirmaGrafik({
   subeNoktalar?: SubeNokta[]
   digerNoktalar?: DigerNokta[]
 }) {
+  const router = useRouter()
   const [tip, setTip] = useState<Tip>("balon")
   const [metrik, setMetrik] = useState<Metrik>("adet")
   const [pencere, setPencere] = useState<Pencere>("son1")
@@ -185,11 +189,11 @@ export function FirmaGrafik({
     return { list, maxTot, ayRenk }
   }, [noktalar, aylar, metrik])
 
-  // Firma toplamları (adet + tutar + şubesi var mı)
+  // Firma toplamları (adet + tutar + şubesi var mı + grup id)
   const firmaToplam = useMemo(() => {
-    const m = new Map<string, { adet: number; tutar: number }>()
+    const m = new Map<string, { adet: number; tutar: number; grupId: string | null }>()
     for (const n of kapsamNokta) {
-      const v = m.get(n.firma) ?? { adet: 0, tutar: 0 }
+      const v = m.get(n.firma) ?? { adet: 0, tutar: 0, grupId: n.grupId ?? null }
       v.adet += n.adet
       v.tutar += n.tutar
       m.set(n.firma, v)
@@ -201,6 +205,7 @@ export function FirmaGrafik({
         ad,
         adet: v.adet,
         tutar: v.tutar,
+        grupId: v.grupId,
         altVar: subeli.has(ad),
         musteriVar: ad === GRUPSUZ_AD && grupsuzVar, // DİĞER içi müşterilere açılır
       }))
@@ -233,31 +238,46 @@ export function FirmaGrafik({
   const TOP = 16
   const balon = useMemo(() => {
     let items: BalonHam[] = []
+    // Firma balonu → yaprak mı? (şubesi/müşteri drill'i yoksa) İşler listesine gider
+    const firmaItem = (f: (typeof firmaToplam)[number]): BalonHam => ({
+      ad: f.ad,
+      adet: f.adet,
+      tutar: f.tutar,
+      altVar: f.altVar,
+      grupsuz: f.musteriVar,
+      hedef: !f.altVar && !f.musteriVar && f.grupId ? { tur: "grup", id: f.grupId } : undefined,
+    })
     if (drill.tur === "firma") {
-      const m = new Map<string, { adet: number; tutar: number }>()
+      const m = new Map<string, { adet: number; tutar: number; subeId?: string }>()
       for (const n of kapsamSube) {
         if (n.firma !== drill.firma) continue
-        const v = m.get(n.sube) ?? { adet: 0, tutar: 0 }
+        const v = m.get(n.sube) ?? { adet: 0, tutar: 0, subeId: n.subeId }
         v.adet += n.adet
         v.tutar += n.tutar
         m.set(n.sube, v)
       }
-      items = [...m.entries()].map(([ad, v]) => ({ ad, adet: v.adet, tutar: v.tutar }))
+      items = [...m.entries()].map(([ad, v]) => ({
+        ad, adet: v.adet, tutar: v.tutar,
+        hedef: v.subeId ? { tur: "sube", id: v.subeId } : undefined,
+      }))
     } else if (drill.tur === "grupsuz") {
       // DİĞER içi: gruba atanmamış işlerin tek tek MÜŞTERİleri
-      const m = new Map<string, { adet: number; tutar: number }>()
+      const m = new Map<string, { adet: number; tutar: number; musteriId?: string | null }>()
       for (const n of kapsamDiger) {
-        const v = m.get(n.musteri) ?? { adet: 0, tutar: 0 }
+        const v = m.get(n.musteri) ?? { adet: 0, tutar: 0, musteriId: n.musteriId ?? null }
         v.adet += n.adet
         v.tutar += n.tutar
         m.set(n.musteri, v)
       }
-      items = [...m.entries()].map(([ad, v]) => ({ ad, adet: v.adet, tutar: v.tutar }))
+      items = [...m.entries()].map(([ad, v]) => ({
+        ad, adet: v.adet, tutar: v.tutar,
+        hedef: v.musteriId ? { tur: "musteri", id: v.musteriId } : undefined,
+      }))
     } else if (drill.tur === "diger") {
       // "Diğer": TÜM firmalar birlikte — küçükler büyüklerin ETRAFINI doldurur
-      items = firmaToplam.map((f) => ({ ad: f.ad, adet: f.adet, tutar: f.tutar, altVar: f.altVar, grupsuz: f.musteriVar }))
+      items = firmaToplam.map(firmaItem)
     } else {
-      items = firmaToplam.slice(0, TOP).map((f) => ({ ad: f.ad, adet: f.adet, tutar: f.tutar, altVar: f.altVar, grupsuz: f.musteriVar }))
+      items = firmaToplam.slice(0, TOP).map(firmaItem)
       const kalan = firmaToplam.slice(TOP)
       if (kalan.length)
         items.push({
@@ -282,6 +302,14 @@ export function FirmaGrafik({
     setDrill(d)
     setZoom(1)
     setPan({ x: 0, y: 0 })
+  }
+
+  // Yaprak balon → o firma/şube/müşterinin İşler listesine git (dönem korunur)
+  function yaprakGit(hedef: Hedef) {
+    const p = new URLSearchParams()
+    p.set(hedef.tur, hedef.id) // grup | sube | musteri
+    if (pencere === "son1" && sonAy) p.set("ay", sonAy)
+    router.push(`/?${p.toString()}`)
   }
 
   // Scroll ile zoom (non-passive)
@@ -317,11 +345,15 @@ export function FirmaGrafik({
       window.removeEventListener("pointerup", up)
       const acilir = bb.diger || bb.altVar || bb.grupsuz
       if (hareket < 6 && acilir) {
-        // neredeyse hiç hareket yok → TIKLAMA → aç
+        // neredeyse hiç hareket yok → TIKLAMA → aç (drill)
         setSurukle(null)
         drilleGit(
           bb.diger ? { tur: "diger" } : bb.grupsuz ? { tur: "grupsuz" } : { tur: "firma", firma: bb.ad }
         )
+      } else if (hareket < 6 && bb.hedef) {
+        // yaprak balon → o işlerin listesine git
+        setSurukle(null)
+        yaprakGit(bb.hedef)
       } else {
         setSurukle({ ad: bb.ad, dx: 0, dy: 0, birak: true })
         window.setTimeout(() => setSurukle((s) => (s && s.ad === bb.ad ? null : s)), 420)
@@ -575,7 +607,7 @@ export function FirmaGrafik({
                   <g key={bb.ad} transform={`translate(${bb.x} ${bb.y})`}>
                     <g
                       onPointerDown={(e) => bubbleBasla(bb, e)}
-                      className={cn("hover:brightness-110", acilir ? "cursor-pointer" : "cursor-grab active:cursor-grabbing")}
+                      className={cn("hover:brightness-110", acilir || bb.hedef ? "cursor-pointer" : "cursor-grab active:cursor-grabbing")}
                       style={{
                         animation: suruklenen ? "none" : `balonYuz ${(2.6 + (i % 4) * 0.5).toFixed(1)}s ease-in-out ${(i * 0.11).toFixed(2)}s infinite`,
                         transform: suruklenen ? `translate(${surukle!.dx}px, ${surukle!.dy}px)` : undefined,
@@ -609,11 +641,14 @@ export function FirmaGrafik({
                                   ▸ {bb.grupsuz ? "müşteriler" : "şubeler"}
                                 </text>
                               )}
+                              {bb.hedef && buyuk && (
+                                <text textAnchor="middle" y={bb.r * 0.54} fontSize={altBoyut} fill="#fff" opacity="0.85">▸ işler</text>
+                              )}
                             </>
                           )}
                         </g>
                       )}
-                      <title>{`${bb.ad}: ${bb.adet} iş · ${tamTutar.format(bb.tutar)}${bb.altVar ? " · tıkla → şubeler" : bb.grupsuz ? " · tıkla → müşteriler" : ""}`}</title>
+                      <title>{`${bb.ad}: ${bb.adet} iş · ${tamTutar.format(bb.tutar)}${bb.altVar ? " · tıkla → şubeler" : bb.grupsuz ? " · tıkla → müşteriler" : bb.hedef ? " · tıkla → işleri gör" : ""}`}</title>
                     </g>
                   </g>
                 )

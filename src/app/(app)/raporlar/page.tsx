@@ -56,7 +56,7 @@ export default async function RaporlarSayfasi({
     supabase.from("sube").select("id, ad, grup_id"),
     supabase
       .from("is_kaydi")
-      .select("grup_id, sube_id, gelis_tarihi, fatura_tarihi, fatura_tutari, musteri:musteri_id ( ad )")
+      .select("grup_id, sube_id, musteri_id, gelis_tarihi, fatura_tarihi, fatura_tutari, musteri:musteri_id ( ad )")
       .range(0, 99999),
   ])
   const subeAdMap = new Map((subeListe ?? []).map((s) => [s.id, s.ad]))
@@ -84,7 +84,7 @@ export default async function RaporlarSayfasi({
     if (!ayKey || !ayPencere.some((a) => a.key === ayKey)) continue
     const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
     const anahtar = `${firmaAd}|${ayKey}`
-    const v = noktaMap.get(anahtar) ?? { adet: 0, tutar: 0 }
+    const v = noktaMap.get(anahtar) ?? { adet: 0, tutar: 0, grupId: (j.grup_id as string | null) ?? null }
     v.adet++
     // Kazanç yalnız FATURA TARİHLİ (kesilmiş) işlerden — tarihsiz fiyatlar sayılmaz
     v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
@@ -110,7 +110,7 @@ export default async function RaporlarSayfasi({
     const subeAd = subeAdMap.get(j.sube_id)
     if (!subeAd) continue
     const anahtar = `${firmaAd}|${subeAd}|${ayKey}`
-    const v = subeMap.get(anahtar) ?? { adet: 0, tutar: 0 }
+    const v = subeMap.get(anahtar) ?? { adet: 0, tutar: 0, subeId: j.sube_id as string }
     v.adet++
     v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
     subeMap.set(anahtar, v)
@@ -130,7 +130,7 @@ export default async function RaporlarSayfasi({
     const mus = Array.isArray(j.musteri) ? j.musteri[0] : j.musteri
     const musteriAd = (mus?.ad ?? "—").toString()
     const anahtar = `${musteriAd}|${ayKey}`
-    const v = digerMap.get(anahtar) ?? { adet: 0, tutar: 0 }
+    const v = digerMap.get(anahtar) ?? { adet: 0, tutar: 0, musteriId: (j.musteri_id as string | null) ?? null }
     v.adet++
     v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
     digerMap.set(anahtar, v)
