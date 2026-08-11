@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getYonetici } from "@/lib/auth"
 import { sonAylar, ayAraligi } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
+import { durumRenk } from "@/components/rozet"
 
 function ymd(d: Date): string {
   const y = d.getFullYear()
@@ -32,16 +33,15 @@ type PerfSatir = {
   pasta: string | null
 }
 
-// Onarım (pasta: yeşil=onarıldı, kırmızı=çalışmadı) + fatura% — tekniker/personel ortak
-function PerfBolum({ baslik, aciklama, liste }: { baslik: string; aciklama: string; liste: PerfSatir[] }) {
+// TEKNİKER: pasta yeşil=onarıldı / kırmızı=çalışmadı + ortada başarı% + fatura barı
+function PerfBolum({ baslik, liste }: { baslik: string; liste: PerfSatir[] }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
-      <div className="mb-1 text-[13.5px] font-semibold">{baslik}</div>
-      <p className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: "#10b981" }} /> Onarıldı</span>
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: "#ef4444" }} /> Çalışmadı (çalışmadı + geri gelen)</span>
-        <span className="opacity-80">· ortadaki % = onarım başarısı · alttaki bar = {aciklama}</span>
-      </p>
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-[13.5px] font-semibold">{baslik}</span>
+        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="size-2.5 rounded-full" style={{ background: "#10b981" }} /> Onarıldı</span>
+        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="size-2.5 rounded-full" style={{ background: "#ef4444" }} /> Çalışmadı</span>
+      </div>
       {liste.length === 0 ? (
         <p className="text-sm text-muted-foreground">Kayıt yok.</p>
       ) : (
@@ -73,6 +73,65 @@ function PerfBolum({ baslik, aciklama, liste }: { baslik: string; aciklama: stri
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-violet-500" style={{ width: `${t.faturaYuzde}%` }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type PersonelSatir = {
+  ad: string
+  toplam: number
+  faturaAdet: number
+  faturaYuzde: number
+  pasta: string | null
+  dilimler: { ad: string; renk: string; adet: number }[]
+}
+
+// PERSONEL (kaydeden): teknikerden FARKLI yapı — çok renkli DURUM pastası + durum
+// dökümü chip'leri + (aynı) fatura barı. 2 sütun + hafif zeminle ayrışır.
+function PersonelBolum({ baslik, liste }: { baslik: string; liste: PersonelSatir[] }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
+      <div className="mb-3 text-[13.5px] font-semibold">{baslik}</div>
+      {liste.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Kayıt yok.</p>
+      ) : (
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          {liste.map((p) => (
+            <div key={p.ad} className="rounded-xl border border-border/70 bg-muted/20 p-3.5">
+              <div className="flex items-center gap-3">
+                <div className="relative shrink-0">
+                  <div className="size-14 rounded-full shadow-[inset_0_0_0_1px_rgba(148,163,184,.3)]" style={{ background: p.pasta ?? "var(--muted)" }} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex size-8 items-center justify-center rounded-full bg-card text-[11px] font-semibold">{p.toplam}</div>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-semibold">{p.ad}</div>
+                  <div className="text-[11px] text-muted-foreground">{p.toplam} iş kaydetti</div>
+                </div>
+              </div>
+              {/* Durum dökümü — çoğu durum burada */}
+              <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                {p.dilimler.map((d) => (
+                  <span key={d.ad} className="flex items-center gap-1 text-muted-foreground">
+                    <span className="size-2 shrink-0 rounded-full" style={{ background: d.renk }} />
+                    {d.ad} <span className="font-semibold text-foreground">{d.adet}</span>
+                  </span>
+                ))}
+              </div>
+              <div className="mt-3">
+                <div className="mb-1 flex items-baseline justify-between text-[11px]">
+                  <span className="text-muted-foreground">Fatura edilen</span>
+                  <span className="font-semibold">%{p.faturaYuzde} <span className="font-normal text-muted-foreground">({p.faturaAdet}/{p.toplam})</span></span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-violet-500" style={{ width: `${p.faturaYuzde}%` }} />
                 </div>
               </div>
             </div>
@@ -223,10 +282,33 @@ export default async function PanoSayfasi({
     .map((p) => perfHesapla(p.ad, isler.filter((j) => j.teknik_personel_id === p.id)))
     .filter((t) => t.toplam > 0)
     .sort((a, b) => b.toplam - a.toplam)
-  // PERSONEL (kaydeden = olusturan)
+  // PERSONEL (kaydeden = olusturan) — teknikerden FARKLI: ÇOĞU DURUM gösterilir
   const kaydedenIdler = [...new Set(isler.map((j) => j.olusturan_id).filter(Boolean))] as string[]
-  const personelPerf = kaydedenIdler
-    .map((id) => perfHesapla(profilAd.get(id) ?? "—", isler.filter((j) => j.olusturan_id === id)))
+  const personelDurum: PersonelSatir[] = kaydedenIdler
+    .map((id) => {
+      const kendi = isler.filter((j) => j.olusturan_id === id)
+      const toplam = kendi.length
+      const dilimler = durumlar
+        .map((d) => ({ ad: d.ad, renk: durumRenk(d.ad, d.renk), adet: kendi.filter((j) => j.durum_id === d.id).length }))
+        .filter((x) => x.adet > 0)
+        .sort((a, b) => b.adet - a.adet)
+      let acc = 0
+      const stops: string[] = []
+      for (const x of dilimler) {
+        const from = (acc / Math.max(1, toplam)) * 360
+        acc += x.adet
+        stops.push(`${x.renk} ${from}deg ${(acc / Math.max(1, toplam)) * 360}deg`)
+      }
+      const faturaAdet = faturaEdildiId ? kendi.filter((j) => j.fatura_durumu_id === faturaEdildiId).length : 0
+      return {
+        ad: profilAd.get(id) ?? "—",
+        toplam,
+        faturaAdet,
+        faturaYuzde: toplam > 0 ? Math.round((faturaAdet / toplam) * 100) : 0,
+        pasta: stops.length ? `conic-gradient(${stops.join(",")})` : null,
+        dilimler,
+      }
+    })
     .filter((t) => t.toplam > 0)
     .sort((a, b) => b.toplam - a.toplam)
 
@@ -277,17 +359,9 @@ export default async function PanoSayfasi({
       </div>
 
 
-      {/* Önce TEKNİKER (işi yapan), sonra PERSONEL (kaydeden) — alt alta */}
-      <PerfBolum
-        baslik="Teknikerler — onarım & fatura (tüm zamanlar)"
-        aciklama="eline geçen işin % kaçı fatura edildi"
-        liste={teknikPerf}
-      />
-      <PerfBolum
-        baslik="Personel (kaydeden) — onarım & fatura (tüm zamanlar)"
-        aciklama="kaydettiği işin % kaçı fatura edildi"
-        liste={personelPerf}
-      />
+      {/* Önce TEKNİKER (işi yapan), sonra PERSONEL (kaydeden) — alt alta, farklı yapıda */}
+      <PerfBolum baslik="Teknikerler" liste={teknikPerf} />
+      <PersonelBolum baslik="Personel (kaydeden)" liste={personelDurum} />
 
       {/* Grafikler */}
       <div className="grid gap-3.5 lg:grid-cols-[1.2fr_1fr]">
