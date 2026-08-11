@@ -163,9 +163,10 @@ export default async function RaporlarSayfasi({
       const ay = Number(j.gelis_tarihi.slice(5, 7)) - 1
       if (ay >= 0 && ay <= 11) (matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
     }
-    // CİRO — fatura ayına göre, yalnız faturalı işler (bu yıl)
-    if (j.fatura_tarihi && j.fatura_tarihi.slice(0, 4) === String(matrisYil)) {
-      const ay = Number(j.fatura_tarihi.slice(5, 7)) - 1
+    // CİRO — GELİŞ ayına göre (adet ile aynı eksen), yalnız FATURALANAN işlerin tutarı
+    // (fatura ayına göre değil; yoksa tüm ciro tek aya yığılıyordu)
+    if (j.fatura_tarihi && j.gelis_tarihi && j.gelis_tarihi.slice(0, 4) === String(matrisYil)) {
+      const ay = Number(j.gelis_tarihi.slice(5, 7)) - 1
       if (ay >= 0 && ay <= 11) (matrisPara.get(firmaAd) ?? matrisPara.get("DİĞER")!)[ay] += j.fatura_tutari ?? 0
     }
   }
