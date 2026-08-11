@@ -7,6 +7,7 @@ import ExcelJS from "exceljs"
 export type RaporSatir = {
   servis_no: string | null
   takip_no: string | null
+  talep_no: string | null
   cihaz_adi: string
   seri_no: string | null
   gelis_tarihi: string | null
@@ -32,7 +33,7 @@ export type RaporSatir = {
 
 // Supabase select ifadesi (rapor + aylık yedek için ortak).
 export const RAPOR_SELECT = `
-  servis_no, takip_no, cihaz_adi, seri_no, gelis_tarihi, gelis_saat, cikis_tarihi,
+  servis_no, takip_no, talep_no, cihaz_adi, seri_no, gelis_tarihi, gelis_saat, cikis_tarihi,
   ilgili_kisi, telefon, adres, garanti_no, kargo_takip_no,
   fiyat_teklifi, teklif_birim, fatura_tutari, fatura_tarihi, aciklama,
   musteri:musteri_id ( ad, sube_sehir ),
@@ -88,6 +89,7 @@ type Alan =
   | "kartno" | "talepno" | "teklifno" | "etiket" | "tsnNot"
   // Sonradan eklenen alanlar (yalnız veri varsa sütun açılır)
   | "sube" | "gelisSaat" | "telefon" | "teklifBirim" | "faturaTarihi"
+  | "takipno" | "kargo" | "adres"
 
 type Kolon = [baslik: string, alan: Alan]
 
@@ -230,6 +232,7 @@ const GENISLIK: Record<Alan, number> = {
   sonuc: 17, servis: 15, seri: 16, aciklama: 42, teklif: 13, tutar: 15,
   ilgili: 22, kartno: 14, talepno: 17, teklifno: 12, etiket: 14, tsnNot: 15,
   sube: 20, gelisSaat: 11, telefon: 16, teklifBirim: 11, faturaTarihi: 14,
+  takipno: 16, kargo: 18, adres: 30,
 }
 
 // ---------------------------------------------------------------------------
@@ -308,9 +311,14 @@ function sablonuGenislet(sablon: Kolon[], rows: RaporSatir[]): Kolon[] {
   const dovizVar = rows.some(
     (r) => r.fiyat_teklifi != null && (r.teklif_birim ?? "TL") !== "TL"
   )
+  const takipVar = rows.some((r) => r.garanti_no) // "Takip No" = garanti_no
+  const talepVar = rows.some((r) => r.talep_no)
+  const adresVar = rows.some((r) => r.adres)
+  const kargoVar = rows.some((r) => r.kargo_takip_no)
   const musteriVar = sablon.some(([, a]) => a === "musteri")
   const ilgiliVar = sablon.some(([, a]) => a === "ilgili")
   const teklifVar = sablon.some(([, a]) => a === "teklif")
+  const sablonTalepVar = sablon.some(([, a]) => a === "talepno")
 
   const cikti: Kolon[] = []
   // Firma sütunu olmayan (tek firmalı) sayfalarda şube en başa
@@ -329,6 +337,11 @@ function sablonuGenislet(sablon: Kolon[], rows: RaporSatir[]): Kolon[] {
   // Teklif sütunu olmayan sayfada döviz varsa yine de göster
   if (dovizVar && !teklifVar) cikti.push(["PARA BİRİMİ", "teklifBirim"])
   if (faturaTarihiVar) cikti.push(["FATURA TARİHİ", "faturaTarihi"])
+  // Satırdaki geri kalan alanlar (veri varsa) — takip/talep no, adres, kargo
+  if (takipVar) cikti.push(["TAKİP NO", "takipno"])
+  if (talepVar && !sablonTalepVar) cikti.push(["TALEP NO", "talepno"])
+  if (adresVar) cikti.push(["ADRES", "adres"])
+  if (kargoVar) cikti.push(["KARGO NO", "kargo"])
   return cikti
 }
 
@@ -371,7 +384,8 @@ function hucreDegeri(
     case "tutar": return k.fatura_tutari ?? null
     case "ilgili": return k.ilgili_kisi ?? ""
     case "kartno": return ayiklanmis.notlar["KART NO"] ?? ""
-    case "talepno": return ayiklanmis.notlar["TALEP NO"] ?? ""
+    // TALEP NO: gerçek kolon; yoksa açıklamadan ayıklananı kullan
+    case "talepno": return k.talep_no ?? ayiklanmis.notlar["TALEP NO"] ?? ""
     case "teklifno": return ayiklanmis.notlar["TEKLİF NO"] ?? ""
     case "etiket": return ayiklanmis.notlar["TEKNİK ETİKET"] ?? ""
     case "tsnNot": return ayiklanmis.notlar["SERVİS NO"] ?? ""
@@ -381,6 +395,9 @@ function hucreDegeri(
     // Tutar hep TL; birim yalnız fiyat teklifi içindir
     case "teklifBirim": return k.fiyat_teklifi != null ? (k.teklif_birim ?? "TL") : ""
     case "faturaTarihi": return tarihTR(k.fatura_tarihi)
+    case "takipno": return k.garanti_no ?? "" // "Takip No" = garanti_no
+    case "kargo": return k.kargo_takip_no ?? ""
+    case "adres": return k.adres ?? ""
   }
 }
 
