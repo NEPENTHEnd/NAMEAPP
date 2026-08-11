@@ -149,33 +149,64 @@ export default async function RaporlarSayfasi({
     matrisSatirSira.map((ad) => [ad, new Array(12).fill(0)])
   )
   const matris2025 = new Map<string, number>(matrisSatirSira.map((ad) => [ad, 0]))
+  // ₺ ciro (fatura ayına göre, yalnız faturalı işlerin fatura_tutari'si)
+  const matrisPara = new Map<string, number[]>(
+    matrisSatirSira.map((ad) => [ad, new Array(12).fill(0)])
+  )
+  const matris2025Para = new Map<string, number>(matrisSatirSira.map((ad) => [ad, 0]))
   for (const j of firmaIsleri ?? []) {
-    if (!j.gelis_tarihi) continue
-    const yilStr = j.gelis_tarihi.slice(0, 4)
-    const ay = Number(j.gelis_tarihi.slice(5, 7)) - 1
-    if (ay < 0 || ay > 11) continue
     const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
-    if (yilStr === String(matrisYil)) {
-      ;(matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
-    } else if (yilStr === String(matrisYil - 1)) {
-      const k = matris2025.has(firmaAd) ? firmaAd : "DİĞER"
-      matris2025.set(k, (matris2025.get(k) ?? 0) + 1)
+    // ADET — geliş ayına göre
+    if (j.gelis_tarihi) {
+      const yilStr = j.gelis_tarihi.slice(0, 4)
+      const ay = Number(j.gelis_tarihi.slice(5, 7)) - 1
+      if (ay >= 0 && ay <= 11) {
+        if (yilStr === String(matrisYil)) {
+          ;(matrisMap.get(firmaAd) ?? matrisMap.get("DİĞER")!)[ay]++
+        } else if (yilStr === String(matrisYil - 1)) {
+          const k = matris2025.has(firmaAd) ? firmaAd : "DİĞER"
+          matris2025.set(k, (matris2025.get(k) ?? 0) + 1)
+        }
+      }
+    }
+    // CİRO — fatura ayına göre, yalnız faturalı işler
+    if (j.fatura_tarihi) {
+      const yilStr = j.fatura_tarihi.slice(0, 4)
+      const ay = Number(j.fatura_tarihi.slice(5, 7)) - 1
+      const tutar = j.fatura_tutari ?? 0
+      if (ay >= 0 && ay <= 11) {
+        if (yilStr === String(matrisYil)) {
+          ;(matrisPara.get(firmaAd) ?? matrisPara.get("DİĞER")!)[ay] += tutar
+        } else if (yilStr === String(matrisYil - 1)) {
+          const k = matris2025Para.has(firmaAd) ? firmaAd : "DİĞER"
+          matris2025Para.set(k, (matris2025Para.get(k) ?? 0) + tutar)
+        }
+      }
     }
   }
   const matrisSatirlar = matrisSatirSira.map((firma) => {
     const aylar = matrisMap.get(firma)!
     const toplam = aylar.reduce((t, n) => t + n, 0)
     const ort = gecenAy > 0 ? toplam / gecenAy : 0
-    const ort2025 = (matris2025.get(firma) ?? 0) / 12 // geçen yıl aylık ort (kısmi veri)
-    // % değişim: 2025 tabanı yoksa null → "yeni"
+    const ort2025 = (matris2025.get(firma) ?? 0) / 12
     const degisim = ort2025 > 0 ? ((ort - ort2025) / ort2025) * 100 : null
-    return { firma, aylar, toplam, ort, ort2025, degisim }
+    const aylarPara = matrisPara.get(firma)!
+    const toplamPara = aylarPara.reduce((t, n) => t + n, 0)
+    const ortPara = gecenAy > 0 ? toplamPara / gecenAy : 0
+    const ort2025Para = (matris2025Para.get(firma) ?? 0) / 12
+    const degisimPara = ort2025Para > 0 ? ((ortPara - ort2025Para) / ort2025Para) * 100 : null
+    return { firma, aylar, toplam, ort, ort2025, degisim, aylarPara, toplamPara, ortPara, ort2025Para, degisimPara }
   })
   const matrisAylikToplam = Array.from({ length: 12 }, (_, i) =>
     matrisSatirlar.reduce((t, s) => t + s.aylar[i], 0)
   )
   const matrisGenelToplam = matrisAylikToplam.reduce((t, n) => t + n, 0)
   const matrisGenelOrt = gecenAy > 0 ? matrisGenelToplam / gecenAy : 0
+  const matrisAylikToplamPara = Array.from({ length: 12 }, (_, i) =>
+    matrisSatirlar.reduce((t, s) => t + s.aylarPara[i], 0)
+  )
+  const matrisGenelToplamPara = matrisAylikToplamPara.reduce((t, n) => t + n, 0)
+  const matrisGenelOrtPara = gecenAy > 0 ? matrisGenelToplamPara / gecenAy : 0
 
   let sorgu = supabase.from("is_kaydi").select(
     `
@@ -294,6 +325,9 @@ export default async function RaporlarSayfasi({
         aylikToplam={matrisAylikToplam}
         genelToplam={matrisGenelToplam}
         genelOrt={matrisGenelOrt}
+        aylikToplamPara={matrisAylikToplamPara}
+        genelToplamPara={matrisGenelToplamPara}
+        genelOrtPara={matrisGenelOrtPara}
         aktifAy={gecenAy}
       />
 
