@@ -142,8 +142,8 @@ export function FirmaAyMatris({
         </div>
       </div>
       <p className="mb-3 text-[11px] text-muted-foreground">
-        <span style={{ color: AMBER_KOYU, fontWeight: 600 }}>amber</span> = bu ay · ay = GELİŞ ayı
-        {para ? " (yalnız faturalanan işlerin tutarı)" : ""} · <b>Ortalama {yil - 1}</b> ve <b>Hedef {yil}</b> hücrelerine
+        <span style={{ color: AMBER_KOYU, fontWeight: 600 }}>amber</span> = bu ay ·
+        {para ? " ay = FATURA kesim ayı (yalnız faturalanan)" : " ay = GELİŞ ayı"} · <b>Ortalama {yil - 1}</b> ve <b>Hedef {yil}</b> hücrelerine
         tıklayıp elle gir ({para ? "₺" : "adet"}); diğer sütunlar otomatik hesaplanır.
       </p>
 
