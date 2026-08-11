@@ -65,7 +65,7 @@ export function FirmaAyMatris({
   genelOrtPara: number
   aktifAy: number
 }) {
-  const [mod, setMod] = useState<"adet" | "para">("adet")
+  const [mod, setMod] = useState<"adet" | "para">("para")
   const para = mod === "para"
 
   // Aktif metrik erişimcileri
