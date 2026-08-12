@@ -543,6 +543,7 @@ const FINANSAL_ALAN = new Set([
   "fatura_tarihi",
   "garanti_no",
   "talep_no",
+  "teklif_no",
   "fiyat_teklifi",
   "teklif_birim",
   "fatura_tutari",
@@ -578,6 +579,7 @@ export async function isHucreGuncelle(
     case "seri_no":
     case "garanti_no":
     case "talep_no":
+    case "teklif_no":
     case "servis_no":
     case "aciklama":
       guncelle[alan] = t ? buyuk(t) : null

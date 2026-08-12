@@ -277,6 +277,7 @@ export type Database = {
           takip_no: string
           talep_no: string | null
           teklif_birim: string
+          teklif_no: string | null
           teknik_personel_id: string | null
           telefon: string | null
           telefon_rakam: string | null
@@ -309,6 +310,7 @@ export type Database = {
           takip_no?: string
           talep_no?: string | null
           teklif_birim?: string
+          teklif_no?: string | null
           teknik_personel_id?: string | null
           telefon?: string | null
           telefon_rakam?: string | null
@@ -341,6 +343,7 @@ export type Database = {
           takip_no?: string
           talep_no?: string | null
           teklif_birim?: string
+          teklif_no?: string | null
           teknik_personel_id?: string | null
           telefon?: string | null
           telefon_rakam?: string | null

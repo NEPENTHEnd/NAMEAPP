@@ -42,6 +42,7 @@ export type Kayit = {
   musteri: { ad: string; sube_sehir: string | null } | null
   garanti_no: string | null
   talep_no: string | null
+  teklif_no: string | null
   kargo_takip_no: string | null
   telefon: string | null
   ilgili_kisi: string | null
@@ -883,6 +884,16 @@ export function IslerEkrani({
                         tip="tarih"
                         deger={k.fatura_tarihi}
                         goster={() => (k.fatura_tarihi ? tarihTR(k.fatura_tarihi) : "tarih ekle")}
+                        className="mt-0.5 text-[11px] text-muted-foreground"
+                      />
+                    )}
+                    {/* Teklif no — TEKLİF aşamalarında (hazırlandı/verildi) görünür; elle girilir */}
+                    {k.fatura_durumu?.ad?.toLocaleUpperCase("tr-TR").includes("TEKLİF") && (
+                      <HucreDuzenle
+                        isId={k.id}
+                        alan="teklif_no"
+                        deger={k.teklif_no}
+                        bosEtiket="teklif no ekle"
                         className="mt-0.5 text-[11px] text-muted-foreground"
                       />
                     )}
