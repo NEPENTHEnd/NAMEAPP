@@ -466,7 +466,13 @@ export async function raporExcelBuffer(satirlar: RaporSatir[]): Promise<Buffer> 
       const ayiklanmis = notlariAyikla(k.aciklama)
       const satir = ws.getRow(satirNo++)
       sablon.forEach(([, alan], i) => {
-        satir.getCell(i + 1).value = hucreDegeri(alan, k, ayiklanmis)
+        const hucre = satir.getCell(i + 1)
+        hucre.value = hucreDegeri(alan, k, ayiklanmis)
+        // Fiyat teklifi para birimine göre: TL ise "…TL", döviz ise sadece sayı
+        // (döviz PARA BİRİMİ sütununda gösterilir)
+        if (alan === "teklif" && k.fiyat_teklifi != null) {
+          hucre.numFmt = (k.teklif_birim ?? "TL") === "TL" ? '#,##0.00"TL"' : "#,##0.00"
+        }
       })
       satir.height = bicim.veriYuk
       const renk = satirRengi(k.fatura_durumu?.ad ?? "", k.durum?.ad ?? "")
@@ -487,11 +493,9 @@ export async function raporExcelBuffer(satirlar: RaporSatir[]): Promise<Buffer> 
       satir.commit()
     }
 
-    // Para sütunları
+    // Para sütunları: FATURA BİRİM TUTARI hep TL → "…TL". (teklif hücre-bazlı yukarıda)
     sablon.forEach(([, alan], i) => {
-      if (alan === "teklif" || alan === "tutar") {
-        ws.getColumn(i + 1).numFmt = "#,##0"
-      }
+      if (alan === "tutar") ws.getColumn(i + 1).numFmt = '#,##0.00"TL"'
     })
   }
 
