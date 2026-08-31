@@ -16,8 +16,9 @@ export default async function YeniIsSayfasi({
   const grupParam = Array.isArray(sp.grup) ? sp.grup[0] : sp.grup
   const kullanici = await getKullanici()
   const secenekler = await getIsFormSecenekleri()
-  // Geliş tarihi için bugünü varsayılan ver
-  const bugun = new Date().toISOString().slice(0, 10)
+  // Geliş tarihi için bugünü varsayılan ver (Türkiye saatiyle — UTC değil, yoksa
+  // gece yarısı-03:00 arası "dün" görünür ve iş yanlış güne düşer)
+  const bugun = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" })
   const personel = kullanici.rol !== "yonetici"
   // İş oluştururken durum herkeste otomatik BAKILMADI (yönetici de seçmez); geliş bugün
   const bakilmadiId =

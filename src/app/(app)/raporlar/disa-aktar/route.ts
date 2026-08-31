@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     if (g?.ad) firmaEtiket = asciiTr(g.ad)
   }
   const ayEtiket = ay ? `-${ay}` : ""
-  const bugun = new Date().toISOString().slice(0, 10)
+  const bugun = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" })
   const dosyaAdi = `name-teknik-${firmaEtiket}${ayEtiket}-${bugun}.xlsx`
 
   const buffer = await raporExcelBuffer((data ?? []) as unknown as RaporSatir[])

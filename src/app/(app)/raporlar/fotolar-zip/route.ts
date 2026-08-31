@@ -49,7 +49,7 @@ export async function GET(request: Request) {
   }
 
   const buffer = await zip.generateAsync({ type: "nodebuffer" })
-  const bugun = new Date().toISOString().slice(0, 10)
+  const bugun = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" })
   const dosyaAdi = ay
     ? `name-teknik-fotograflar-${ay}.zip`
     : `name-teknik-fotograflar-${bugun}.zip`
