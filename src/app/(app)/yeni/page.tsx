@@ -19,7 +19,7 @@ export default async function YeniIsSayfasi({
   // Geliş tarihi için bugünü varsayılan ver
   const bugun = new Date().toISOString().slice(0, 10)
   const personel = kullanici.rol !== "yonetici"
-  // Personel: durum otomatik (BAKILMADI), geliş bugün
+  // İş oluştururken durum herkeste otomatik BAKILMADI (yönetici de seçmez); geliş bugün
   const bakilmadiId =
     secenekler.durumlar.find((d) => d.ad === "BAKILMADI")?.id ??
     secenekler.durumlar[0]?.id ??
@@ -62,12 +62,13 @@ export default async function YeniIsSayfasi({
         tumSubeler={tumSubeler}
         varsayilan={{
           gelis_tarihi: bugun,
-          durum_id: personel ? bakilmadiId : undefined,
+          durum_id: bakilmadiId,
           grup_id: grup?.id ?? undefined,
         }}
         gonderEtiketi="İşi oluştur"
         finansalGoster={!personel}
         personelMod={personel}
+        durumSabit
         servisNoGoster={grup?.ad === "BOYTEKS"} // BOYTEKS: fiş no otomatik değil, stok kodu elle
         servisNoEtiket="Firma stok kodu"
         fotoSecimi

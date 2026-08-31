@@ -61,6 +61,7 @@ type Props = {
   degisiklikTakip?: boolean
   fotoSecimi?: boolean
   personelMod?: boolean // tekniker/durum/çıkış/geliş gizli; geliş & durum sabit
+  durumSabit?: boolean // yönetici iş oluştururken: durum seçici gizli, otomatik BAKILMADI
 }
 
 const selectClass =
@@ -123,6 +124,7 @@ export function IsFormu({
   degisiklikTakip = false,
   fotoSecimi = false,
   personelMod = false,
+  durumSabit = false,
 }: Props) {
   const router = useRouter()
   const [state, formAction, pending] = useActionState<IsFormState, FormData>(
@@ -265,7 +267,7 @@ export function IsFormu({
     if (!telefon.trim()) eksik.push("Telefon")
     if (!personelMod) {
       if (!String(fd.get("gelis_tarihi") ?? "").trim()) eksik.push("Geliş tarihi")
-      if (!String(fd.get("durum_id") ?? "").trim()) eksik.push("Durum")
+      if (!durumSabit && !String(fd.get("durum_id") ?? "").trim()) eksik.push("Durum")
     }
     if (eksik.length) {
       e.preventDefault()
@@ -696,16 +698,20 @@ export function IsFormu({
             <label className={labelClass} htmlFor="cikis_tarihi">Çıkış tarihi</label>
             <input id="cikis_tarihi" name="cikis_tarihi" type="date" className={selectClass} defaultValue={varsayilan.cikis_tarihi ?? ""} />
           </div>
-          <div className="grid gap-1.5">
-            <label className={labelClass} htmlFor="durum_id">Durum *</label>
-            <select id="durum_id" name="durum_id" className={selectClass} defaultValue={varsayilan.durum_id ?? ""} aria-invalid={!!fe.durum_id}>
-              <option value="">Seçin…</option>
-              {durumlar.map((d) => (
-                <option key={d.id} value={d.id}>{d.ad}</option>
-              ))}
-            </select>
-            <Hata alan="durum_id" />
-          </div>
+          {durumSabit ? (
+            <input type="hidden" name="durum_id" value={varsayilan.durum_id ?? ""} />
+          ) : (
+            <div className="grid gap-1.5">
+              <label className={labelClass} htmlFor="durum_id">Durum *</label>
+              <select id="durum_id" name="durum_id" className={selectClass} defaultValue={varsayilan.durum_id ?? ""} aria-invalid={!!fe.durum_id}>
+                <option value="">Seçin…</option>
+                {durumlar.map((d) => (
+                  <option key={d.id} value={d.id}>{d.ad}</option>
+                ))}
+              </select>
+              <Hata alan="durum_id" />
+            </div>
+          )}
           <div className="grid gap-1.5">
             <label className={labelClass} htmlFor="teknik_personel_id">Tekniker (işi yapan)</label>
             <select id="teknik_personel_id" name="teknik_personel_id" className={selectClass} defaultValue={varsayilan.teknik_personel_id ?? ""}>
