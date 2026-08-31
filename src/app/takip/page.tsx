@@ -18,7 +18,8 @@ type Sonuc = {
 
 function tarihTR(s: string | null): string {
   if (!s) return "—"
-  return new Date(s).toLocaleDateString("tr-TR", { dateStyle: "long" })
+  // date kolonu → Türkiye günüyle biçimle (UTC-gerisi izleyicide gün kaymasın)
+  return new Date(s).toLocaleDateString("tr-TR", { dateStyle: "long", timeZone: "Europe/Istanbul" })
 }
 
 export default function TakipPage() {

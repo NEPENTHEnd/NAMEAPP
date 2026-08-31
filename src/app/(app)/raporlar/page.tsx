@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getYonetici } from "@/lib/auth"
 import { getIsFormSecenekleri } from "@/lib/secenekler"
 import { filtreleriOku, aramaOrIfadesi, filtreToParams } from "@/lib/isler-sorgu"
-import { sonAylar, ayAraligi } from "@/lib/aylar"
+import { sonAylar, ayAraligi, bugunIstanbul } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
 import { FirmaGrafik } from "@/components/firma-grafik"
@@ -65,7 +65,7 @@ export default async function RaporlarSayfasi({
     ])
   const subeAdMap = new Map((subeListe ?? []).map((s) => [s.id, s.ad]))
   const AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
-  const simdi = new Date()
+  const { yil: nowYil, ay: nowAy } = bugunIstanbul() // Türkiye günü (ay 1-12)
   // Üst bardaki ay seçimi grafiği de yönetir: ay seçiliyse yalnız o ay,
   // "Tümü"deyse bu YILIN başından bu aya kadar tüm aylar (müdür Excel'i gibi).
   const ayPencere: { key: string; ad: string }[] = []
@@ -73,8 +73,8 @@ export default async function RaporlarSayfasi({
     const key = ayAralik.baslangic.slice(0, 7)
     ayPencere.push({ key, ad: AY_KISA[Number(key.split("-")[1]) - 1] })
   } else {
-    const yil = simdi.getFullYear()
-    for (let m = 0; m <= simdi.getMonth(); m++) {
+    const yil = nowYil
+    for (let m = 0; m <= nowAy - 1; m++) {
       ayPencere.push({
         key: `${yil}-${String(m + 1).padStart(2, "0")}`,
         ad: AY_KISA[m],
@@ -158,8 +158,8 @@ export default async function RaporlarSayfasi({
 
   // ---- Müdür Excel'i "2026_GENEL": Firma × Ay iş adedi matrisi (canlı) ----
   // Satır = firma (DİĞER + firmalar, sıra sırasına göre), sütun = 12 ay, hücre = iş adedi.
-  const matrisYil = new Date().getFullYear()
-  const gecenAy = new Date().getMonth() + 1 // matris bu yıl → ort./ay geçen aylara bölünür
+  const matrisYil = nowYil
+  const gecenAy = nowAy // matris bu yıl → ort./ay geçen aylara bölünür (Türkiye ayı, 1-12)
   const matrisSatirSira = ["DİĞER", ...(grupListe ?? []).map((g) => g.ad)]
   const matrisMap = new Map<string, number[]>(
     matrisSatirSira.map((ad) => [ad, new Array(12).fill(0)])
@@ -296,10 +296,10 @@ export default async function RaporlarSayfasi({
     if (r.fatura_tarihi) {
       const k = r.fatura_tarihi.slice(0, 7)
       const v = getAy(k)
-      // SATIŞ durumundaki işler ürün satışı sayılır; tutarları çoğunlukla
-      // fiyat_teklifi'nde tutulur (fatura yoksa oradan alınır). Diğerleri onarım.
+      // Ciro yalnız fatura_tutari'nden sayılır (matris/pano/grafikle aynı kural).
+      // SATIŞ/onarım ayrımı yalnız gösterim kırılımıdır; tutar kaynağı ikisinde de aynı.
       const durumAd = Array.isArray(r.durum) ? r.durum[0]?.ad : r.durum?.ad
-      if (durumAd === "SATIŞ") v.ciroSatis += r.fatura_tutari ?? r.fiyat_teklifi ?? 0
+      if (durumAd === "SATIŞ") v.ciroSatis += r.fatura_tutari ?? 0
       else v.ciroOnarim += r.fatura_tutari ?? 0
       aylik.set(k, v)
     }

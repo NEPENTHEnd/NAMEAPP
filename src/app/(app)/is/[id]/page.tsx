@@ -14,9 +14,11 @@ import { GeriButonu } from "@/components/geri-butonu"
 
 function tarihSaatTR(s: string | null): string {
   if (!s) return "—"
+  // Server component + sunucu UTC → timeZone vermezsek saat 3sa geride/gün yanlış görünür
   return new Date(s).toLocaleString("tr-TR", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Europe/Istanbul",
   })
 }
 

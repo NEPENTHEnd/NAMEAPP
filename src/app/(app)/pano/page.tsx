@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { getYonetici } from "@/lib/auth"
-import { sonAylar, ayAraligi } from "@/lib/aylar"
+import { sonAylar, ayAraligi, bugunIstanbul } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { durumRenk } from "@/components/rozet"
 
@@ -174,13 +174,13 @@ export default async function PanoSayfasi({
   const ayAralik = ay ? ayAraligi(ay) : null
   const supabase = await createClient()
 
-  const now = new Date()
+  const { yil: nowYil, ay: nowAy } = bugunIstanbul() // Türkiye günü (UTC değil), ay 1-12
   const ayBasi = ayAralik
     ? ayAralik.baslangic
-    : ymd(new Date(now.getFullYear(), now.getMonth(), 1))
+    : ymd(new Date(nowYil, nowAy - 1, 1))
   const aySonu = ayAralik
     ? ayAralik.bitis
-    : ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+    : ymd(new Date(nowYil, nowAy, 0))
   const seciliAyEtiketi = ayAralik
     ? sonAylar(12).find((a) => a.key === ay)?.label ?? "Seçili ay"
     : "Bu ay"
@@ -191,7 +191,8 @@ export default async function PanoSayfasi({
         .from("is_kaydi")
         .select(
           "gelis_tarihi, cikis_tarihi, fatura_tarihi, fatura_tutari, durum_id, teknik_personel_id, fatura_durumu_id, olusturan_id"
-        ),
+        )
+        .range(0, 99999), // PostgREST varsayılan 1000 satır kapağını aş (tablo 1000'i geçti)
       supabase.from("durum").select("id, ad, renk, sira").order("sira"),
       supabase.from("teknik_personel").select("id, ad").order("ad"),
       supabase.from("fatura_durumu").select("id, ad"),

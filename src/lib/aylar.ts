@@ -10,12 +10,21 @@ export type AyOgesi = {
   guncel: boolean
 }
 
+// Sunucu Vercel'de UTC çalışır; "bugün"ü Türkiye gününe sabitle. Yoksa ay/yıl
+// sınırında (gece yarısı-03:00) matris/pano bir ay/yıl geriye kayar.
+// ay: 1-12, gun: 1-31, iso: "YYYY-MM-DD".
+export function bugunIstanbul(): { yil: number; ay: number; gun: number; iso: string } {
+  const iso = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" })
+  const [yil, ay, gun] = iso.split("-").map(Number)
+  return { yil, ay, gun, iso }
+}
+
 // Bugünden geriye doğru kayan pencere (varsayılan son 4 ay; sonuncusu güncel ay).
 export function sonAylar(adet = 4): AyOgesi[] {
-  const now = new Date()
+  const { yil: nowY, ay: nowM } = bugunIstanbul() // ay 1-12
   const liste: AyOgesi[] = []
   for (let i = adet - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const d = new Date(nowY, nowM - 1 - i, 1)
     const ay = d.getMonth()
     const key = `${d.getFullYear()}-${String(ay + 1).padStart(2, "0")}`
     liste.push({ key, label: AY_ADLARI[ay], yil: d.getFullYear(), guncel: i === 0 })
