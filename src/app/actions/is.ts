@@ -298,8 +298,10 @@ export async function isOlustur(
   if (otomatikFis) {
     const rpc = supabase as unknown as RpcIstemci
     const { data: fis } = await rpc.rpc("fis_no_uret")
-    ekle.servis_no =
-      (typeof fis === "string" ? fis : null) ?? parsed.data.servis_no ?? null
+    // Otomatik fiş: DAİMA sunucunun ürettiği taze numara. İstemciden gelen servis_no
+    // ASLA kullanılmaz — eski/önbellekli bir istemci eski bir fiş no gönderse bile yok
+    // sayılır. (Aksi halde tek bir eski numara birçok işe tekrar tekrar atanabiliyordu.)
+    ekle.servis_no = typeof fis === "string" ? fis : null
   } else {
     ekle.servis_no = parsed.data.servis_no ?? null
   }
