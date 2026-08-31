@@ -37,11 +37,12 @@ export async function GET(request: Request) {
   if (filtre.personel) sorgu = sorgu.eq("teknik_personel_id", filtre.personel)
   if (filtre.fatura) sorgu = sorgu.eq("fatura_durumu_id", filtre.fatura)
   if (filtre.musteri) sorgu = sorgu.eq("musteri_id", filtre.musteri)
-  // Ay: o ay FATURA KESİLEN işler (ciro raporuyla aynı kural — geliş ayına bakmaz).
-  // Ocak'ta gelip Ağustos'ta faturalanan iş, "Ağustos" indirmesinde çıkar.
+  // Ay: o ay GELEN işler (geliş tarihi o ayda). İndirme bir İŞ LİSTESİ olduğundan
+  // "Ağustos" = Ağustos'ta gelen işler ("Ağustos'ta faturalanan" değil). Ciro
+  // raporları (matris/balon/pano/aylık özet) ayrıca fatura ayına göre çalışır.
   const ar = ay ? ayAraligi(ay) : null
   if (ar) {
-    sorgu = sorgu.gte("fatura_tarihi", ar.baslangic).lte("fatura_tarihi", ar.bitis)
+    sorgu = sorgu.gte("gelis_tarihi", ar.baslangic).lte("gelis_tarihi", ar.bitis)
   } else {
     if (filtre.baslangic) sorgu = sorgu.gte("gelis_tarihi", filtre.baslangic)
     if (filtre.bitis) sorgu = sorgu.lte("gelis_tarihi", filtre.bitis)
