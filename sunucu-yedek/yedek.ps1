@@ -29,8 +29,9 @@ if ([string]::IsNullOrWhiteSpace($url) -or [string]::IsNullOrWhiteSpace($key)) {
 New-Item -ItemType Directory -Force -Path $hedef | Out-Null
 # NOT: "Range" baslgi PowerShell 5.1'de kisitlidir; sayfalama limit/offset ile yapilir.
 $h = @{ "apikey" = $key; "Authorization" = "Bearer $key" }
-$tablolar = @("is_kaydi", "foto", "musteri", "grup", "durum", "fatura_durumu",
-              "teknik_personel", "kullanici_profil", "davet_kisi", "fis_sayac")
+$tablolar = @("is_kaydi", "foto", "musteri", "grup", "sube", "durum", "fatura_durumu",
+              "teknik_personel", "kullanici_profil", "davet_kodu", "davet_kisi",
+              "fis_sayac", "firma_hedef", "push_abonelik")
 $limit = 1000
 
 $parcalar = New-Object System.Collections.ArrayList
