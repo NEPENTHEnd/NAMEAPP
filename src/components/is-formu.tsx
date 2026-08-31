@@ -183,7 +183,7 @@ export function IsFormu({
   const subeAnahtar = subeler.length > 0 ? "onSecili" : eslesenFirma?.id ?? "yok"
   // BOYTEKS: müşteri BOYTEKS seçilince fiş no yerine "Firma stok kodu" (elle) çıkar,
   // talep no gizlenir (personel de yönetici de).
-  const boyteksMi = seciliAd === "BOYTEKS"
+  const boyteksMi = !!seciliAd?.includes("BOYTEKS")
   const stokGoster = servisNoGoster || boyteksMi
   const stokEtiket = boyteksMi ? "Firma stok kodu" : servisNoEtiket
   const filtreliMusteriler = useMemo(() => {

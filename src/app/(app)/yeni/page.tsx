@@ -70,7 +70,7 @@ export default async function YeniIsSayfasi({
         finansalGoster={!personel}
         personelMod={personel}
         durumSabit
-        servisNoGoster={grup?.ad === "BOYTEKS"} // BOYTEKS: fiş no otomatik değil, stok kodu elle
+        servisNoGoster={!!grup?.ad?.includes("BOYTEKS")} // BOYTEKS: fiş no otomatik değil, stok kodu elle (ad "BOYTEKS TEKSTİL")
         servisNoEtiket="Firma stok kodu"
         fotoSecimi
       />

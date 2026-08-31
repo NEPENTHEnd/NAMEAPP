@@ -206,7 +206,7 @@ export function IslerEkrani({
   // Müşteri sütunu HER görünümde gösterilir — firma/grup içinde de müşteri + şube adı görünsün.
   const musteriGoster = true
   const aktifGrupAd = gruplar.find((g) => g.id === aktifGrup)?.ad ?? null
-  const stokKoduModu = aktifGrupAd === "BOYTEKS" // fiş no yerine firma stok kodu
+  const stokKoduModu = !!aktifGrupAd?.includes("BOYTEKS") // fiş no yerine firma stok kodu (ad "BOYTEKS TEKSTİL")
 
   // Şubeler: firmanın üst-seviye şubeleri + her şubenin alt şubeleri
   const subeMap = new Map<string, Sube[]>() // grup_id → üst seviye şubeler

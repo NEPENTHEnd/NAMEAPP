@@ -34,6 +34,24 @@ const bosNull = (v: unknown) => (v === "" || v == null ? undefined : v)
 // Türkçe-duyarlı BÜYÜK harf (i→İ, ı→I). Girilen tüm metinler büyük harfe çevrilir.
 const buyuk = (s: string) => s.toLocaleUpperCase("tr-TR")
 
+// Sunucu UTC çalışır; fatura_tarihi "bugün"ü Türkiye gününe göre yaz.
+const bugunTR = () =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" })
+
+// Verilen fatura durumu "FATURA EDİLDİ" mi? (fatura_tarihi otomatik atama kararı için)
+async function faturaEdildiMi(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  faturaDurumuId: string | null | undefined
+): Promise<boolean> {
+  if (!faturaDurumuId) return false
+  const { data } = await supabase
+    .from("fatura_durumu")
+    .select("ad")
+    .eq("id", faturaDurumuId)
+    .maybeSingle()
+  return data?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ"
+}
+
 const sayi = z.preprocess(
   bosNull,
   z.coerce.number({ message: "Geçerli bir sayı girin" }).nonnegative().optional()
@@ -275,7 +293,7 @@ export async function isOlustur(
       .select("ad")
       .eq("id", ekle.grup_id)
       .maybeSingle()
-    if (g?.ad === "BOYTEKS") otomatikFis = false
+    if (g?.ad?.includes("BOYTEKS")) otomatikFis = false // ad "BOYTEKS TEKSTİL"
   }
   if (otomatikFis) {
     const rpc = supabase as unknown as RpcIstemci
@@ -293,6 +311,11 @@ export async function isOlustur(
     ekle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     ekle.garanti_no = parsed.data.garanti_no ?? null
     ekle.talep_no = parsed.data.talep_no ?? null
+    // FATURA EDİLDİ seçilip tarih girilmemişse otomatik bugün — hızlı düzenleme
+    // yollarıyla tutarlı olsun; yoksa iş ciroya hiç girmez (gelir kaçağı).
+    if (!ekle.fatura_tarihi && (await faturaEdildiMi(supabase, ekle.fatura_durumu_id))) {
+      ekle.fatura_tarihi = bugunTR()
+    }
   }
 
   // Adet: aynı üründen birden çok → tek fiş no, her biri AYRI satır (kendi seri no'su)
@@ -371,6 +394,10 @@ export async function isGuncelle(
     guncelle.garanti_no = parsed.data.garanti_no ?? null
     guncelle.talep_no = parsed.data.talep_no ?? null
     guncelle.sube_id = parsed.data.sube_id ?? null
+    // FATURA EDİLDİ seçilip tarih boşsa otomatik bugün (hızlı düzenlemeyle tutarlı)
+    if (!guncelle.fatura_tarihi && (await faturaEdildiMi(supabase, guncelle.fatura_durumu_id))) {
+      guncelle.fatura_tarihi = bugunTR()
+    }
   }
 
   const { error } = await supabase
