@@ -209,7 +209,9 @@ export function FirmaGrafik({
         altVar: subeli.has(ad),
         musteriVar: ad === GRUPSUZ_AD && grupsuzVar, // DİĞER içi müşterilere açılır
       }))
-      .filter((x) => x.adet > 0)
+      // adet geliş ayından, tutar fatura ayından geldiği için bir firma o ay
+      // faturalanmış olup o ay gelmemiş olabilir (adet 0, tutar>0) — onu da göster.
+      .filter((x) => x.adet > 0 || x.tutar > 0)
       .sort((a, b) => b.adet - a.adet)
   }, [kapsamNokta, kapsamSube, kapsamDiger])
 

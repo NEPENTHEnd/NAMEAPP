@@ -82,17 +82,23 @@ export default async function RaporlarSayfasi({
     }
   }
   const grupAdMap = new Map((grupListe ?? []).map((g) => [g.id, g.ad]))
-  const noktaMap = new Map<string, { adet: number; tutar: number }>()
-  for (const j of firmaIsleri ?? []) {
-    const ayKey = j.gelis_tarihi?.slice(0, 7)
-    if (!ayKey || !ayPencere.some((a) => a.key === ayKey)) continue
-    const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
+  const ayIcinde = (k: string | undefined): k is string => !!k && ayPencere.some((a) => a.key === k)
+  // ADET geliş ayına, ₺ CİRO fatura kesim ayına göre (matris ile aynı kural).
+  // Bir iş Ocak'ta gelip Ağustos'ta faturalandıysa: adet Ocak'a, tutar Ağustos'a düşer.
+  const noktaMap = new Map<string, { adet: number; tutar: number; grupId: string | null }>()
+  const noktaAl = (firmaAd: string, ayKey: string, grupId: string | null) => {
     const anahtar = `${firmaAd}|${ayKey}`
-    const v = noktaMap.get(anahtar) ?? { adet: 0, tutar: 0, grupId: (j.grup_id as string | null) ?? null }
-    v.adet++
-    // Kazanç yalnız FATURA TARİHLİ (kesilmiş) işlerden — tarihsiz fiyatlar sayılmaz
-    v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
-    noktaMap.set(anahtar, v)
+    let v = noktaMap.get(anahtar)
+    if (!v) { v = { adet: 0, tutar: 0, grupId }; noktaMap.set(anahtar, v) }
+    return v
+  }
+  for (const j of firmaIsleri ?? []) {
+    const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
+    const grupId = (j.grup_id as string | null) ?? null
+    const gAy = j.gelis_tarihi?.slice(0, 7)
+    if (ayIcinde(gAy)) noktaAl(firmaAd, gAy, grupId).adet++
+    const fAy = j.fatura_tarihi?.slice(0, 7)
+    if (ayIcinde(fAy)) noktaAl(firmaAd, fAy, grupId).tutar += j.fatura_tutari ?? 0
   }
   const grafikNoktalar = [...noktaMap.entries()].map(([anahtar, v]) => {
     const [firma, ayKey] = anahtar.split("|")
@@ -105,19 +111,22 @@ export default async function RaporlarSayfasi({
   })
 
   // Şube kırılımı (firma × şube × ay) — balon grafiğinde firmaya tıklayınca alt şubeler
-  const subeMap = new Map<string, { adet: number; tutar: number }>()
+  const subeMap = new Map<string, { adet: number; tutar: number; subeId: string }>()
+  const subeAl = (anahtar: string, subeId: string) => {
+    let v = subeMap.get(anahtar)
+    if (!v) { v = { adet: 0, tutar: 0, subeId }; subeMap.set(anahtar, v) }
+    return v
+  }
   for (const j of firmaIsleri ?? []) {
     if (!j.sube_id) continue
-    const ayKey = j.gelis_tarihi?.slice(0, 7)
-    if (!ayKey || !ayPencere.some((a) => a.key === ayKey)) continue
     const firmaAd = j.grup_id ? grupAdMap.get(j.grup_id) ?? "DİĞER" : "DİĞER"
     const subeAd = subeAdMap.get(j.sube_id)
     if (!subeAd) continue
-    const anahtar = `${firmaAd}|${subeAd}|${ayKey}`
-    const v = subeMap.get(anahtar) ?? { adet: 0, tutar: 0, subeId: j.sube_id as string }
-    v.adet++
-    v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
-    subeMap.set(anahtar, v)
+    const subeId = j.sube_id as string
+    const gAy = j.gelis_tarihi?.slice(0, 7)
+    if (ayIcinde(gAy)) subeAl(`${firmaAd}|${subeAd}|${gAy}`, subeId).adet++
+    const fAy = j.fatura_tarihi?.slice(0, 7)
+    if (ayIcinde(fAy)) subeAl(`${firmaAd}|${subeAd}|${fAy}`, subeId).tutar += j.fatura_tutari ?? 0
   }
   const grafikSubeNoktalar = [...subeMap.entries()].map(([anahtar, v]) => {
     const [firma, sube, ayKey] = anahtar.split("|")
@@ -126,18 +135,21 @@ export default async function RaporlarSayfasi({
 
   // "DİĞER" (gruba atanmamış) işlerin MÜŞTERİ kırılımı — balonda DİĞER'e tıklayınca
   // içindeki tek tek müşteriler (küçük firmalar) balon olarak açılır.
-  const digerMap = new Map<string, { adet: number; tutar: number }>()
+  const digerMap = new Map<string, { adet: number; tutar: number; musteriId: string | null }>()
+  const digerAl = (anahtar: string, musteriId: string | null) => {
+    let v = digerMap.get(anahtar)
+    if (!v) { v = { adet: 0, tutar: 0, musteriId }; digerMap.set(anahtar, v) }
+    return v
+  }
   for (const j of firmaIsleri ?? []) {
     if (j.grup_id) continue // yalnız grupsuzlar
-    const ayKey = j.gelis_tarihi?.slice(0, 7)
-    if (!ayKey || !ayPencere.some((a) => a.key === ayKey)) continue
     const mus = Array.isArray(j.musteri) ? j.musteri[0] : j.musteri
     const musteriAd = (mus?.ad ?? "—").toString()
-    const anahtar = `${musteriAd}|${ayKey}`
-    const v = digerMap.get(anahtar) ?? { adet: 0, tutar: 0, musteriId: (j.musteri_id as string | null) ?? null }
-    v.adet++
-    v.tutar += j.fatura_tarihi ? j.fatura_tutari ?? 0 : 0
-    digerMap.set(anahtar, v)
+    const musteriId = (j.musteri_id as string | null) ?? null
+    const gAy = j.gelis_tarihi?.slice(0, 7)
+    if (ayIcinde(gAy)) digerAl(`${musteriAd}|${gAy}`, musteriId).adet++
+    const fAy = j.fatura_tarihi?.slice(0, 7)
+    if (ayIcinde(fAy)) digerAl(`${musteriAd}|${fAy}`, musteriId).tutar += j.fatura_tutari ?? 0
   }
   const grafikDigerNoktalar = [...digerMap.entries()].map(([anahtar, v]) => {
     const [musteri, ayKey] = anahtar.split("|")
@@ -246,7 +258,9 @@ export default async function RaporlarSayfasi({
   if (filtre.musteri) aySorgu = aySorgu.eq("musteri_id", filtre.musteri)
   if (filtre.baslangic) aySorgu = aySorgu.gte("gelis_tarihi", filtre.baslangic)
   if (filtre.bitis) aySorgu = aySorgu.lte("gelis_tarihi", filtre.bitis)
-  if (ayAralik) aySorgu = aySorgu.gte("gelis_tarihi", ayAralik.baslangic).lte("gelis_tarihi", ayAralik.bitis)
+  // Not: ay seçilse bile sorguyu geliş ayına DARALTMIYORUZ. Ciro fatura ayına göre
+  // hesaplandığından (Ocak'ta gelip Ağustos'ta faturalanan iş Ağustos'a düşmeli),
+  // tüm kayıtları çekip, gösterimde yalnız seçilen ayın satırını süzüyoruz.
   if (orStr) aySorgu = aySorgu.or(orStr)
   const { data: ayData } = await aySorgu.range(0, 9999)
 
@@ -290,13 +304,15 @@ export default async function RaporlarSayfasi({
       aylik.set(k, v)
     }
   }
-  const aylikSirali = [...aylik.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  const secilenAy = ayAralik ? ayAralik.baslangic.slice(0, 7) : null
+  const aylikSirali = [...aylik.entries()]
+    .filter(([k]) => !secilenAy || k === secilenAy)
+    .sort((a, b) => b[0].localeCompare(a[0]))
 
   const indirParams = filtreToParams(filtre)
-  if (ayAralik) {
-    indirParams.set("baslangic", ayAralik.baslangic)
-    indirParams.set("bitis", ayAralik.bitis)
-  }
+  // Ay seçiliyse `ay` parametresi geçilir → route bunu FATURA ayına göre süzer
+  // (geliş/baslangic-bitis değil), böylece Excel toplamı matris/balon ile aynı çıkar.
+  if (ay) indirParams.set("ay", ay)
   const indirHref = `/raporlar/disa-aktar?${indirParams.toString()}`
 
   return (
