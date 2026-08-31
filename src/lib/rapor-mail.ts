@@ -19,8 +19,9 @@ async function raporExceliUret(): Promise<{ buffer: Buffer; adet: number }> {
 
 // Tüm tabloların tam kopyası (JSON) — günlük yedek maili eki; geri yüklenebilir.
 const YEDEK_TABLOLARI = [
-  "is_kaydi", "foto", "musteri", "grup", "durum", "fatura_durumu",
-  "teknik_personel", "kullanici_profil", "davet_kisi", "fis_sayac",
+  "is_kaydi", "foto", "musteri", "grup", "sube", "durum", "fatura_durumu",
+  "teknik_personel", "kullanici_profil", "davet_kodu", "davet_kisi",
+  "fis_sayac", "firma_hedef", "push_abonelik",
 ]
 async function tumVeriYedekJson(): Promise<Buffer> {
   const supabase = createAdminClient()
@@ -76,7 +77,7 @@ export async function raporMailGonder(
   }
 
   const { buffer, adet } = await raporExceliUret()
-  const bugun = new Date().toISOString().slice(0, 10)
+  const bugun = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" })
 
   const konu =
     tip === "gunluk"
