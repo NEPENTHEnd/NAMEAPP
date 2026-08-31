@@ -35,7 +35,8 @@ const CIZGI = "#dfe7e3"
 const AMBER = "#f2a900"
 const AMBER_KOYU = "#8a5a00"
 
-const tamTutar = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 })
+const tamSayi = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 })
+const tamTutar = { format: (v: number) => `${tamSayi.format(v)} TL` }
 const kisaTutar = new Intl.NumberFormat("tr-TR", { notation: "compact", maximumFractionDigits: 1 })
 
 function isi(n: number, maks: number): { bg: string; fg: string } {
