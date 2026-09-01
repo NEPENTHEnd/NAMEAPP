@@ -110,10 +110,10 @@ export function FirmaAyMatris({
   const gTop = para ? genelToplamPara : genelToplam
   const gOrt = para ? genelOrtPara : genelOrt
 
-  const hucre = (v: number) => (v > 0 ? (para ? kisaTutar.format(v) : String(v)) : "·")
+  const hucre = (v: number) => (v > 0 ? (para ? tamTutar.format(v) : String(v)) : "·")
   const buyuk = (v: number) => (v > 0 ? (para ? tamTutar.format(v) : String(v)) : "—")
-  const ortBic = (v: number | null) => (v != null && v > 0 ? (para ? kisaTutar.format(v) : v.toFixed(1)) : "—")
-  const bicimSayi = (v: number) => (para ? kisaTutar.format(v) : Number.isInteger(v) ? String(v) : v.toFixed(1))
+  const ortBic = (v: number | null) => (v != null && v > 0 ? (para ? tamTutar.format(v) : v.toFixed(1)) : "—")
+  const bicimSayi = (v: number) => (para ? tamTutar.format(v) : Number.isInteger(v) ? String(v) : v.toFixed(1))
   const yuzde = (v: number | null) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${Math.round(v)}%`)
 
   const maks = Math.max(1, ...satirlar.flatMap((s) => satirAylar(s)))
@@ -142,12 +142,6 @@ export function FirmaAyMatris({
           <button type="button" onClick={() => setMod("para")} className={modBtn(para)}>₺ Ciro</button>
         </div>
       </div>
-      <p className="mb-3 text-[11px] text-muted-foreground">
-        <span style={{ color: AMBER_KOYU, fontWeight: 600 }}>amber</span> = bu ay ·
-        {para ? " ay = FATURA kesim ayı (yalnız faturalanan)" : " ay = GELİŞ ayı"} · <b>Ortalama {yil - 1}</b> ve <b>Hedef {yil}</b> hücrelerine
-        tıklayıp elle gir ({para ? "₺" : "adet"}); diğer sütunlar otomatik hesaplanır.
-      </p>
-
       <div className="overflow-x-auto rounded-lg" style={{ border: `1px solid ${TEAL}`, background: "#fff" }}>
         <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, color: "#0a3d30", fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif", fontVariantNumeric: "tabular-nums" }}>
           <caption className="sr-only">{yil} firma × ay {para ? "ciro" : "iş adedi"} matrisi</caption>
@@ -229,10 +223,10 @@ export function FirmaAyMatris({
               <th scope="row" style={{ position: "sticky", left: 0, zIndex: 1, background: TEAL, color: "#fff", fontWeight: 800, textAlign: "left", padding: "7px 10px", whiteSpace: "nowrap" }}>GENEL TOPLAM</th>
               {ayTop.slice(0, ayN).map((n, i) => {
                 const bu = aktifAy === i + 1
-                return <td key={i} style={{ background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: 800, textAlign: "center", padding: "7px 5px", whiteSpace: "nowrap" }}>{n > 0 ? (para ? kisaTutar.format(n) : n) : "·"}</td>
+                return <td key={i} style={{ background: bu ? AMBER : TEAL, color: bu ? "#3d2800" : "#fff", fontWeight: 800, textAlign: "center", padding: "7px 5px", whiteSpace: "nowrap" }}>{n > 0 ? (para ? tamTutar.format(n) : n) : "·"}</td>
               })}
               <td style={{ background: TEAL_KOYU, color: "#fff", fontWeight: 800, textAlign: "center", padding: "7px 7px", whiteSpace: "nowrap" }}>{para ? tamTutar.format(gTop) : gTop}</td>
-              <td style={{ background: TEAL_KOYU, color: "#d7ede4", fontWeight: 700, textAlign: "center", padding: "7px 7px", whiteSpace: "nowrap" }}>{gOrt > 0 ? (para ? kisaTutar.format(gOrt) : gOrt.toFixed(1)) : "—"}</td>
+              <td style={{ background: TEAL_KOYU, color: "#d7ede4", fontWeight: 700, textAlign: "center", padding: "7px 7px", whiteSpace: "nowrap" }}>{gOrt > 0 ? (para ? tamTutar.format(gOrt) : gOrt.toFixed(1)) : "—"}</td>
               <td style={{ background: TEAL_KOYU, color: "#9fbdb0", textAlign: "center", padding: "7px 7px" }}>—</td>
               <td style={{ background: TEAL_KOYU, color: "#9fbdb0", textAlign: "center", padding: "7px 7px" }}>—</td>
               <td style={{ background: TEAL_KOYU, color: "#9fbdb0", textAlign: "center", padding: "7px 7px" }}>—</td>
