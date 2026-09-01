@@ -3,6 +3,12 @@ import { getYonetici } from "@/lib/auth"
 import { sonAylar, ayAraligi, bugunIstanbul } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { durumRenk } from "@/components/rozet"
+import {
+  TeknikerAylikBolum,
+  PersonelAylikBolum,
+  type TeknikerAylik,
+  type PersonelAylik,
+} from "@/components/pano-performans"
 
 function ymd(d: Date): string {
   const y = d.getFullYear()
@@ -278,44 +284,72 @@ export default async function PanoSayfasi({
       pasta: pieTop > 0 ? `conic-gradient(#10b981 0deg ${onarPay}deg, #ef4444 ${onarPay}deg 360deg)` : null,
     }
   }
-  // TEKNİKER (işi yapan = teknik_personel)
-  const teknikPerf = personeller
-    .map((p) => perfHesapla(p.ad, isler.filter((j) => j.teknik_personel_id === p.id)))
-    .filter((t) => t.toplam > 0)
-    .sort((a, b) => b.toplam - a.toplam)
+  // Aylık gruplama (her ay sıfırlanır; karta tıklayınca önceki aylar açılır).
+  // Ay = GELİŞ ayı (işin geldiği ay). Geliş tarihi olmayan işler sayılmaz.
+  const ayEtiket = (k: string) => `${AYLAR[Number(k.slice(5, 7)) - 1]} ${k.slice(0, 4)}`
+  const buAyKey = `${nowYil}-${String(nowAy).padStart(2, "0")}`
+  const buAyLabel = ayEtiket(buAyKey)
+  const isAyKey = (j: { gelis_tarihi: string | null }) =>
+    j.gelis_tarihi ? j.gelis_tarihi.slice(0, 7) : null
+
+  // TEKNİKER (işi yapan = teknik_personel) — ay bazında
+  const teknikerAylik: TeknikerAylik[] = personeller
+    .map((p) => {
+      const ayGrup = new Map<string, typeof isler>()
+      for (const j of isler.filter((x) => x.teknik_personel_id === p.id)) {
+        const k = isAyKey(j)
+        if (!k) continue
+        const arr = ayGrup.get(k) ?? []
+        arr.push(j)
+        ayGrup.set(k, arr)
+      }
+      const aylar = [...ayGrup.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([k, arr]) => {
+          const pf = perfHesapla(p.ad, arr)
+          return { key: k, label: ayEtiket(k), toplam: pf.toplam, onarildi: pf.onarildi, calismadi: pf.calismadi, faturaAdet: pf.faturaAdet, faturaYuzde: pf.faturaYuzde, basari: pf.basari, pasta: pf.pasta }
+        })
+      return { ad: p.ad, aylar }
+    })
+    .filter((t) => t.aylar.length > 0)
   // PERSONEL (kaydeden = olusturan) — teknikerden FARKLI: ÇOĞU DURUM gösterilir.
   // Yöneticiler de gösterilir (İsmail vb. aktif iş giriyor); yalnız "admin"
   // (sistem/içe-aktarma hesabı) gizli tutulur.
   const gizliKaydedenIdSet = new Set(profiller.filter((p) => p.ad === "admin").map((p) => p.id))
   const kaydedenIdler = ([...new Set(isler.map((j) => j.olusturan_id).filter(Boolean))] as string[])
     .filter((id) => !gizliKaydedenIdSet.has(id))
-  const personelDurum: PersonelSatir[] = kaydedenIdler
+  // PERSONEL (kaydeden = olusturan) — ay bazında; çok renkli durum pastası
+  const personelAylik: PersonelAylik[] = kaydedenIdler
     .map((id) => {
-      const kendi = isler.filter((j) => j.olusturan_id === id)
-      const toplam = kendi.length
-      const dilimler = durumlar
-        .map((d) => ({ ad: d.ad, renk: durumRenk(d.ad, d.renk), adet: kendi.filter((j) => j.durum_id === d.id).length }))
-        .filter((x) => x.adet > 0)
-        .sort((a, b) => b.adet - a.adet)
-      let acc = 0
-      const stops: string[] = []
-      for (const x of dilimler) {
-        const from = (acc / Math.max(1, toplam)) * 360
-        acc += x.adet
-        stops.push(`${x.renk} ${from}deg ${(acc / Math.max(1, toplam)) * 360}deg`)
+      const ayGrup = new Map<string, typeof isler>()
+      for (const j of isler.filter((x) => x.olusturan_id === id)) {
+        const k = isAyKey(j)
+        if (!k) continue
+        const arr = ayGrup.get(k) ?? []
+        arr.push(j)
+        ayGrup.set(k, arr)
       }
-      const faturaAdet = faturaEdildiId ? kendi.filter((j) => j.fatura_durumu_id === faturaEdildiId).length : 0
-      return {
-        ad: profilAd.get(id) ?? "—",
-        toplam,
-        faturaAdet,
-        faturaYuzde: toplam > 0 ? Math.round((faturaAdet / toplam) * 100) : 0,
-        pasta: stops.length ? `conic-gradient(${stops.join(",")})` : null,
-        dilimler,
-      }
+      const aylar = [...ayGrup.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([k, kendi]) => {
+          const toplam = kendi.length
+          const dilimler = durumlar
+            .map((d) => ({ ad: d.ad, renk: durumRenk(d.ad, d.renk), adet: kendi.filter((j) => j.durum_id === d.id).length }))
+            .filter((x) => x.adet > 0)
+            .sort((a, b) => b.adet - a.adet)
+          let acc = 0
+          const stops: string[] = []
+          for (const x of dilimler) {
+            const from = (acc / Math.max(1, toplam)) * 360
+            acc += x.adet
+            stops.push(`${x.renk} ${from}deg ${(acc / Math.max(1, toplam)) * 360}deg`)
+          }
+          const faturaAdet = faturaEdildiId ? kendi.filter((j) => j.fatura_durumu_id === faturaEdildiId).length : 0
+          return { key: k, label: ayEtiket(k), toplam, faturaAdet, faturaYuzde: toplam > 0 ? Math.round((faturaAdet / toplam) * 100) : 0, pasta: stops.length ? `conic-gradient(${stops.join(",")})` : null, dilimler }
+        })
+      return { ad: profilAd.get(id) ?? "—", aylar }
     })
-    .filter((t) => t.toplam > 0)
-    .sort((a, b) => b.toplam - a.toplam)
+    .filter((p) => p.aylar.length > 0)
 
   // Aylık trend (son 3 ay)
   const ayMap = new Map<string, { gelen: number; cikan: number }>()
@@ -364,9 +398,10 @@ export default async function PanoSayfasi({
       </div>
 
 
-      {/* Önce TEKNİKER (işi yapan), sonra PERSONEL (kaydeden) — alt alta, farklı yapıda */}
-      <PerfBolum baslik="Teknikerler" liste={teknikPerf} />
-      <PersonelBolum baslik="Personel (kaydeden)" liste={personelDurum} />
+      {/* Tekniker (işi yapan) + Personel (kaydeden) — AYLIK (her ay sıfırlanır);
+          karta tıklayınca o kişinin önceki ayları açılır */}
+      <TeknikerAylikBolum teknikerler={teknikerAylik} buAyKey={buAyKey} buAyLabel={buAyLabel} />
+      <PersonelAylikBolum personeller={personelAylik} buAyKey={buAyKey} buAyLabel={buAyLabel} />
 
       {/* Grafikler */}
       <div className="grid gap-3.5 lg:grid-cols-[1.2fr_1fr]">
