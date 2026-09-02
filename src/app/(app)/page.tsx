@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
 import { buttonVariants } from "@/components/ui/button"
 import { DurumRozeti } from "@/components/rozet"
-import { sonAylar, ayAraligi } from "@/lib/aylar"
+import { sonAylar, ayAraligi, bugunIstanbul } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { IslerFiltreler } from "./isler-filtreler"
 import { IslerEkrani } from "./isler-ekrani"
@@ -104,21 +104,6 @@ export default async function IslerSayfasi({
   const subeler = subelerRes.data ?? []
   const bakilmadiId = durumlarRes.data?.find((d) => d.ad === "BAKILMADI")?.id ?? ""
   const faturaDurumlari = faturalarRes.data ?? []
-  // "Kapanmış" fatura durumları. Bir iş yalnızca ÇIKIŞ TARİHİ VAR **ve** fatura
-  // durumu bu listedeyse ayında kalır (devretmez). Çıkışı olmayan her iş —
-  // durum ne olursa olsun — sonraki aya devreder.
-  const KAPALI_FATURA = new Set([
-    "BEDELSİZ",
-    "FATURA EDİLDİ",
-    "GARANTİ",
-    "İADE",
-    "PEŞİN ALINDI",
-    "ÇALIŞMADI",
-    "SAĞLAM",
-  ])
-  const kapaliFaturaIdler = faturaDurumlari
-    .filter((f) => KAPALI_FATURA.has(f.ad))
-    .map((f) => f.id)
   // Üst şeritteki hızlı fatura-durumu butonları (Tanımlar'dan yönetilir)
   const hizliFaturalar = faturaDurumlari.filter((f) => f.hizli)
 
@@ -174,17 +159,25 @@ export default async function IslerSayfasi({
   if (baslangic) query = query.gte("gelis_tarihi", baslangic)
   if (bitis) query = query.lte("gelis_tarihi", bitis)
   // Arama yapılırken ay filtresi devre dışı — sonuç hangi aydaysa o gelsin.
+  // AY FİLTRESİ = ÇIKIŞ (teslim) tarihine göre. Bir iş, ÇIKIŞ tarihinin ayında
+  // görünür (geliş ayı değil). Örn: Temmuz'da gelip Eylül'de teslim/iade edilen
+  // iş -> Eylül'de görünür. Çıkış tarihi HENÜZ YOK (açık) olanlar güncel ayda
+  // görünür (her ay güncele "devreder"), geçmiş aylarda görünmez.
+  const { yil: nowY, ay: nowM } = bugunIstanbul()
+  const buAyKey = `${nowY}-${String(nowM).padStart(2, "0")}`
   const ayAralik = ay && !q ? ayAraligi(ay) : null
   if (ayAralik) {
-    // O ayın gelenleri VEYA hâlâ "açık" işler. Açık = çıkış tarihi yok (durum ne
-    // olursa olsun) VEYA fatura durumu kapanmış listede değil (null dahil).
-    const acikKosul =
-      kapaliFaturaIdler.length > 0
-        ? `or(cikis_tarihi.is.null,fatura_durumu_id.is.null,fatura_durumu_id.not.in.(${kapaliFaturaIdler.join(",")}))`
-        : `cikis_tarihi.is.null`
-    query = query.or(
-      `and(gelis_tarihi.gte.${ayAralik.baslangic},gelis_tarihi.lte.${ayAralik.bitis}),${acikKosul}`
-    )
+    if (ay === buAyKey) {
+      // Güncel ay: bu ay ÇIKIŞI yapılanlar + hâlâ açık (çıkış tarihi yok) işler
+      query = query.or(
+        `and(cikis_tarihi.gte.${ayAralik.baslangic},cikis_tarihi.lte.${ayAralik.bitis}),cikis_tarihi.is.null`
+      )
+    } else {
+      // Geçmiş ay: yalnız o ay ÇIKIŞI yapılan işler (açıklar güncel aya devretti)
+      query = query
+        .gte("cikis_tarihi", ayAralik.baslangic)
+        .lte("cikis_tarihi", ayAralik.bitis)
+    }
   }
   } // /if (!q) — arama yapılıyorsa hiçbir filtre uygulanmaz
 

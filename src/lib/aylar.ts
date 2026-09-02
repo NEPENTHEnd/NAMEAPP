@@ -32,7 +32,7 @@ export function sonAylar(adet = 4): AyOgesi[] {
   return liste
 }
 
-// "YYYY-MM" -> o ayın ilk/son günü (gelis_tarihi filtresi için)
+// "YYYY-MM" -> o ayın ilk/son günü (tarih aralığı filtreleri için)
 export function ayAraligi(key: string): { baslangic: string; bitis: string } | null {
   const m = /^(\d{4})-(\d{2})$/.exec(key)
   if (!m) return null
