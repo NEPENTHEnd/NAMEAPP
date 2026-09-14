@@ -21,7 +21,7 @@ async function raporExceliUret(): Promise<{ buffer: Buffer; adet: number }> {
 const YEDEK_TABLOLARI = [
   "is_kaydi", "foto", "musteri", "grup", "sube", "durum", "fatura_durumu",
   "teknik_personel", "kullanici_profil", "davet_kodu", "davet_kisi",
-  "fis_sayac", "firma_hedef", "push_abonelik",
+  "fis_sayac", "firma_hedef", "push_abonelik", "manuel_ay_ciro",
 ]
 async function tumVeriYedekJson(): Promise<Buffer> {
   const supabase = createAdminClient()

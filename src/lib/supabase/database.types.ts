@@ -430,6 +430,44 @@ export type Database = {
           },
         ]
       }
+      manuel_ay_ciro: {
+        Row: {
+          adet: number | null
+          ay: number
+          grup_id: string | null
+          id: string
+          tutar: number | null
+          updated_at: string
+          yil: number
+        }
+        Insert: {
+          adet?: number | null
+          ay: number
+          grup_id?: string | null
+          id?: string
+          tutar?: number | null
+          updated_at?: string
+          yil: number
+        }
+        Update: {
+          adet?: number | null
+          ay?: number
+          grup_id?: string | null
+          id?: string
+          tutar?: number | null
+          updated_at?: string
+          yil?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manuel_ay_ciro_grup_id_fkey"
+            columns: ["grup_id"]
+            isOneToOne: false
+            referencedRelation: "grup"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       musteri: {
         Row: {
           ad: string

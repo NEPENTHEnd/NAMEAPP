@@ -51,7 +51,7 @@ export default async function RaporlarSayfasi({
   const secenekler = await getIsFormSecenekleri()
 
   // Firma-ay grafiği: son 6 ayın firma × ay kırılımı (grafik bileşenine gider)
-  const [{ data: grupListe }, { data: subeListe }, { data: firmaIsleri }, { data: hedefListe }] =
+  const [{ data: grupListe }, { data: subeListe }, { data: firmaIsleri }, { data: hedefListe }, { data: manuelListe }] =
     await Promise.all([
       supabase.from("grup").select("id, ad").order("sira"),
       supabase.from("sube").select("id, ad, grup_id"),
@@ -62,6 +62,8 @@ export default async function RaporlarSayfasi({
       supabase
         .from("firma_hedef")
         .select("grup_id, yil, ort_gecen_adet, ort_hedef_adet, ort_gecen_para, ort_hedef_para"),
+      // Geçmiş ayların ELLE girilen ciro/adet değerleri (müdür Excel'inden)
+      supabase.from("manuel_ay_ciro").select("grup_id, yil, ay, tutar, adet"),
     ])
   const subeAdMap = new Map((subeListe ?? []).map((s) => [s.id, s.ad]))
   const AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
@@ -198,16 +200,41 @@ export default async function RaporlarSayfasi({
   }
   const grupIdByAd = new Map((grupListe ?? []).map((g) => [g.ad, g.id]))
   const bosHedef = { ort_gecen_adet: null, ort_hedef_adet: null, ort_gecen_para: null, ort_hedef_para: null }
+  // ELLE girilen (manuel) ay değerleri — firma × ay (bu yıl). null = değer girilmemiş.
+  const manuelAdetMap = new Map<string, (number | null)[]>(
+    matrisSatirSira.map((ad) => [ad, new Array(12).fill(null)])
+  )
+  const manuelParaMap = new Map<string, (number | null)[]>(
+    matrisSatirSira.map((ad) => [ad, new Array(12).fill(null)])
+  )
+  for (const m of manuelListe ?? []) {
+    if (m.yil !== matrisYil) continue
+    const firmaAd = m.grup_id ? grupAdMap.get(m.grup_id) ?? "DİĞER" : "DİĞER"
+    const i = m.ay - 1
+    if (i < 0 || i > 11) continue
+    if (m.adet != null) (manuelAdetMap.get(firmaAd) ?? manuelAdetMap.get("DİĞER")!)[i] = m.adet
+    if (m.tutar != null) (manuelParaMap.get(firmaAd) ?? manuelParaMap.get("DİĞER")!)[i] = m.tutar
+  }
   const matrisSatirlar = matrisSatirSira.map((firma) => {
-    const aylar = matrisMap.get(firma)!
+    // GERÇEK = sistemden (adet: geliş ayı, para: fatura ayı). MANUEL = elle girilen.
+    const gercekAylar = matrisMap.get(firma)!
+    const gercekAylarPara = matrisPara.get(firma)!
+    const manuelAylar = manuelAdetMap.get(firma)!
+    const manuelAylarPara = manuelParaMap.get(firma)!
+    // BİRLEŞİK (gösterilen + toplama giren): sistem verisi VARSA o kazanır,
+    // yalnız sistem 0 olan ay elle girilen değerle dolar (asla çift sayım yok).
+    const aylar = gercekAylar.map((n, i) => (n > 0 ? n : manuelAylar[i] ?? 0))
+    const aylarPara = gercekAylarPara.map((n, i) => (n > 0 ? n : manuelAylarPara[i] ?? 0))
     const toplam = aylar.reduce((t, n) => t + n, 0)
     const ort = gecenAy > 0 ? toplam / gecenAy : 0
-    const aylarPara = matrisPara.get(firma)!
     const toplamPara = aylarPara.reduce((t, n) => t + n, 0)
     const ortPara = gecenAy > 0 ? toplamPara / gecenAy : 0
     const grupId = grupIdByAd.get(firma) ?? null
     const hedef = hedefMap.get(grupId ?? "DIGER") ?? bosHedef
-    return { firma, grupId, aylar, toplam, ort, aylarPara, toplamPara, ortPara, hedef }
+    return {
+      firma, grupId, aylar, toplam, ort, aylarPara, toplamPara, ortPara, hedef,
+      gercekAylar, gercekAylarPara, manuelAylar, manuelAylarPara,
+    }
   })
   const matrisAylikToplam = Array.from({ length: 12 }, (_, i) =>
     matrisSatirlar.reduce((t, s) => t + s.aylar[i], 0)

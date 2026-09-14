@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Force -Path $hedef | Out-Null
 $h = @{ "apikey" = $key; "Authorization" = "Bearer $key" }
 $tablolar = @("is_kaydi", "foto", "musteri", "grup", "sube", "durum", "fatura_durumu",
               "teknik_personel", "kullanici_profil", "davet_kodu", "davet_kisi",
-              "fis_sayac", "firma_hedef", "push_abonelik")
+              "fis_sayac", "firma_hedef", "push_abonelik", "manuel_ay_ciro")
 $limit = 1000
 
 $parcalar = New-Object System.Collections.ArrayList

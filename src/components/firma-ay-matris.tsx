@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 
 import { firmaHedefKaydet, type HedefAlan } from "@/app/actions/firma-hedef"
+import { manuelAyCiroKaydet } from "@/app/actions/manuel-ay-ciro"
 
 // Müdürün Excel "2026_GENEL" takibinin canlı, RENKLİ hâli — Adet / ₺ (ciro) geçişli.
 // ORTALAMA (önceki yıl) ve ORTALAMA HEDEF elle girilir (mod başına); diğer 3 sütun türetilir.
@@ -17,13 +18,17 @@ export type HedefDeger = {
 export type MatrisSatir = {
   firma: string
   grupId: string | null // null = DİĞER
-  aylar: number[]
+  aylar: number[] // BİRLEŞİK adet (sistem varsa o, yoksa manuel)
   toplam: number
   ort: number
-  aylarPara: number[]
+  aylarPara: number[] // BİRLEŞİK ciro
   toplamPara: number
   ortPara: number
   hedef: HedefDeger
+  gercekAylar: number[] // sistemden gelen adet (0 ise ay elle girilebilir)
+  gercekAylarPara: number[] // sistemden gelen ciro
+  manuelAylar: (number | null)[] // elle girilen adet (null = boş)
+  manuelAylarPara: (number | null)[] // elle girilen ciro
 }
 
 const AY_KISA = ["OCA", "ŞUB", "MAR", "NİS", "MAY", "HAZ", "TEM", "AĞU", "EYL", "EKİ", "KAS", "ARA"]
@@ -98,6 +103,43 @@ export function FirmaAyMatris({
     if (yeni === (s.hedef[alan] ?? null)) return // değişmedi
     startTransition(async () => {
       await firmaHedefKaydet(s.grupId, yil, alan, yeni)
+      router.refresh()
+    })
+  }
+
+  // Elle girilen GEÇMİŞ AY değerleri (sistemde verisi olmayan eski aylar) —
+  // mod başına ayrı (adet/para) yerel state.
+  const [yerelAyAdet, setYerelAyAdet] = useState<Record<string, (number | null)[]>>({})
+  const [yerelAyPara, setYerelAyPara] = useState<Record<string, (number | null)[]>>({})
+  useEffect(() => {
+    const a: Record<string, (number | null)[]> = {}
+    const p: Record<string, (number | null)[]> = {}
+    for (const s of satirlar) {
+      a[s.firma] = [...s.manuelAylar]
+      p[s.firma] = [...s.manuelAylarPara]
+    }
+    setYerelAyAdet(a)
+    setYerelAyPara(p)
+  }, [satirlar])
+  const ayOku = (firma: string, i: number): number | null =>
+    (para ? yerelAyPara[firma]?.[i] : yerelAyAdet[firma]?.[i]) ?? null
+  function ayYaz(firma: string, i: number, str: string) {
+    const t = str.trim().replace(/\./g, "").replace(",", ".")
+    const v = t === "" ? null : Number(t)
+    const val = v == null || isNaN(v) ? null : v
+    const setter = para ? setYerelAyPara : setYerelAyAdet
+    setter((prev) => {
+      const arr = [...(prev[firma] ?? new Array(12).fill(null))]
+      arr[i] = val
+      return { ...prev, [firma]: arr }
+    })
+  }
+  function ayKaydet(s: MatrisSatir, i: number) {
+    const local = ayOku(s.firma, i)
+    const onceki = (para ? s.manuelAylarPara[i] : s.manuelAylar[i]) ?? null
+    if (local === onceki) return // değişmedi
+    startTransition(async () => {
+      await manuelAyCiroKaydet(s.grupId, yil, i + 1, para ? "tutar" : "adet", local)
       router.refresh()
     })
   }
@@ -180,8 +222,26 @@ export function FirmaAyMatris({
                     {s.firma}
                   </th>
                   {aylar.slice(0, ayN).map((n, i) => {
-                    const { bg, fg } = isi(n, maks)
                     const bu = aktifAy === i + 1
+                    // Sistemde verisi OLMAYAN GEÇMİŞ ay (i+1 < bu ay) elle girilebilir.
+                    const gercek = para ? s.gercekAylarPara[i] : s.gercekAylar[i]
+                    const duzenlenebilir = gercek === 0 && i + 1 < aktifAy
+                    if (duzenlenebilir) {
+                      const mv = ayOku(s.firma, i)
+                      const dolu = mv != null && mv > 0
+                      return (
+                        <td key={i} style={{ padding: 0, background: "#fffdf5", borderBottom: `1px solid ${CIZGI}` }}>
+                          <input inputMode={para ? "decimal" : "numeric"}
+                            value={mv == null ? "" : String(mv)} placeholder="·"
+                            onChange={(e) => ayYaz(s.firma, i, e.target.value)}
+                            onBlur={() => ayKaydet(s, i)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+                            title="Geçmiş ay — değer elle girilebilir"
+                            style={{ width: "100%", background: "transparent", border: "none", outline: "none", textAlign: "center", color: dolu ? "#0a3d30" : "#c9b98a", fontSize: 12, fontWeight: dolu ? 700 : 400, fontVariantNumeric: "tabular-nums", padding: "5px 4px" }} />
+                        </td>
+                      )
+                    }
+                    const { bg, fg } = isi(n, maks)
                     return (
                       <td key={i} style={{ background: bg, color: fg, textAlign: "center", padding: "5px 6px", fontWeight: n > 0 ? 700 : 400, borderBottom: `1px solid ${CIZGI}`, boxShadow: bu ? `inset 2.5px 0 0 ${AMBER}, inset -2.5px 0 0 ${AMBER}` : undefined }}>
                         {hucre(n)}
