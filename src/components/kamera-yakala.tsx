@@ -10,6 +10,7 @@ type Kose = "nw" | "ne" | "sw" | "se"
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 const MIN_KUTU = 0.12 // kırpma kutusu en küçük kenar (oran)
+const KARART = "rgba(0,0,0,.5)" // kırpma kutusu dışını karartan şeritler
 
 // "Kamerayı aç" düğmesi: webcam/telefon kamerasıyla foto çeker, File döndürür.
 // Zoom: donanım destekliyorsa gerçek kamera zoom'u (applyConstraints),
@@ -115,7 +116,8 @@ export function KameraYakala({
     setAcik(true)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1920 } },
+        // Yüksek çözünürlük iste — kırpınca kalite düşmesin (cihaz desteklediğince verir)
+        video: { facingMode: "environment", width: { ideal: 3840 }, height: { ideal: 2160 } },
         audio: false,
       })
       streamRef.current = stream
@@ -149,26 +151,48 @@ export function KameraYakala({
     kaynakRef.current = null
   }
 
-  // Kareyi yakala → kırpma aşamasına geç (kamerayı kapat, kar-res kareyi sakla)
-  function cek() {
+  // Kareyi yakala → kırpma aşamasına geç. En yüksek çözünürlüğü al: mümkünse
+  // ImageCapture.takePhoto() (tam foto çözünürlüğü, ~12MP), değilse video karesi.
+  // Kırpma bu HAM kareden yapılır → küçük bölge kırpınca bile kalite korunur.
+  async function cek() {
     const v = videoRef.current
+    const track = trackRef.current
     if (!v || !v.videoWidth) return
+    let kaynak: CanvasImageSource = v
+    let kw = v.videoWidth
+    let kh = v.videoHeight
+    const IC = (window as unknown as {
+      ImageCapture?: new (t: MediaStreamTrack) => { takePhoto: () => Promise<Blob> }
+    }).ImageCapture
+    if (track && IC) {
+      try {
+        const foto = await new IC(track).takePhoto()
+        const bmp = await createImageBitmap(foto)
+        if (bmp.width >= kw) {
+          kaynak = bmp
+          kw = bmp.width
+          kh = bmp.height
+        }
+      } catch {
+        // desteklenmezse video karesine düş
+      }
+    }
     const canvas = document.createElement("canvas")
-    canvas.width = v.videoWidth
-    canvas.height = v.videoHeight
     const ctx = canvas.getContext("2d")
     if (dijital && zoom > 1) {
-      // Dijital zoom: ortadan kırp, tam kareye ölçekle
-      const sw = v.videoWidth / zoom
-      const sh = v.videoHeight / zoom
-      const sx = (v.videoWidth - sw) / 2
-      const sy = (v.videoHeight - sh) / 2
-      ctx?.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+      // Dijital zoom: ortadan kırp
+      const sw = kw / zoom
+      const sh = kh / zoom
+      canvas.width = Math.round(sw)
+      canvas.height = Math.round(sh)
+      ctx?.drawImage(kaynak, (kw - sw) / 2, (kh - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height)
     } else {
-      ctx?.drawImage(v, 0, 0)
+      canvas.width = kw
+      canvas.height = kh
+      ctx?.drawImage(kaynak, 0, 0)
     }
     kaynakRef.current = canvas
-    setCekilenUrl(canvas.toDataURL("image/jpeg", 0.92))
+    setCekilenUrl(canvas.toDataURL("image/jpeg", 0.95))
     setKutu({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 })
     durdur() // kamerayı serbest bırak; "Tekrar çek" ile yeniden açılır
     setAsama("kirp")
@@ -195,7 +219,7 @@ export function KameraYakala({
         tamKapat()
       },
       "image/jpeg",
-      0.9
+      0.95 // yüksek kalite; asıl küçültme yüklemede (sikistir) yapılır
     )
   }
 
@@ -356,7 +380,12 @@ export function KameraYakala({
                   onPointerUp={birak}
                   onPointerCancel={birak}
                 >
-                  {/* Kırpma kutusu — dışını karart, kenarları göster */}
+                  {/* Dış karartma — 4 şerit (yalnız görselin içinde; butonları soldurmaz) */}
+                  <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: `${kutu.y * 100}%`, background: KARART, pointerEvents: "none" }} />
+                  <div style={{ position: "absolute", left: 0, top: `${(kutu.y + kutu.h) * 100}%`, width: "100%", bottom: 0, background: KARART, pointerEvents: "none" }} />
+                  <div style={{ position: "absolute", left: 0, top: `${kutu.y * 100}%`, width: `${kutu.x * 100}%`, height: `${kutu.h * 100}%`, background: KARART, pointerEvents: "none" }} />
+                  <div style={{ position: "absolute", left: `${(kutu.x + kutu.w) * 100}%`, top: `${kutu.y * 100}%`, right: 0, height: `${kutu.h * 100}%`, background: KARART, pointerEvents: "none" }} />
+                  {/* Kırpma kutusu — kenar + köşe tutamaçları */}
                   <div
                     onPointerDown={(e) => basla(e, "move")}
                     style={{
@@ -366,7 +395,7 @@ export function KameraYakala({
                       width: `${kutu.w * 100}%`,
                       height: `${kutu.h * 100}%`,
                       border: "2px solid #fff",
-                      boxShadow: "0 0 0 9999px rgba(0,0,0,.55)",
+                      boxShadow: "0 0 0 1px rgba(0,0,0,.4)",
                       cursor: "move",
                       touchAction: "none",
                     }}
