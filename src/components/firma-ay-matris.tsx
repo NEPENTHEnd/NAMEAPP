@@ -78,6 +78,11 @@ export function FirmaAyMatris({
   const [, startTransition] = useTransition()
   const [mod, setMod] = useState<"adet" | "para">("para")
   const para = mod === "para"
+  // Düzenlenebilir hücrelerde: odak yokken biçimli göster ("654.625 TL"),
+  // odaklanınca ham sayı (düzenlenebilsin). Yüzde sütunlarına dokunulmaz.
+  const [odak, setOdak] = useState<string | null>(null)
+  const girisGoster = (v: number | null): string =>
+    v == null ? "" : para ? tamTutar.format(v) : Number.isInteger(v) ? String(v) : v.toFixed(1)
 
   // Elle girilen hedef değerleri — yerel state (anında hesap), server'a da yazılır
   const [yerel, setYerel] = useState<Record<string, HedefDeger>>({})
@@ -232,9 +237,10 @@ export function FirmaAyMatris({
                       return (
                         <td key={i} style={{ padding: 0, background: "#fffdf5", borderBottom: `1px solid ${CIZGI}` }}>
                           <input inputMode={para ? "decimal" : "numeric"}
-                            value={mv == null ? "" : String(mv)} placeholder="·"
+                            value={odak === `m|${s.firma}|${i}` ? (mv == null ? "" : String(mv)) : girisGoster(mv)} placeholder="·"
                             onChange={(e) => ayYaz(s.firma, i, e.target.value)}
-                            onBlur={() => ayKaydet(s, i)}
+                            onFocus={() => setOdak(`m|${s.firma}|${i}`)}
+                            onBlur={() => { setOdak(null); ayKaydet(s, i) }}
                             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
                             title="Geçmiş ay — değer elle girilebilir"
                             style={{ width: "100%", background: "transparent", border: "none", outline: "none", textAlign: "center", color: dolu ? "#0a3d30" : "#c9b98a", fontSize: 12, fontWeight: dolu ? 700 : 400, fontVariantNumeric: "tabular-nums", padding: "5px 4px" }} />
@@ -254,17 +260,21 @@ export function FirmaAyMatris({
                   <td style={{ ...tdBase, fontWeight: 600, background: zebra, color: "#3f5148" }}>{ortBic(gercekOrt)}</td>
                   {/* P: ORTALAMA {yıl-1} — ELLE */}
                   <td style={{ ...tdBase, padding: 0, background: "#fffdf5" }}>
-                    <input inputMode="decimal" value={gecen == null ? "" : String(gecen)} placeholder="gir"
+                    <input inputMode="decimal"
+                      value={odak === `g|${s.firma}` ? (gecen == null ? "" : String(gecen)) : girisGoster(gecen)} placeholder="gir"
                       onChange={(e) => yaz(s.firma, gecenAlan, e.target.value)}
-                      onBlur={() => kaydet(s, gecenAlan)}
+                      onFocus={() => setOdak(`g|${s.firma}`)}
+                      onBlur={() => { setOdak(null); kaydet(s, gecenAlan) }}
                       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
                       style={{ ...inputStil, padding: "5px 4px" }} />
                   </td>
                   {/* Q: ORTALAMA HEDEF — ELLE */}
                   <td style={{ ...tdBase, padding: 0, background: "#fffdf5" }}>
-                    <input inputMode="decimal" value={hedef == null ? "" : String(hedef)} placeholder="gir"
+                    <input inputMode="decimal"
+                      value={odak === `h|${s.firma}` ? (hedef == null ? "" : String(hedef)) : girisGoster(hedef)} placeholder="gir"
                       onChange={(e) => yaz(s.firma, hedefAlan, e.target.value)}
-                      onBlur={() => kaydet(s, hedefAlan)}
+                      onFocus={() => setOdak(`h|${s.firma}`)}
+                      onBlur={() => { setOdak(null); kaydet(s, hedefAlan) }}
                       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
                       style={{ ...inputStil, padding: "5px 4px", color: TEAL_KOYU, fontWeight: 700 }} />
                   </td>
