@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { MAKS_KENAR } from "@/lib/foto-istemci"
 
 type ZoomYetenek = { min: number; max: number; step: number }
 type Kutu = { x: number; y: number; w: number; h: number } // 0..1 (görsele oranlı)
@@ -11,6 +12,26 @@ type Kose = "nw" | "ne" | "sw" | "se"
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 const MIN_KUTU = 0.12 // kırpma kutusu en küçük kenar (oran)
 const KARART = "rgba(0,0,0,.5)" // kırpma kutusu dışını karartan şeritler
+const ONIZLEME_KENAR = 1280 // kırpma ekranındaki önizleme (yalnız gösterim; kırpma tam kareden)
+
+// Büyük kareden küçültülmüş kopya (yüksek kaliteli ölçekleme)
+function kucult(
+  src: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, maks: number
+): HTMLCanvasElement {
+  const o = Math.min(1, maks / Math.max(sw, sh))
+  const c = document.createElement("canvas")
+  c.width = Math.max(1, Math.round(sw * o))
+  c.height = Math.max(1, Math.round(sh * o))
+  const ctx = c.getContext("2d")
+  if (ctx) {
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = "high"
+    ctx.drawImage(src, sx, sy, sw, sh, 0, 0, c.width, c.height)
+  }
+  return c
+}
+const jpeg = (c: HTMLCanvasElement, q: number) =>
+  new Promise<Blob | null>((res) => c.toBlob(res, "image/jpeg", q))
 
 // "Kamerayı aç" düğmesi: webcam/telefon kamerasıyla foto çeker, File döndürür.
 // Zoom: donanım destekliyorsa gerçek kamera zoom'u (applyConstraints),
@@ -39,6 +60,11 @@ export function KameraYakala({
   const pinchRef = useRef<{ dist: number; zoom: number } | null>(null)
   // Çekilen tam çözünürlüklü kare (kırpma bundan yapılır — kalite korunur)
   const kaynakRef = useRef<HTMLCanvasElement | null>(null)
+  // İşlem kilidi: çekme/kırpma sürerken tekrar basılırsa AYNI foto birden çok
+  // kez yüklenmesin. Ref = anlık (aynı tıklama döngüsünde bile) koruma, state = butonları kilitle.
+  const [mesgul, setMesgul] = useState(false)
+  const mesgulRef = useRef(false)
+  const onizlemeRef = useRef<string | null>(null) // objectURL (bellek sızmasın diye revoke)
   const kirpAlanRef = useRef<HTMLDivElement>(null)
   const surukleRef = useRef<
     | { mod: "move" | Kose; px: number; py: number; box: Kutu; rw: number; rh: number }
@@ -58,7 +84,10 @@ export function KameraYakala({
   }
 
   useEffect(() => {
-    return () => durdur() // bileşen kalkınca kamerayı kapat
+    return () => {
+      durdur() // bileşen kalkınca kamerayı kapat
+      if (onizlemeRef.current) URL.revokeObjectURL(onizlemeRef.current)
+    }
   }, [])
 
   function zoomUygula(deger: number) {
@@ -107,11 +136,27 @@ export function KameraYakala({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acik, hata, asama, dijital, zMin, zMax])
 
+  function kilitle(): boolean {
+    if (mesgulRef.current) return false // zaten işleniyor → yok say
+    mesgulRef.current = true
+    setMesgul(true)
+    return true
+  }
+  function kilitAc() {
+    mesgulRef.current = false
+    setMesgul(false)
+  }
+  function onizlemeTemizle() {
+    if (onizlemeRef.current) URL.revokeObjectURL(onizlemeRef.current)
+    onizlemeRef.current = null
+    setCekilenUrl(null)
+  }
+
   async function ac() {
     setHata(null)
     setZoom(1)
     setZoomYetenek(null)
-    setCekilenUrl(null)
+    onizlemeTemizle()
     setAsama("kamera")
     setAcik(true)
     try {
@@ -147,61 +192,61 @@ export function KameraYakala({
     durdur()
     setAcik(false)
     setAsama("kamera")
-    setCekilenUrl(null)
+    onizlemeTemizle()
     kaynakRef.current = null
+    kilitAc()
   }
 
-  // Kareyi yakala → kırpma aşamasına geç. En yüksek çözünürlüğü al: mümkünse
-  // ImageCapture.takePhoto() (tam foto çözünürlüğü, ~12MP), değilse video karesi.
-  // Kırpma bu HAM kareden yapılır → küçük bölge kırpınca bile kalite korunur.
+  // Kareyi yakala → kırpma aşamasına geç. HIZLI: 4K video karesi anında çizilir
+  // (yavaş ImageCapture.takePhoto ve senkron toDataURL yok). Son foto zaten
+  // MAKS_KENAR'a (1600px) küçültüldüğü için 4K kare kırpmaya bol pay bırakır.
   async function cek() {
     const v = videoRef.current
-    const track = trackRef.current
     if (!v || !v.videoWidth) return
-    let kaynak: CanvasImageSource = v
-    let kw = v.videoWidth
-    let kh = v.videoHeight
-    const IC = (window as unknown as {
-      ImageCapture?: new (t: MediaStreamTrack) => { takePhoto: () => Promise<Blob> }
-    }).ImageCapture
-    if (track && IC) {
-      try {
-        const foto = await new IC(track).takePhoto()
-        const bmp = await createImageBitmap(foto)
-        if (bmp.width >= kw) {
-          kaynak = bmp
-          kw = bmp.width
-          kh = bmp.height
-        }
-      } catch {
-        // desteklenmezse video karesine düş
+    if (!kilitle()) return // art arda basışı yok say
+    try {
+      const kw = v.videoWidth
+      const kh = v.videoHeight
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      if (dijital && zoom > 1) {
+        // Dijital zoom: ortadan kırp
+        const sw = kw / zoom
+        const sh = kh / zoom
+        canvas.width = Math.round(sw)
+        canvas.height = Math.round(sh)
+        ctx?.drawImage(v, (kw - sw) / 2, (kh - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height)
+      } else {
+        canvas.width = kw
+        canvas.height = kh
+        ctx?.drawImage(v, 0, 0)
       }
+      kaynakRef.current = canvas
+      durdur() // kare alındı; kamerayı serbest bırak ("Tekrar çek" yeniden açar)
+      // Önizleme: küçük kopya + ASENKRON JPEG → ekran donmaz
+      const onz = kucult(canvas, 0, 0, canvas.width, canvas.height, ONIZLEME_KENAR)
+      const blob = await jpeg(onz, 0.85)
+      onizlemeTemizle()
+      if (blob) {
+        const url = URL.createObjectURL(blob)
+        onizlemeRef.current = url
+        setCekilenUrl(url)
+      } else {
+        setCekilenUrl(onz.toDataURL("image/jpeg", 0.85))
+      }
+      setKutu({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 })
+      setAsama("kirp")
+    } finally {
+      kilitAc()
     }
-    const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d")
-    if (dijital && zoom > 1) {
-      // Dijital zoom: ortadan kırp
-      const sw = kw / zoom
-      const sh = kh / zoom
-      canvas.width = Math.round(sw)
-      canvas.height = Math.round(sh)
-      ctx?.drawImage(kaynak, (kw - sw) / 2, (kh - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height)
-    } else {
-      canvas.width = kw
-      canvas.height = kh
-      ctx?.drawImage(kaynak, 0, 0)
-    }
-    kaynakRef.current = canvas
-    setCekilenUrl(canvas.toDataURL("image/jpeg", 0.95))
-    setKutu({ x: 0.08, y: 0.08, w: 0.84, h: 0.84 })
-    durdur() // kamerayı serbest bırak; "Tekrar çek" ile yeniden açılır
-    setAsama("kirp")
   }
 
-  // Kırpılan (veya tam) kareyi File olarak üret ve emit et
-  function uret(alan: Kutu | null) {
+  // Kırpılan (veya tam) kareyi File olarak üret ve TEK SEFER emit et.
+  // Doğrudan MAKS_KENAR boyutunda üretilir → kodlama ve yükleme hızlı.
+  async function uret(alan: Kutu | null) {
     const src = kaynakRef.current
     if (!src) return
+    if (!kilitle()) return // işlenirken tekrar basılırsa aynı foto 2. kez gitmesin
     const natW = src.width
     const natH = src.height
     const a = alan ?? { x: 0, y: 0, w: 1, h: 1 }
@@ -209,18 +254,14 @@ export function KameraYakala({
     const sy = Math.round(a.y * natH)
     const sw = Math.max(1, Math.round(a.w * natW))
     const sh = Math.max(1, Math.round(a.h * natH))
-    const out = document.createElement("canvas")
-    out.width = sw
-    out.height = sh
-    out.getContext("2d")?.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh)
-    out.toBlob(
-      (blob) => {
-        if (blob) onCek(new File([blob], `kamera-${Date.now()}.jpg`, { type: "image/jpeg" }))
-        tamKapat()
-      },
-      "image/jpeg",
-      0.95 // yüksek kalite; asıl küçültme yüklemede (sikistir) yapılır
-    )
+    const out = kucult(src, sx, sy, sw, sh, MAKS_KENAR)
+    const blob = await jpeg(out, 0.85)
+    if (!blob) {
+      kilitAc() // nadir: kodlanamadı → kullanıcı tekrar deneyebilsin
+      return
+    }
+    onCek(new File([blob], `kamera-${Date.now()}.jpg`, { type: "image/jpeg" }))
+    tamKapat() // kilidi de açar
   }
 
   // --- Kırpma kutusu sürükleme (dokunma + fare, pointer capture ile) ---
@@ -349,10 +390,10 @@ export function KameraYakala({
               </div>
 
               <div className="flex items-center gap-3">
-                <Button type="button" onClick={cek}>
-                  Fotoğrafı çek
+                <Button type="button" onClick={cek} disabled={mesgul}>
+                  {mesgul ? "İşleniyor…" : "Fotoğrafı çek"}
                 </Button>
-                <Button type="button" variant="secondary" onClick={tamKapat}>
+                <Button type="button" variant="secondary" onClick={tamKapat} disabled={mesgul}>
                   Kapat
                 </Button>
               </div>
@@ -409,16 +450,16 @@ export function KameraYakala({
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button type="button" onClick={() => uret(kutu)}>
-                  Kırp ve kullan
+                <Button type="button" onClick={() => uret(kutu)} disabled={mesgul}>
+                  {mesgul ? "Kaydediliyor…" : "Kırp ve kullan"}
                 </Button>
-                <Button type="button" variant="secondary" onClick={() => uret(null)}>
+                <Button type="button" variant="secondary" onClick={() => uret(null)} disabled={mesgul}>
                   Kırpmadan kullan
                 </Button>
-                <Button type="button" variant="outline" onClick={ac}>
+                <Button type="button" variant="outline" onClick={ac} disabled={mesgul}>
                   Tekrar çek
                 </Button>
-                <Button type="button" variant="ghost" className="text-white hover:text-white" onClick={tamKapat}>
+                <Button type="button" variant="ghost" className="text-white hover:text-white" onClick={tamKapat} disabled={mesgul}>
                   Vazgeç
                 </Button>
               </div>

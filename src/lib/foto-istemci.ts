@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client"
 
 type Supabase = ReturnType<typeof createClient>
 
-const MAKS_KENAR = 1600 // en uzun kenar (px)
+export const MAKS_KENAR = 1600 // en uzun kenar (px) — kamera kırpması da buna göre üretir
 const JPEG_KALITE = 0.72
 
 function uzanti(dosya: File): string {
