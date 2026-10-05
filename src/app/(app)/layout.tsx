@@ -47,6 +47,29 @@ export default async function AppLayout({
     )
   }
 
+  // Erişimi yönetici tarafından kapatılmış hesap: hiçbir içerik gösterme.
+  if (!kullanici.aktif) {
+    return (
+      <main className="flex min-h-svh items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center">
+          <h1 className="text-lg font-semibold">Erişiminiz kapatıldı</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Bu hesabın sisteme erişimi bir yönetici tarafından kapatıldı. Bir yanlışlık
+            olduğunu düşünüyorsanız yöneticinize başvurun.
+          </p>
+          <form action={cikisYap} className="mt-5">
+            <button
+              type="submit"
+              className="rounded-[10px] bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Çıkış yap
+            </button>
+          </form>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <div className="flex min-h-svh flex-col overflow-x-clip">
       <Toaster />

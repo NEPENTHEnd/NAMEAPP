@@ -10,6 +10,7 @@ export type Kullanici = {
   ad: string | null
   rol: Rol
   sahip: boolean
+  aktif: boolean // false = erişimi kapatıldı (layout "erişim kapalı" ekranı gösterir)
 }
 
 // Giriş yapan kullanıcıyı + profilini döndürür. Oturum yoksa /giris'e atar.
@@ -27,7 +28,7 @@ export async function getKullanici(): Promise<Kullanici> {
 
   const { data: profil } = await supabase
     .from("kullanici_profil")
-    .select("ad, rol, sahip")
+    .select("ad, rol, sahip, aktif")
     .eq("id", user.id)
     .maybeSingle()
 
@@ -37,13 +38,15 @@ export async function getKullanici(): Promise<Kullanici> {
     ad: profil?.ad ?? null,
     rol: (profil?.rol as Rol) ?? "teknisyen",
     sahip: profil?.sahip ?? false,
+    aktif: profil?.aktif ?? true,
   }
 }
 
-// Yalnız yöneticilere açık sayfalar için. Teknisyeni ana sayfaya atar.
+// Yalnız yöneticilere açık sayfalar/eylemler için. Teknisyeni (ya da erişimi
+// kapatılmış hesabı) ana sayfaya atar.
 export async function getYonetici(): Promise<Kullanici> {
   const kullanici = await getKullanici()
-  if (kullanici.rol !== "yonetici") {
+  if (kullanici.rol !== "yonetici" || !kullanici.aktif) {
     redirect("/")
   }
   return kullanici

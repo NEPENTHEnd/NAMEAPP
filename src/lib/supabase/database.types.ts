@@ -19,27 +19,39 @@ export type Database = {
           ad: string
           aktif: boolean
           created_at: string
+          davet_eden: string | null
+          davet_tarihi: string | null
+          eposta: string | null
           fis_prefix: number
           id: string
           kod: string | null
+          kullanildi: boolean
           rol: string
         }
         Insert: {
           ad: string
           aktif?: boolean
           created_at?: string
+          davet_eden?: string | null
+          davet_tarihi?: string | null
+          eposta?: string | null
           fis_prefix: number
           id?: string
           kod?: string | null
+          kullanildi?: boolean
           rol: string
         }
         Update: {
           ad?: string
           aktif?: boolean
           created_at?: string
+          davet_eden?: string | null
+          davet_tarihi?: string | null
+          eposta?: string | null
           fis_prefix?: number
           id?: string
           kod?: string | null
+          kullanildi?: boolean
           rol?: string
         }
         Relationships: []
@@ -398,6 +410,7 @@ export type Database = {
       kullanici_profil: {
         Row: {
           ad: string | null
+          aktif: boolean
           fis_prefix: number | null
           id: string
           rol: string
@@ -406,6 +419,7 @@ export type Database = {
         }
         Insert: {
           ad?: string | null
+          aktif?: boolean
           fis_prefix?: number | null
           id: string
           rol?: string
@@ -414,6 +428,7 @@ export type Database = {
         }
         Update: {
           ad?: string | null
+          aktif?: boolean
           fis_prefix?: number | null
           id?: string
           rol?: string
@@ -593,7 +608,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      davet_bilgi: {
+        Args: { p_kod: string }
+        Returns: {
+          o_ad: string
+          o_eposta: string
+          o_rol: string
+        }[]
+      }
+      davet_iptal: { Args: { p_id: string }; Returns: undefined }
       davet_kod_yenile: { Args: { p_kisi_id: string }; Returns: string }
+      davet_olustur: {
+        Args: { p_ad: string; p_eposta: string; p_rol: string }
+        Returns: {
+          o_fis_prefix: number
+          o_id: string
+          o_kod: string
+        }[]
+      }
       fis_no_uret: { Args: never; Returns: string }
       foto_kullanim: {
         Args: never
@@ -606,6 +638,30 @@ export type Database = {
       kayit_tamamla: { Args: { p_kod: string }; Returns: string }
       kayitli_mi: { Args: never; Returns: boolean }
       kod_rol: { Args: { p_kod: string }; Returns: string }
+      kullanici_erisim_ayarla: {
+        Args: { p_aktif: boolean; p_hedef: string }
+        Returns: undefined
+      }
+      kullanici_listesi: {
+        Args: never
+        Returns: {
+          o_ad: string
+          o_aktif: boolean
+          o_eposta: string
+          o_fis_prefix: number
+          o_id: string
+          o_is_sayisi: number
+          o_olusturma: string
+          o_rol: string
+          o_sahip: boolean
+          o_son_giris: string
+        }[]
+      }
+      kullanici_rol_ayarla: {
+        Args: { p_hedef: string; p_rol: string }
+        Returns: undefined
+      }
+      kullanici_silme_kontrol: { Args: { p_hedef: string }; Returns: undefined }
       push_abonelik_temizle: {
         Args: { p_endpoint: string }
         Returns: undefined

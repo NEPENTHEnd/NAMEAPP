@@ -10,6 +10,11 @@ import { DurumRozeti, FaturaRozeti } from "@/components/rozet"
 import { FirmaListesi } from "@/components/firma-listesi"
 import { MusteriSil } from "@/components/musteri-sil"
 import {
+  KullaniciYonetimi,
+  type YonetimKullanici,
+  type BekleyenDavet,
+} from "@/components/kullanici-yonetimi"
+import {
   musteriEkle,
   musteriDuzenle,
   musteriAktiflik,
@@ -20,7 +25,6 @@ import {
   durumDuzenle,
   faturaEkle,
   faturaDuzenle,
-  rolDuzenle,
   davetKodYenile,
 } from "@/app/actions/tanim"
 
@@ -30,8 +34,8 @@ const SEKMELER = [
   { k: "personel", label: "Tekniker" },
   { k: "durum", label: "Durumlar" },
   { k: "fatura", label: "Fatura Durumları" },
-  { k: "roller", label: "Kullanıcı & Roller" },
-  { k: "davet", label: "Davet Kodları" },
+  { k: "roller", label: "Kullanıcılar" },
+  { k: "davet", label: "Eski Davet Kodları" },
 ]
 
 type SP = Record<string, string | string[] | undefined>
@@ -47,7 +51,7 @@ export default async function TanimlarSayfasi({
   const sekme = SEKMELER.some((s) => s.k === sekmeRaw) ? sekmeRaw! : "musteri"
 
   const supabase = await createClient()
-  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler, gruplar, isKisiler, subeler] =
+  const [musteriler, personeller, durumlar, faturalar, profiller, kisiler, gruplar, isKisiler, subeler, yonetimListe] =
     await Promise.all([
       supabase.from("musteri").select("id, ad, sube_sehir, aktif").order("ad"),
       supabase.from("teknik_personel").select("id, ad, aktif").order("ad"),
@@ -56,7 +60,7 @@ export default async function TanimlarSayfasi({
       supabase.from("kullanici_profil").select("id, ad, rol, fis_prefix").order("ad"),
       supabase
         .from("davet_kisi")
-        .select("id, ad, fis_prefix, rol, aktif, kod")
+        .select("id, ad, fis_prefix, rol, aktif, kod, eposta, kullanildi, davet_tarihi")
         .order("fis_prefix"),
       supabase.from("grup").select("id, ad, sira, aktif").order("sira"),
       // Müşteri başına biriken ilgili kişi + telefon (işlerden otomatik toplanır)
@@ -65,7 +69,32 @@ export default async function TanimlarSayfasi({
         .from("sube")
         .select("id, grup_id, ad, ilgili_kisi, telefon, ust_sube_id")
         .order("sira"),
+      // Yönetim listesi (e-posta + son giriş + iş sayısı) — yalnız yöneticiye döner
+      supabase.rpc("kullanici_listesi"),
     ])
+
+  const yonetimKullanicilar: YonetimKullanici[] = (yonetimListe.data ?? []).map((u) => ({
+    id: u.o_id,
+    ad: u.o_ad,
+    rol: u.o_rol,
+    sahip: u.o_sahip,
+    aktif: u.o_aktif,
+    eposta: u.o_eposta,
+    sonGiris: u.o_son_giris,
+    isSayisi: Number(u.o_is_sayisi ?? 0),
+  }))
+  // E-postayla gönderilmiş, henüz kullanılmamış davetler (yönetici davetlerini yalnız sahip görür)
+  const bekleyenDavetler: BekleyenDavet[] = (kisiler.data ?? [])
+    .filter((k) => k.eposta && k.kod && k.aktif && !k.kullanildi)
+    .filter((k) => kullanici.sahip || k.rol !== "yonetici")
+    .map((k) => ({
+      id: k.id,
+      ad: k.ad,
+      eposta: k.eposta!,
+      rol: k.rol,
+      kod: k.kod!,
+      tarih: k.davet_tarihi,
+    }))
 
   // Her müşterinin işlerinden benzersiz (ad · telefon) iletişimlerini + iş sayısını çıkar
   const musteriIletisim = new Map<string, { ad: string | null; telefon: string | null }[]>()
@@ -391,43 +420,31 @@ export default async function TanimlarSayfasi({
         </section>
       )}
 
-      {/* KULLANICILAR */}
-      {sekme === "roller" && (
-        <section className="grid gap-3">
-          <p className="text-xs text-muted-foreground">
-            Yeni kullanıcı Supabase panelinden eklenir; buradan rol atanır.
+      {/* KULLANICILAR — davet / erişim kapat-aç / kalıcı sil / rol */}
+      {sekme === "roller" &&
+        (yonetimListe.error ? (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            Kullanıcı listesi alınamadı: {yonetimListe.error.message}
           </p>
-          <div className="grid gap-2">
-            {(profiller.data ?? []).map((u) => (
-              <form key={u.id} action={rolDuzenle} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2">
-                <input type="hidden" name="id" value={u.id} />
-                <span className="flex flex-1 items-center gap-2.5 text-sm">
-                  <span className="flex size-[30px] items-center justify-center rounded-lg bg-primary text-[11px] font-semibold text-primary-foreground">
-                    {(u.ad ?? "?").slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="font-semibold">{u.ad ?? u.id}</span>
-                </span>
-                <select
-                  name="rol"
-                  defaultValue={u.rol}
-                  className="h-9 rounded-lg border border-input bg-card px-2.5 text-[12.5px]"
-                >
-                  <option value="teknisyen">Personel</option>
-                  <option value="yonetici">Yönetici</option>
-                </select>
-                <Button type="submit" size="sm" variant="outline">Kaydet</Button>
-              </form>
-            ))}
-          </div>
-        </section>
-      )}
+        ) : (
+          <KullaniciYonetimi
+            kullanicilar={yonetimKullanicilar}
+            davetler={bekleyenDavetler}
+            benId={kullanici.id}
+            benSahip={kullanici.sahip}
+          />
+        ))}
 
       {/* DAVET KODLARI */}
       {sekme === "davet" && (
         <section className="grid gap-4">
           {/* Kişiler: her biri için davet üret */}
           <div className="grid gap-2">
-            <h2 className="text-sm font-semibold">Davet kodları</h2>
+            <h2 className="text-sm font-semibold">Eski davet kodları</h2>
+            <p className="rounded-lg bg-primary/5 p-2 text-xs text-foreground">
+              Yeni kullanıcıları artık <strong>Kullanıcılar</strong> sekmesinden e-postayla davet
+              edin (tek kullanımlık, e-postaya bağlı). Aşağıdakiler önceki sabit kodlardır.
+            </p>
             <p className="text-xs text-muted-foreground">
               Her kişinin kodu <strong>sabittir</strong> (tekrar tekrar kullanılabilir).
               İlgili kişiye verin; "Üye ol" ekranında kullansın — hesabı rolü ve fiş
@@ -435,6 +452,7 @@ export default async function TanimlarSayfasi({
             </p>
             <div className="grid gap-2">
               {(kisiler.data ?? [])
+                .filter((k) => !k.eposta) // yalnız eski sabit kodlar (e-postalı davetler Kullanıcılar'da)
                 .filter((k) => kullanici.sahip || k.rol !== "yonetici")
                 .map((k) => {
                   const kullanildi = kullanilanOnekler.has(k.fis_prefix)

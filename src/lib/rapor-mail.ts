@@ -1,6 +1,5 @@
-import nodemailer from "nodemailer"
-
 import { createAdminClient } from "@/lib/supabase/admin"
+import { smtpTransport, gonderenAdres } from "@/lib/eposta"
 import { raporExcelBuffer, RAPOR_SELECT, type RaporSatir } from "@/lib/rapor-excel"
 
 // Tüm iş kayıtlarını çekip stilli Excel üretir (rapor + yedek maili için ortak).
@@ -42,26 +41,12 @@ function aliciListesi(env: string | undefined): string[] {
     .filter(Boolean)
 }
 
-// Kendi mail sunucunuzdan (rapor@nameteknik.com) SMTP ile gönderim.
-function transporter() {
-  const host = process.env.SMTP_HOST
-  const port = Number(process.env.SMTP_PORT || "587")
-  if (!host) throw new Error("SMTP_HOST tanımlı değil")
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: process.env.SMTP_SECURE === "true" || port === 465,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  })
-}
-
 export type MailTip = "gunluk" | "haftalik"
 
 export async function raporMailGonder(
   tip: MailTip
 ): Promise<{ ok: boolean; kayit: number; alicilar: string[]; hata?: string }> {
-  const gonderen =
-    process.env.RAPOR_GONDEREN || process.env.SMTP_USER || ""
+  const gonderen = gonderenAdres()
   const alicilar =
     tip === "gunluk"
       ? aliciListesi(process.env.RAPOR_GUNLUK_ALICILAR)
@@ -99,7 +84,7 @@ export async function raporMailGonder(
     })
   }
 
-  await transporter().sendMail({
+  await smtpTransport().sendMail({
     from: gonderen,
     to: alicilar,
     subject: konu,

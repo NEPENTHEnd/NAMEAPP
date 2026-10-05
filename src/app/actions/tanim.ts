@@ -338,11 +338,13 @@ export async function davetKodYenile(formData: FormData) {
 }
 
 // ---- Kullanıcı rolü ----
+// İzin kuralı veritabanında (kullanici_rol_ayarla): yönetici yetkisini yalnız sahip
+// verir/alır; kimse kendi rolünü ya da sahibi değiştiremez.
 export async function rolDuzenle(formData: FormData) {
   const supabase = await yoneticiSupabase()
   const id = metin(formData, "id")
   const rol = metin(formData, "rol")
   if (!id || (rol !== "teknisyen" && rol !== "yonetici")) return
-  await supabase.from("kullanici_profil").update({ rol }).eq("id", id)
+  await supabase.rpc("kullanici_rol_ayarla", { p_hedef: id, p_rol: rol })
   bitir()
 }

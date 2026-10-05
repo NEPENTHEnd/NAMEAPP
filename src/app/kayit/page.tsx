@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -23,6 +23,24 @@ export default function KayitPage() {
   const [kod, setKod] = useState("")
   const [hata, setHata] = useState<string | null>(null)
   const [yukleniyor, setYukleniyor] = useState(false)
+  // E-postayla gelen davet: e-posta davete bağlı (değiştirilemez)
+  const [davet, setDavet] = useState<{ eposta: string; rol: string } | null>(null)
+
+  // Davet bağlantısı (/kayit?kod=...) ile gelindiyse formu doldur
+  useEffect(() => {
+    const k = new URLSearchParams(window.location.search).get("kod")?.trim()
+    if (!k) return
+    setKod(k)
+    createClient()
+      .rpc("davet_bilgi", { p_kod: k })
+      .then(({ data }) => {
+        const d = data?.[0]
+        if (!d) return
+        setAd((onceki) => onceki || d.o_ad)
+        setEposta(d.o_eposta)
+        setDavet({ eposta: d.o_eposta, rol: d.o_rol })
+      })
+  }, [])
 
   async function kayitOl(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -36,7 +54,13 @@ export default function KayitPage() {
     // 1) Kod geçerli mi? (hesap oluşturmadan önce kontrol)
     const { data: rolKontrol } = await rpc.rpc("kod_rol", { p_kod: temizKod })
     if (!rolKontrol) {
-      setHata("Geçersiz davet kodu. Lütfen yetkilinizden doğru kodu alın.")
+      setHata("Geçersiz ya da kullanılmış davet kodu. Lütfen yetkilinizden yeni davet isteyin.")
+      setYukleniyor(false)
+      return
+    }
+    // E-postaya bağlı davette e-posta eşleşmeli (yoksa yarım kalmış hesap oluşur)
+    if (davet && eposta.trim().toLowerCase() !== davet.eposta.toLowerCase()) {
+      setHata(`Bu davet yalnız ${davet.eposta} adresiyle kullanılabilir.`)
       setYukleniyor(false)
       return
     }
@@ -64,8 +88,16 @@ export default function KayitPage() {
       return
     }
 
-    // 3) Role koda göre ata
-    await rpc.rpc("kayit_tamamla", { p_kod: temizKod })
+    // 3) Role koda göre ata — reddedilirse (başka e-posta / kullanılmış) oturumu kapat
+    const { data: atanan } = await rpc.rpc("kayit_tamamla", { p_kod: temizKod })
+    if (!atanan) {
+      await supabase.auth.signOut()
+      setHata(
+        "Hesap oluşturuldu ama davet bu hesaba uygulanamadı (kod kullanılmış ya da başka bir e-posta için). Yetkilinize bildirin."
+      )
+      setYukleniyor(false)
+      return
+    }
 
     // 4) Uygulamaya gir
     router.refresh()
@@ -88,6 +120,13 @@ export default function KayitPage() {
             <div className="text-[13px] font-medium text-muted-foreground">Üye ol</div>
           </div>
 
+          {davet && (
+            <div className="mb-4 rounded-[10px] border border-primary/25 bg-primary/5 px-3.5 py-2.5 text-[12.5px]">
+              <strong>{davet.rol === "yonetici" ? "Yönetici" : "Personel"}</strong> olarak davet
+              edildiniz. Ad soyadınızı kontrol edip kendi şifrenizi belirleyin.
+            </div>
+          )}
+
           <form onSubmit={kayitOl} className="grid gap-3.5">
             <div className="grid gap-1.5">
               <label className="text-[12.5px] font-semibold text-foreground">Ad Soyad</label>
@@ -95,7 +134,7 @@ export default function KayitPage() {
             </div>
             <div className="grid gap-1.5">
               <label className="text-[12.5px] font-semibold text-foreground">E-posta</label>
-              <input type="email" inputMode="email" autoComplete="email" required value={eposta} onChange={(e) => setEposta(e.target.value)} placeholder="ad@nameteknik.com" className="w-full rounded-[10px] border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/15" />
+              <input type="email" inputMode="email" autoComplete="email" required value={eposta} onChange={(e) => setEposta(e.target.value)} readOnly={!!davet} placeholder="ad@nameteknik.com" className="w-full rounded-[10px] border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition read-only:bg-muted read-only:text-muted-foreground focus:border-primary focus:ring-[3px] focus:ring-primary/15" />
             </div>
             <div className="grid gap-1.5">
               <label className="text-[12.5px] font-semibold text-foreground">Şifre</label>
@@ -103,7 +142,7 @@ export default function KayitPage() {
             </div>
             <div className="grid gap-1.5">
               <label className="text-[12.5px] font-semibold text-foreground">Davet kodu</label>
-              <input required value={kod} onChange={(e) => setKod(e.target.value)} placeholder="Yetkilinizden alın" className="w-full rounded-[10px] border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/15" />
+              <input required value={kod} onChange={(e) => setKod(e.target.value)} readOnly={!!davet} placeholder="Yetkilinizden alın" className="w-full rounded-[10px] border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition read-only:bg-muted read-only:text-muted-foreground focus:border-primary focus:ring-[3px] focus:ring-primary/15" />
             </div>
 
             {hata && <p className="text-sm text-destructive">{hata}</p>}
