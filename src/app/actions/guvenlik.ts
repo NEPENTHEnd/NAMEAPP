@@ -101,6 +101,11 @@ export async function dogrulamaKoduGonder(): Promise<DogrulamaSonucu> {
   try {
     await epostaGonder({ kime: k.eposta, konu: `Name Teknik doğrulama kodu: ${kod}`, metin, html })
   } catch {
+    // Hiçbir şey gitmedi: 60 sn bekletme (saatlik sınır yine sayılır)
+    await admin
+      .from("dogrulama_kodu")
+      .update({ son_gonderim: new Date(simdi - TEKRAR_SANIYE * 1000).toISOString() })
+      .eq("user_id", k.id)
     return {
       ok: false,
       hata: "Doğrulama e-postası gönderilemedi. Lütfen biraz sonra tekrar deneyin ya da sahibe bildirin.",
@@ -158,6 +163,10 @@ export async function dogrulamaKoduKontrol(kodHam: string): Promise<DogrulamaSon
     return { ok: false, hata: "Oturum doğrulanamadı. Lütfen tekrar deneyin." }
   }
   await admin.from("dogrulama_kodu").delete().eq("user_id", k.id)
+  // Süresi dolmuş kayıtları temizle (tablolar birikmesin)
+  const simdiIso = new Date().toISOString()
+  await admin.from("guvenilir_cihaz").delete().lt("gecerlilik", simdiIso)
+  await admin.from("dogrulanmis_oturum").delete().lt("gecerlilik", simdiIso)
   ;(await cookies()).set(cihazCerezAdi(k.id), token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
