@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/client"
+import { girisSonrasiDogrula } from "@/app/actions/guvenlik"
 
 export default function GirisPage() {
   const router = useRouter()
@@ -26,10 +27,16 @@ export default function GirisPage() {
     })
 
     if (error) {
-      setHata("E-posta veya şifre hatalı.")
+      setHata(
+        /banned/i.test(error.message)
+          ? "Bu hesabın erişimi kapatıldı. Yöneticinize başvurun."
+          : "E-posta veya şifre hatalı."
+      )
       setYukleniyor(false)
       return
     }
+    // Yönetici + güvenilir cihaz: yeni oturumu hemen doğrulanmış işaretle (ilk ekran yarışmasın)
+    await girisSonrasiDogrula()
     router.refresh()
     router.replace("/")
   }

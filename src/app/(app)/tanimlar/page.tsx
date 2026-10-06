@@ -14,6 +14,8 @@ import {
   type YonetimKullanici,
   type BekleyenDavet,
 } from "@/components/kullanici-yonetimi"
+import { GuvenlikAyari } from "@/components/guvenlik-ayari"
+import { oturumDurumu, epostaMaskele } from "@/lib/guvenlik"
 import {
   musteriEkle,
   musteriDuzenle,
@@ -83,6 +85,9 @@ export default async function TanimlarSayfasi({
     sonGiris: u.o_son_giris,
     isSayisi: Number(u.o_is_sayisi ?? 0),
   }))
+  // Yönetici e-posta doğrulaması durumu (yalnız Kullanıcılar sekmesinde gerekli)
+  const guvenlik = sekme === "roller" ? await oturumDurumu() : null
+
   // E-postayla gönderilmiş, henüz kullanılmamış davetler (yönetici davetlerini yalnız sahip görür)
   const bekleyenDavetler: BekleyenDavet[] = (kisiler.data ?? [])
     .filter((k) => k.eposta && k.kod && k.aktif && !k.kullanildi)
@@ -421,19 +426,34 @@ export default async function TanimlarSayfasi({
       )}
 
       {/* KULLANICILAR — davet / erişim kapat-aç / kalıcı sil / rol */}
-      {sekme === "roller" &&
-        (yonetimListe.error ? (
-          <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            Kullanıcı listesi alınamadı: {yonetimListe.error.message}
-          </p>
-        ) : (
-          <KullaniciYonetimi
-            kullanicilar={yonetimKullanicilar}
-            davetler={bekleyenDavetler}
-            benId={kullanici.id}
-            benSahip={kullanici.sahip}
-          />
-        ))}
+      {sekme === "roller" && (
+        <div className="grid gap-5">
+          {kullanici.sahip ? (
+            <GuvenlikAyari
+              acik={!!guvenlik?.zorunlu}
+              benDogrulandi={!!guvenlik?.dogrulandi}
+              epostaMaskeli={epostaMaskele(kullanici.eposta)}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Yönetici e-posta doğrulaması:{" "}
+              <strong>{guvenlik?.zorunlu ? "Açık" : "Kapalı"}</strong> (yalnız sahip değiştirebilir)
+            </p>
+          )}
+          {yonetimListe.error ? (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              Kullanıcı listesi alınamadı: {yonetimListe.error.message}
+            </p>
+          ) : (
+            <KullaniciYonetimi
+              kullanicilar={yonetimKullanicilar}
+              davetler={bekleyenDavetler}
+              benId={kullanici.id}
+              benSahip={kullanici.sahip}
+            />
+          )}
+        </div>
+      )}
 
       {/* DAVET KODLARI */}
       {sekme === "davet" && (

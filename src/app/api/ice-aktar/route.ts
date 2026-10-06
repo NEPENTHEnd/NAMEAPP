@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { getKullanici } from "@/lib/auth"
+import { getKullanici, yoneticiYetkili } from "@/lib/auth"
 import {
   exceliCozumle,
   imzaUret,
@@ -50,7 +50,7 @@ const rakam = (s: string | null): string => s?.match(/\d/g)?.join("") ?? ""
 //   o kaydın YALNIZ BOŞ alanları Excel'den doldurulur (dolu alana dokunulmaz).
 export async function POST(request: Request) {
   const kullanici = await getKullanici()
-  if (kullanici.rol !== "yonetici") {
+  if (!(await yoneticiYetkili())) {
     return Response.json({ hata: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 })
   }
 

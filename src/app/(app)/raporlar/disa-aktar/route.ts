@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { getKullanici } from "@/lib/auth"
+import { yoneticiYetkili } from "@/lib/auth"
 import { filtreleriOku, aramaOrIfadesi } from "@/lib/isler-sorgu"
 import { ayAraligi } from "@/lib/aylar"
 import { raporExcelBuffer, RAPOR_SELECT, type RaporSatir } from "@/lib/rapor-excel"
@@ -18,8 +18,7 @@ function asciiTr(s: string): string {
 }
 
 export async function GET(request: Request) {
-  const kullanici = await getKullanici()
-  if (kullanici.rol !== "yonetici") {
+  if (!(await yoneticiYetkili())) {
     return new Response("Bu işlem için yönetici yetkisi gerekir.", { status: 403 })
   }
 

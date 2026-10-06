@@ -94,6 +94,57 @@ export type Database = {
           },
         ]
       }
+      dogrulama_kodu: {
+        Row: {
+          deneme: number
+          gonderim_sayisi: number
+          ilk_gonderim: string
+          kod_hash: string
+          son_gecerlilik: string
+          son_gonderim: string
+          user_id: string
+        }
+        Insert: {
+          deneme?: number
+          gonderim_sayisi?: number
+          ilk_gonderim?: string
+          kod_hash: string
+          son_gecerlilik: string
+          son_gonderim?: string
+          user_id: string
+        }
+        Update: {
+          deneme?: number
+          gonderim_sayisi?: number
+          ilk_gonderim?: string
+          kod_hash?: string
+          son_gecerlilik?: string
+          son_gonderim?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      dogrulanmis_oturum: {
+        Row: {
+          created_at: string
+          gecerlilik: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gecerlilik: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gecerlilik?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       durum: {
         Row: {
           ad: string
@@ -261,6 +312,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      guvenilir_cihaz: {
+        Row: {
+          cihaz: string | null
+          dogrulandi_at: string
+          gecerlilik: string
+          id: string
+          son_kullanim: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          cihaz?: string | null
+          dogrulandi_at?: string
+          gecerlilik: string
+          id?: string
+          son_kullanim?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          cihaz?: string | null
+          dogrulandi_at?: string
+          gecerlilik?: string
+          id?: string
+          son_kullanim?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      guvenlik_ayar: {
+        Row: {
+          guncelleyen: string | null
+          id: number
+          updated_at: string
+          yonetici_dogrulama: boolean
+        }
+        Insert: {
+          guncelleyen?: string | null
+          id?: number
+          updated_at?: string
+          yonetici_dogrulama?: boolean
+        }
+        Update: {
+          guncelleyen?: string | null
+          id?: number
+          updated_at?: string
+          yonetici_dogrulama?: boolean
+        }
+        Relationships: []
       }
       is_kaydi: {
         Row: {
@@ -635,6 +737,7 @@ export type Database = {
         }[]
       }
       gen_takip_no: { Args: never; Returns: string }
+      guvenlik_ayarla: { Args: { p_acik: boolean }; Returns: undefined }
       kayit_tamamla: { Args: { p_kod: string }; Returns: string }
       kayitli_mi: { Args: never; Returns: boolean }
       kod_rol: { Args: { p_kod: string }; Returns: string }
@@ -662,6 +765,17 @@ export type Database = {
         Returns: undefined
       }
       kullanici_silme_kontrol: { Args: { p_hedef: string }; Returns: undefined }
+      oturum_dogrulandi: { Args: never; Returns: boolean }
+      oturum_durumu: {
+        Args: never
+        Returns: {
+          o_dogrulandi: boolean
+          o_profil_sahip: boolean
+          o_profil_yonetici: boolean
+          o_session_id: string
+          o_zorunlu: boolean
+        }[]
+      }
       push_abonelik_temizle: {
         Args: { p_endpoint: string }
         Returns: undefined

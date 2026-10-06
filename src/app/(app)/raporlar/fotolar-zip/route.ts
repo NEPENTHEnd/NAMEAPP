@@ -1,12 +1,11 @@
 import JSZip from "jszip"
 
 import { createClient } from "@/lib/supabase/server"
-import { getKullanici } from "@/lib/auth"
+import { yoneticiYetkili } from "@/lib/auth"
 import { ayAraligi } from "@/lib/aylar"
 
 export async function GET(request: Request) {
-  const kullanici = await getKullanici()
-  if (kullanici.rol !== "yonetici") {
+  if (!(await yoneticiYetkili())) {
     return new Response("Yetkisiz", { status: 403 })
   }
 
