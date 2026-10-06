@@ -278,7 +278,7 @@ export async function exceliCozumle(
       const bulunan = grupHarita.get(normBaslik(sayfaAd))
       if (!bulunan) {
         uyarilar.push(
-          `"${sayfaAd}" sekmesi hiçbir firmayla eşleşmiyor — bu sayfa ATLANDI. Önce Tanımlar → Firmalar'dan bu firmayı ekleyin.`
+          `"${sayfaAd}" sekmesi hiçbir firmayla eşleşmiyor — bu sayfa ATLANDI. Önce Ayarlar → Firmalar'dan bu firmayı ekleyin.`
         )
         continue
       }

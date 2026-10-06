@@ -17,7 +17,7 @@ const NAV: NavItem[] = [
   { href: "/pano", etiket: "Pano", roller: ["yonetici"] },
   { href: "/raporlar", etiket: "Raporlar", roller: ["yonetici"] },
   { href: "/ice-aktar", etiket: "Dışa Aktar / Yedek", roller: ["yonetici"] },
-  { href: "/tanimlar", etiket: "Tanımlar", roller: ["yonetici"] },
+  { href: "/tanimlar", etiket: "Ayarlar", roller: ["yonetici"] },
 ]
 
 export function AppNav({ rol }: { rol: Rol }) {

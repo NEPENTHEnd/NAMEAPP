@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,7 @@ import { cn } from "@/lib/utils"
 import { dogrulamaKoduGonder, dogrulamaKoduKontrol } from "@/app/actions/guvenlik"
 
 // Yönetici e-posta doğrulaması: kodu e-postaya gönder → 6 haneli kodu gir.
-// Başarılıysa cihaz 60 gün güvenilir olur. onBasari verilmezse sayfa yenilenir.
+// Başarılıysa bu cihaz bir daha sorulmaz. onBasari verilmezse sayfa yenilenir.
 export function GuvenlikPenceresi({
   epostaMaskeli,
   onBasari,
@@ -72,7 +73,8 @@ export function GuvenlikPenceresi({
           <h2 className="text-[15px] font-semibold">Güvenlik doğrulaması</h2>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
             Bu cihazda yönetici olarak devam etmek için <strong>{epostaMaskeli}</strong> adresine
-            gönderilecek 6 haneli kodu girin. Doğrulanan cihazda 2 ay boyunca tekrar sorulmaz.
+            gönderilecek 6 haneli kodu girin. Her cihaz yalnız bir kez doğrulanır; bu cihazda
+            bir daha sorulmaz.
           </p>
         </div>
       </div>
@@ -119,6 +121,48 @@ export function GuvenlikPenceresi({
           {mesaj.metin}
         </p>
       )}
+    </div>
+  )
+}
+
+// Tam ekran güvenlik penceresi — yöneticilerin gördüğü ile sahibin "Aç" derken gördüğü
+// AYNI bileşen. children: alttaki satır (Çıkış yap / Vazgeç).
+export function GuvenlikKarti({
+  epostaMaskeli,
+  onBasari,
+  children,
+}: {
+  epostaMaskeli: string
+  onBasari?: () => void
+  children?: React.ReactNode
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Güvenlik doğrulaması"
+    >
+      <div className="w-full max-w-[420px] rounded-[18px] border border-border bg-card p-7 shadow-[0_18px_48px_-24px_rgba(15,23,42,.45)]">
+        <Image
+          src="/name-teknik-logo.png"
+          alt="Name Teknik"
+          width={1592}
+          height={238}
+          priority
+          className="mx-auto mb-5 h-8 w-auto object-contain dark:hidden"
+        />
+        <Image
+          src="/name-teknik-logo-beyaz.png"
+          alt="Name Teknik"
+          width={1592}
+          height={238}
+          priority
+          className="mx-auto mb-5 hidden h-8 w-auto object-contain dark:block"
+        />
+        <GuvenlikPenceresi epostaMaskeli={epostaMaskeli} onBasari={onBasari} />
+        {children && <div className="mt-5 text-center">{children}</div>}
+      </div>
     </div>
   )
 }

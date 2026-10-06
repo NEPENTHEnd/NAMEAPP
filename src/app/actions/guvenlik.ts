@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { epostaGonder, htmlKacis } from "@/lib/eposta"
 import {
-  GUVEN_GUN,
+  CIHAZ_GECERLILIK_MS,
+  CEREZ_SANIYE,
   KOD_DAKIKA,
   MAKS_DENEME,
   TEKRAR_SANIYE,
@@ -87,7 +88,7 @@ export async function dogrulamaKoduGonder(): Promise<DogrulamaSonucu> {
   const metin =
     `Name Teknik yönetici doğrulama kodunuz: ${kod}\n\n` +
     `${KOD_DAKIKA} dakika geçerlidir. İstek: ${saat} · ${cihaz}\n` +
-    `Doğrulanan cihazda ${GUVEN_GUN} gün boyunca tekrar kod sorulmaz.\n\n` +
+    `Doğrulanan cihazda bir daha kod sorulmaz.\n\n` +
     `Bu girişi siz yapmadıysanız kodu kimseyle paylaşmayın, şifrenizi değiştirin ve hemen sahibe bildirin.\n— Name Teknik`
   const html = `
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;color:#1f2937">
@@ -95,7 +96,7 @@ export async function dogrulamaKoduGonder(): Promise<DogrulamaSonucu> {
   <p>Doğrulama kodunuz:</p>
   <p style="font-size:30px;font-weight:bold;letter-spacing:6px;margin:10px 0 18px">${kod}</p>
   <p style="font-size:13px;color:#6b7280">${KOD_DAKIKA} dakika geçerlidir. İstek: ${htmlKacis(saat)} · ${htmlKacis(cihaz)}<br>
-  Doğrulanan cihazda ${GUVEN_GUN} gün boyunca tekrar kod sorulmaz.</p>
+  Doğrulanan cihazda bir daha kod sorulmaz.</p>
   <p style="font-size:12px;color:#b91c1c">Bu girişi siz yapmadıysanız kodu kimseyle paylaşmayın, şifrenizi değiştirin ve hemen sahibe bildirin.</p>
 </div>`
   try {
@@ -149,7 +150,7 @@ export async function dogrulamaKoduKontrol(kodHam: string): Promise<DogrulamaSon
   // Doğru kod → bu cihazı 60 gün güvenilir yap + bu oturumu işaretle
   const d = await oturumDurumu()
   if (!d.sessionId) return { ok: false, hata: "Oturum bulunamadı. Çıkış yapıp tekrar girin." }
-  const gecerlilik = new Date(Date.now() + GUVEN_GUN * 86_400_000).toISOString()
+  const gecerlilik = new Date(Date.now() + CIHAZ_GECERLILIK_MS).toISOString()
   const token = yeniCihazToken()
   const { error: cihazHata } = await admin.from("guvenilir_cihaz").insert({
     user_id: k.id,
@@ -172,10 +173,10 @@ export async function dogrulamaKoduKontrol(kodHam: string): Promise<DogrulamaSon
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: GUVEN_GUN * 86_400,
+    maxAge: CEREZ_SANIYE, // proxy her istekte yeniler
   })
   revalidatePath("/", "layout")
-  return { ok: true, mesaj: `Cihaz doğrulandı. ${GUVEN_GUN} gün boyunca bu cihazda tekrar sorulmayacak.` }
+  return { ok: true, mesaj: "Cihaz doğrulandı. Bu cihazda bir daha sorulmayacak." }
 }
 
 // /giris'ten hemen sonra çağrılır: güvenilir cihazdaysa yeni oturumu işaretle ki ilk

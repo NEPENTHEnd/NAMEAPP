@@ -1,8 +1,8 @@
 -- ============================================================================
--- 0027 : Yönetici e-posta doğrulaması (güvenlik penceresi) — cihaz bazlı, 60 gün
+-- 0027 : Yönetici e-posta doğrulaması (güvenlik penceresi) — cihaz başına bir kez, süresiz
 -- ----------------------------------------------------------------------------
 -- Akış: yönetici yeni bir cihazda girince e-postasına 6 haneli kod gider; doğrulayınca
--- o cihaz 60 gün güvenilir sayılır (httpOnly çerez + burada hash'i). Güvenilir cihazdaki
+-- o cihaz süresiz güvenilir sayılır (httpOnly çerez, proxy her istekte yeniler + burada hash'i). Güvenilir cihazdaki
 -- her Supabase oturumu (session_id) "doğrulanmış" diye işaretlenir.
 --
 -- VERİTABANI SEVİYESİNDE ZORUNLU: bayrak açıkken yonetici_mi()/sahip_mi() ancak

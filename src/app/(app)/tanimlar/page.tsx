@@ -130,7 +130,7 @@ export default async function TanimlarSayfasi({
   return (
     <div className="grid gap-5">
       <div>
-        <h1 className="text-[21px] font-semibold tracking-tight">Tanımlar</h1>
+        <h1 className="text-[21px] font-semibold tracking-tight">Ayarlar</h1>
         <p className="mt-1 text-[13px] text-muted-foreground">
           Müşteri, personel, durum ve kullanıcı yönetimi
         </p>

@@ -4,11 +4,16 @@ import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Kullanici } from "@/lib/auth"
+import { CIHAZ_CEREZ_ONEK } from "@/lib/guvenlik-sabit"
 
-// SADECE SUNUCU. Yönetici e-posta doğrulaması (0027): cihaz bazlı güven, 60 gün.
+// SADECE SUNUCU. Yönetici e-posta doğrulaması (0027): cihaz başına BİR KEZ, süresiz.
 // Kod / cihaz / oturum tabloları RLS'de kapalı → yalnız servis rolüyle erişilir.
 
-export const GUVEN_GUN = 60 // doğrulanan cihaz bu kadar gün tekrar sorulmaz
+// Doğrulanan cihaz süresiz güvenilir: DB kaydı ~100 yıl. Tarayıcılar çerezi en fazla
+// ~400 gün tutar; proxy her istekte çerezi yeniler (kayan süre) → kullanılan cihazda
+// pratikte bir daha hiç sorulmaz.
+export const CIHAZ_GECERLILIK_MS = 100 * 365 * 86_400_000
+export { CEREZ_SANIYE, CIHAZ_CEREZ_ONEK } from "@/lib/guvenlik-sabit"
 export const KOD_DAKIKA = 10 // e-postadaki kodun geçerlilik süresi
 export const MAKS_DENEME = 5 // kod başına hatalı deneme hakkı
 export const TEKRAR_SANIYE = 60 // yeni kod isteme bekleme süresi
@@ -16,7 +21,7 @@ export const SAATLIK_MAKS_GONDERIM = 5 // saatte en fazla kod e-postası
 
 // Kullanıcı başına ayrı çerez: aynı tarayıcıyı paylaşan iki yönetici birbirini ezmesin
 export const cihazCerezAdi = (userId: string) =>
-  `nt_cihaz_${userId.replace(/-/g, "").slice(0, 12)}`
+  `${CIHAZ_CEREZ_ONEK}${userId.replace(/-/g, "").slice(0, 12)}`
 
 export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex")
 

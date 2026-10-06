@@ -4,7 +4,7 @@ import Link from "next/link"
 import { getKullanici } from "@/lib/auth"
 import { guvenlikKontrol } from "@/lib/guvenlik"
 import { cikisYap } from "@/app/actions/auth"
-import { GuvenlikPenceresi, OturumYenile } from "@/components/guvenlik-penceresi"
+import { GuvenlikKarti, OturumYenile } from "@/components/guvenlik-penceresi"
 import { sonAylar } from "@/lib/aylar"
 import { AySecici } from "@/components/ay-secici"
 import { AppNav } from "@/components/app-nav"
@@ -80,36 +80,14 @@ export default async function AppLayout({
   }
   if (guvenlik.durum === "dogrulama_gerekli") {
     return (
-      <main
-        className="flex min-h-svh items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Güvenlik doğrulaması"
-      >
-        <div className="w-full max-w-[420px] rounded-[18px] border border-border bg-card p-7 shadow-[0_18px_48px_-24px_rgba(15,23,42,.45)]">
-          <Image
-            src="/name-teknik-logo.png"
-            alt="Name Teknik"
-            width={1592}
-            height={238}
-            priority
-            className="mx-auto mb-5 h-8 w-auto object-contain dark:hidden"
-          />
-          <Image
-            src="/name-teknik-logo-beyaz.png"
-            alt="Name Teknik"
-            width={1592}
-            height={238}
-            priority
-            className="mx-auto mb-5 hidden h-8 w-auto object-contain dark:block"
-          />
-          <GuvenlikPenceresi epostaMaskeli={guvenlik.epostaMaskeli} />
-          <form action={cikisYap} className="mt-5 text-center">
+      <main className="min-h-svh">
+        <GuvenlikKarti epostaMaskeli={guvenlik.epostaMaskeli}>
+          <form action={cikisYap}>
             <button type="submit" className="text-[12.5px] text-muted-foreground hover:underline">
               Çıkış yap
             </button>
           </form>
-        </div>
+        </GuvenlikKarti>
       </main>
     )
   }

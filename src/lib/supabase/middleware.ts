@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
+import { CEREZ_SANIYE, CIHAZ_CEREZ_ONEK } from "@/lib/guvenlik-sabit"
+
 // Her istekte oturumu tazeler ve giriş yapmamış kullanıcıyı /giris'e yönlendirir.
 // Korumasız (herkese açık) yollar: /giris ve Next.js iç dosyaları.
 export async function updateSession(request: NextRequest) {
@@ -52,6 +54,19 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = "/"
     return NextResponse.redirect(url)
+  }
+
+  // Güvenilir cihaz çerezlerinin süresini her istekte yenile (kayan süre): kullanılan
+  // cihazda yönetici doğrulaması bir daha sorulmaz. Doğrulamayı DB yapar; bu yalnız süre.
+  for (const c of request.cookies.getAll()) {
+    if (!c.name.startsWith(CIHAZ_CEREZ_ONEK)) continue
+    supabaseResponse.cookies.set(c.name, c.value, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: CEREZ_SANIYE,
+    })
   }
 
   return supabaseResponse

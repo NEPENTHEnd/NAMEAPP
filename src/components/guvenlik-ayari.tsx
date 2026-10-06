@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { guvenlikAyarla } from "@/app/actions/guvenlik"
-import { GuvenlikPenceresi } from "@/components/guvenlik-penceresi"
+import { GuvenlikKarti } from "@/components/guvenlik-penceresi"
 
 // Yalnız sahip: yönetici e-posta doğrulamasını aç/kapa. Açmak için önce KENDİ cihazını
 // e-posta koduyla doğrulaması gerekir — e-posta gitmiyorsa açılamaz, kimse kilitlenmez.
@@ -52,8 +52,8 @@ export function GuvenlikAyari({
             </span>
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Açıkken her yönetici yeni bir cihazda girişte e-postasına gelen kodu girer; doğrulanan
-            cihazda 2 ay sorulmaz. Şifresi ele geçse bile kod olmadan yönetici yetkisi kullanılamaz.
+            Açıkken her yönetici her cihazında bir kez e-postasına gelen kodu girer; o cihazda bir
+            daha sorulmaz. Şifresi ele geçse bile kod olmadan yönetici yetkisi kullanılamaz.
           </p>
         </div>
         {acik ? (
@@ -87,14 +87,21 @@ export function GuvenlikAyari({
         )}
       </div>
 
+      {/* Yöneticilerin göreceği tam ekran pencerenin AYNISI — sahip açmadan önce kendi
+          cihazını doğrular; kod gelmezse ayar kapalı kalır, kimse kilitlenmez. */}
       {!acik && dogrulamaAcik && (
-        <div className="mt-4 rounded-lg border border-primary/25 bg-primary/[0.03] p-4">
-          <p className="mb-3 text-xs text-muted-foreground">
-            Açmadan önce bu cihazı doğrulayın. Kod e-postanıza ulaşıyorsa açma işlemi otomatik
-            tamamlanır; ulaşmıyorsa ayar kapalı kalır ve kimse kilitlenmez.
+        <GuvenlikKarti epostaMaskeli={epostaMaskeli} onBasari={() => ayarla(true)}>
+          <p className="mb-2 text-[11.5px] text-muted-foreground">
+            Diğer yöneticiler de girişte bu pencereyi görecek. Kod size ulaşırsa doğrulama açılır.
           </p>
-          <GuvenlikPenceresi epostaMaskeli={epostaMaskeli} onBasari={() => ayarla(true)} />
-        </div>
+          <button
+            type="button"
+            onClick={() => setDogrulamaAcik(false)}
+            className="text-[12.5px] text-muted-foreground hover:underline"
+          >
+            Vazgeç
+          </button>
+        </GuvenlikKarti>
       )}
 
       {mesaj && (
