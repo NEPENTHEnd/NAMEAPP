@@ -321,7 +321,8 @@ export function IsFormu({
         return
       }
       setFotoYukleniyor(true)
-      fotograflariYukle(createClient(), state.id, dosyalar, 0)
+      // Adet ile açılan TÜM işlere (yalnız ilkine değil)
+      fotograflariYukle(createClient(), state.ids ?? state.id, dosyalar, 0)
         .catch(() => {}) // foto hatası olsa da iş oluştu; detayda eklenebilir
         .finally(detayaGit)
     } else if (state.basari) {

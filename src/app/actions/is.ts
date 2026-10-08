@@ -25,7 +25,8 @@ export type IsFormState = {
   error?: string
   fieldErrors?: Record<string, string>
   basari?: boolean
-  id?: string // yeni oluşturulan iş id'si (foto yükleme + yönlendirme için)
+  id?: string // yeni oluşturulan (ilk) iş id'si — yönlendirme için
+  ids?: string[] // adet > 1 ise oluşturulan TÜM işler — fotoğraflar hepsine eklenir
 }
 
 // Boş string'i undefined'a çevir (opsiyonel alanlar için)
@@ -323,6 +324,7 @@ export async function isOlustur(
   // Adet: aynı üründen birden çok → tek fiş no, her biri AYRI satır (kendi seri no'su)
   const adet = Math.max(1, Math.min(50, Number(formData.get("adet")) || 1))
   let ilkId: string
+  let tumIdler: string[]
   if (adet <= 1) {
     const { data, error } = await supabase
       .from("is_kaydi")
@@ -335,6 +337,7 @@ export async function isOlustur(
       }
     }
     ilkId = data.id
+    tumIdler = [data.id]
   } else {
     const seriler = formData.getAll("seri_no").map((v) => String(v).trim())
     const satirlar = Array.from({ length: adet }).map((_, i) => ({
@@ -351,6 +354,7 @@ export async function isOlustur(
       }
     }
     ilkId = data[0].id
+    tumIdler = data.map((r) => r.id)
   }
 
   // Personelin eklediği işte yöneticilere push bildirim gönder (hata olsa da akış sürer)
@@ -366,8 +370,8 @@ export async function isOlustur(
   }
 
   revalidatePath("/")
-  // Yönlendirme/foto yükleme client'ta yapılır (ilk satırın id'si döndürülür)
-  return { basari: true, id: ilkId }
+  // Yönlendirme (ilk iş) + foto yükleme (TÜM işler) client'ta yapılır
+  return { basari: true, id: ilkId, ids: tumIdler }
 }
 
 export async function isGuncelle(

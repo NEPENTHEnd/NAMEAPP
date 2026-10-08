@@ -80,13 +80,18 @@ export async function fotoKullanim(
 }
 
 // Seçilen fotoğrafları sıkıştırıp Storage'a yükler ve foto satırlarını ekler.
-// Hata olursa Error fırlatır.
+// isKaydiId bir dizi olabilir (adet ile toplu açılan işler): her fotoğraf BİR KEZ
+// sıkıştırılır, her işe AYRI kopya olarak yüklenir — böylece işler bağımsızdır
+// (birinden silinen fotoğraf diğerlerini etkilemez). Hata olursa Error fırlatır.
 export async function fotograflariYukle(
   supabase: Supabase,
-  isKaydiId: string,
+  isKaydiId: string | string[],
   dosyalar: File[],
   baslangicSira: number
 ): Promise<void> {
+  const idler = Array.isArray(isKaydiId) ? isKaydiId : [isKaydiId]
+  if (idler.length === 0 || dosyalar.length === 0) return
+
   // Kota dolu mu? Doluysa yükleme engellenir.
   const { toplamByte } = await fotoKullanim(supabase)
   if (toplamByte >= FOTO_KOTA_BYTE) {
@@ -97,20 +102,23 @@ export async function fotograflariYukle(
 
   let sira = baslangicSira
   for (const dosya of dosyalar) {
-    const { veri, ext, tip } = await sikistir(dosya)
-    const yol = `${isKaydiId}/${crypto.randomUUID()}.${ext}`
-    const { error: yuklemeHatasi } = await supabase.storage
-      .from("foto")
-      .upload(yol, veri, { contentType: tip, upsert: false })
-    if (yuklemeHatasi) {
-      throw new Error("Yükleme başarısız: " + yuklemeHatasi.message)
+    const { veri, ext, tip } = await sikistir(dosya) // bir kez
+    for (const id of idler) {
+      const yol = `${id}/${crypto.randomUUID()}.${ext}`
+      const { error: yuklemeHatasi } = await supabase.storage
+        .from("foto")
+        .upload(yol, veri, { contentType: tip, upsert: false })
+      if (yuklemeHatasi) {
+        throw new Error("Yükleme başarısız: " + yuklemeHatasi.message)
+      }
+      const { error: satirHatasi } = await supabase
+        .from("foto")
+        .insert({ is_kaydi_id: id, dosya_yolu: yol, sira })
+      if (satirHatasi) {
+        await supabase.storage.from("foto").remove([yol])
+        throw new Error("Fotoğraf kaydedilemedi: " + satirHatasi.message)
+      }
     }
-    const { error: satirHatasi } = await supabase
-      .from("foto")
-      .insert({ is_kaydi_id: isKaydiId, dosya_yolu: yol, sira: sira++ })
-    if (satirHatasi) {
-      await supabase.storage.from("foto").remove([yol])
-      throw new Error("Fotoğraf kaydedilemedi: " + satirHatasi.message)
-    }
+    sira++
   }
 }

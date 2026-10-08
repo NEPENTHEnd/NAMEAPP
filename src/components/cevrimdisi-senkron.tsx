@@ -48,7 +48,8 @@ export function CevrimdisiSenkron() {
         if (r.id) {
           if (b.fotolar.length > 0) {
             try {
-              await fotograflariYukle(createClient(), r.id, b.fotolar, 0)
+              // Adet ile açılan TÜM işlere
+              await fotograflariYukle(createClient(), r.ids ?? r.id, b.fotolar, 0)
             } catch {
               /* foto yüklenemese de iş oluştu; detaydan eklenebilir */
             }
