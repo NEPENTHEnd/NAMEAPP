@@ -738,6 +738,18 @@ export type Database = {
       }
       gen_takip_no: { Args: never; Returns: string }
       guvenlik_ayarla: { Args: { p_acik: boolean }; Returns: undefined }
+      hesap_yonetim_kontrol: {
+        Args: { p_hedef: string }
+        Returns: {
+          ad: string | null
+          aktif: boolean
+          fis_prefix: number | null
+          id: string
+          rol: string
+          sahip: boolean
+          teknik_personel_id: string | null
+        }
+      }
       kayit_tamamla: { Args: { p_kod: string }; Returns: string }
       kayitli_mi: { Args: never; Returns: boolean }
       kod_rol: { Args: { p_kod: string }; Returns: string }

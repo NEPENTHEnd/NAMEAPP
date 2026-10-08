@@ -16,6 +16,7 @@ import {
   kullaniciKaliciSil,
   type IslemSonucu,
 } from "@/app/actions/kullanici"
+import { kullaniciSifreSifirla, type SifreSonucu } from "@/app/actions/sifre"
 
 export type YonetimKullanici = {
   id: string
@@ -67,17 +68,17 @@ export function KullaniciYonetimi({
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const [bildirim, setBildirim] = useState<{ ok: boolean; metin: string } | null>(null)
+  const [bildirim, setBildirim] = useState<{ ok: boolean; metin: string; link?: string } | null>(null)
   const [davetSonuc, davetAction, davetGonderiliyor] = useActionState<IslemSonucu | null, FormData>(
     kullaniciDavetEt,
     null
   )
 
-  function calistir(is: () => Promise<IslemSonucu>) {
+  function calistir(is: () => Promise<IslemSonucu | SifreSonucu>) {
     setBildirim(null)
     startTransition(async () => {
       const s = await is()
-      setBildirim(s.ok ? { ok: true, metin: s.mesaj } : { ok: false, metin: s.hata })
+      setBildirim(s.ok ? { ok: true, metin: s.mesaj, link: s.link } : { ok: false, metin: s.hata })
       router.refresh()
     })
   }
@@ -154,6 +155,7 @@ export function KullaniciYonetimi({
           )}
         >
           {bildirim.metin}
+          {bildirim.ok && bildirim.link && <LinkKutusu link={bildirim.link} />}
         </div>
       )}
 
@@ -267,6 +269,24 @@ export function KullaniciYonetimi({
 
                 {yon ? (
                   <>
+                    {u.aktif && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `${u.ad ?? "Kullanıcı"} için şifre yenileme bağlantısı ${u.eposta ?? "e-postasına"} gönderilsin mi?\n\nBağlantı 1 saat geçerli; kişi yeni şifresini kendisi belirler.`
+                            )
+                          )
+                            calistir(() => kullaniciSifreSifirla(u.id))
+                        }}
+                      >
+                        Şifre sıfırla
+                      </Button>
+                    )}
                     {u.aktif ? (
                       <Button
                         type="button"

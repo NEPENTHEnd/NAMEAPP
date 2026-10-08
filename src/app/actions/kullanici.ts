@@ -1,12 +1,12 @@
 "use server"
 
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getYonetici } from "@/lib/auth"
 import { epostaGonder, htmlKacis } from "@/lib/eposta"
+import { siteKoku } from "@/lib/site"
 
 // Web'den kullanıcı yönetimi. İZİN KURALLARI VERİTABANINDA (0026): her eylem önce
 // kullanıcı oturumuyla bir RPC çağırır — yetkisizse orada hata döner. Servis anahtarı
@@ -18,13 +18,6 @@ export type IslemSonucu =
 
 const rolAd = (r: string) => (r === "yonetici" ? "Yönetici" : "Personel")
 const BAN_SURESI = "876000h" // ~100 yıl = süresiz giriş engeli
-
-async function siteKoku(): Promise<string> {
-  const h = await headers()
-  const host = h.get("x-forwarded-host") ?? h.get("host")
-  const proto = h.get("x-forwarded-proto") ?? "https"
-  return host ? `${proto}://${host}` : "https://nameteknik.com"
-}
 
 async function davetEpostasiGonder(o: {
   ad: string

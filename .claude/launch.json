@@ -6,6 +6,12 @@
       "runtimeExecutable": "C:\\Users\\MUSTAF~1\\Desktop\\NESDRIVEWEB\\nesdrive-site\\dev.cmd",
       "runtimeArgs": [],
       "port": 4321
+    },
+    {
+      "name": "nameapp",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev", "--", "-p", "3001"],
+      "port": 3001
     }
   ]
 }

@@ -39,8 +39,12 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/kayit")
 
   // /takip herkese açık (müşteri takip portalı) — oturum gerekmez.
+  // /sifre-yenile: e-postadaki bağlantıyla OTURUMSUZ gelinir; bağlantı doğrulanınca
+  // oturum açılır ama kişi sayfada kalmalı (bu yüzden isAuthRoute DEĞİL).
   const isPublicRoute =
-    isAuthRoute || request.nextUrl.pathname.startsWith("/takip")
+    isAuthRoute ||
+    request.nextUrl.pathname.startsWith("/takip") ||
+    request.nextUrl.pathname.startsWith("/sifre-yenile")
 
   if (!user && !isPublicRoute) {
     // Oturum yoksa giriş sayfasına yönlendir.

@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useActionState, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { createClient } from "@/lib/supabase/client"
 import { girisSonrasiDogrula } from "@/app/actions/guvenlik"
+import { sifremiUnuttum, type SifreSonucu } from "@/app/actions/sifre"
 
 export default function GirisPage() {
   const router = useRouter()
@@ -14,6 +15,12 @@ export default function GirisPage() {
   const [sifre, setSifre] = useState("")
   const [hata, setHata] = useState<string | null>(null)
   const [yukleniyor, setYukleniyor] = useState(false)
+  // "Şifremi unuttum" paneli
+  const [unuttum, setUnuttum] = useState(false)
+  const [unuttumSonuc, unuttumAction, unuttumGonderiliyor] = useActionState<SifreSonucu | null, FormData>(
+    sifremiUnuttum,
+    null
+  )
 
   async function girisYap(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -116,6 +123,44 @@ export default function GirisPage() {
               {yukleniyor ? "Giriş yapılıyor…" : "Giriş yap"}
             </button>
           </form>
+
+          {/* Şifremi unuttum — bağlantı e-postaya gider (kayıtlı olup olmadığı belli edilmez) */}
+          <div className="mt-3 text-center">
+            <button
+              type="button"
+              onClick={() => setUnuttum((v) => !v)}
+              className="text-[12.5px] font-medium text-primary hover:underline"
+            >
+              Şifremi unuttum
+            </button>
+          </div>
+          {unuttum && (
+            <form action={unuttumAction} className="mt-3 grid gap-2 rounded-[12px] border border-border bg-muted/30 p-3">
+              <label className="text-[12px] font-semibold">Kayıtlı e-postanız</label>
+              <input
+                name="eposta"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                required
+                defaultValue={eposta}
+                placeholder="ad@nameteknik.com"
+                className="w-full rounded-[10px] border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/15"
+              />
+              <button
+                type="submit"
+                disabled={unuttumGonderiliyor}
+                className="w-full rounded-[10px] border border-primary/40 bg-card py-2.5 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+              >
+                {unuttumGonderiliyor ? "Gönderiliyor…" : "Şifre yenileme bağlantısı gönder"}
+              </button>
+              {unuttumSonuc && (
+                <p className={"text-[12.5px] " + (unuttumSonuc.ok ? "text-emerald-700 dark:text-emerald-300" : "text-destructive")}>
+                  {unuttumSonuc.ok ? unuttumSonuc.mesaj : unuttumSonuc.hata}
+                </p>
+              )}
+            </form>
+          )}
 
           <p className="mt-4 text-center text-[12.5px] text-muted-foreground">
             Hesabın yok mu?{" "}

@@ -75,6 +75,12 @@ export function UserMenu({
               <PushDugmesi />
             </div>
           )}
+          <a
+            href="/sifre-yenile"
+            className="block w-full rounded-md px-2.5 py-2 text-left text-[13px] font-medium transition-colors hover:bg-muted"
+          >
+            Şifremi değiştir
+          </a>
           <form action={cikisYap}>
             <button
               type="submit"
