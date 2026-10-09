@@ -10,7 +10,8 @@ import { durumRenk, faturaRozetRenk } from "@/components/rozet"
 // Varsayılan renk = durumun KENDİ rengi (tablodaki rozetle aynı: Bakılmadı gri,
 // Onarıldı yeşil…).
 
-export type HizliAyar = Record<string, { buton?: boolean; renk?: string | null }>
+// sira: kullanıcının dizdiği konum (yalnız sırayı değiştirdiyse kaydedilir)
+export type HizliAyar = Record<string, { buton?: boolean; renk?: string | null; sira?: number }>
 
 export type HizliOge = {
   anahtar: string
@@ -71,8 +72,21 @@ export function cozumle(o: HizliOge, ayar: HizliAyar | null | undefined) {
   }
 }
 
-// Dışarıdan gelen ayarı doğrula: yalnız bilinen anahtarlar, boolean + #RRGGBB;
-// varsayılana eşit değerler kaydedilmez (metadata küçük kalsın).
+// Kullanıcının sırasına göre diz. Sırası kayıtlı olmayanlar (ör. sonradan eklenen
+// yeni bir durum) varsayılan konumlarıyla sona gelir.
+export function siralaOgeler(ogeler: HizliOge[], ayar: HizliAyar | null | undefined): HizliOge[] {
+  const anahtar = (o: HizliOge, i: number) => {
+    const s = ayar?.[o.anahtar]?.sira
+    return typeof s === "number" ? s : 1000 + i
+  }
+  return ogeler
+    .map((o, i) => ({ o, k: anahtar(o, i) }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.o)
+}
+
+// Dışarıdan gelen ayarı doğrula: yalnız bilinen anahtarlar, boolean + #RRGGBB +
+// 0–999 tam sayı sıra; varsayılana eşit buton/renk kaydedilmez (metadata küçük kalsın).
 export function ayarTemizle(ham: unknown, ogeler: HizliOge[]): HizliAyar {
   const sonuc: HizliAyar = {}
   if (!ham || typeof ham !== "object") return sonuc
@@ -80,11 +94,12 @@ export function ayarTemizle(ham: unknown, ogeler: HizliOge[]): HizliAyar {
   for (const o of ogeler) {
     const v = kaynak[o.anahtar]
     if (!v || typeof v !== "object") continue
-    const { buton, renk } = v as { buton?: unknown; renk?: unknown }
-    const kayit: { buton?: boolean; renk?: string } = {}
+    const { buton, renk, sira } = v as { buton?: unknown; renk?: unknown; sira?: unknown }
+    const kayit: { buton?: boolean; renk?: string; sira?: number } = {}
     if (typeof buton === "boolean" && buton !== o.varsayilanButon) kayit.buton = buton
     if (typeof renk === "string" && HEX.test(renk) && renk.toLowerCase() !== o.varsayilanRenk.toLowerCase())
       kayit.renk = renk.toLowerCase()
+    if (typeof sira === "number" && Number.isInteger(sira) && sira >= 0 && sira < 1000) kayit.sira = sira
     if (Object.keys(kayit).length > 0) sonuc[o.anahtar] = kayit
   }
   return sonuc

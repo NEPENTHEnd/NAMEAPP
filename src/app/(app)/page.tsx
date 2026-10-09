@@ -10,7 +10,7 @@ import { IslerFiltreler } from "./isler-filtreler"
 import { IslerEkrani } from "./isler-ekrani"
 import { ExcelIndirModal } from "@/components/excel-indir-modal"
 import { HizliFiltreDugme, type HizliDugmeVeri } from "@/components/hizli-filtre-dugme"
-import { hizliOgeler, cozumle, type HizliAyar } from "@/lib/hizli-filtre"
+import { hizliOgeler, cozumle, siralaOgeler, type HizliAyar } from "@/lib/hizli-filtre"
 
 const SAYFA_BOYUTU = 50
 
@@ -444,7 +444,10 @@ export default async function IslerSayfasi({
   // hangileri Filtre panelinde; renk varsayılan olarak durumun kendi rengi.
   // Tıkla = filtrele, tekrar tıkla = kaldır.
   const hizliAyar = (kullanici.hizliFiltre ?? null) as HizliAyar | null
-  const hizliDugmeler = hizliOgeler(durumlarRes.data ?? [], faturaDurumlari).map((o) => {
+  const hizliDugmeler = siralaOgeler(
+    hizliOgeler(durumlarRes.data ?? [], faturaDurumlari),
+    hizliAyar
+  ).map((o) => {
     const { buton, renk } = cozumle(o, hizliAyar)
     let aktif: boolean
     let href: string
