@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { tint } from "@/components/rozet"
 import { musteriEkle, musteriDuzenle, musteriAktiflik } from "@/app/actions/tanim"
 import { MusteriSil } from "@/components/musteri-sil"
+import { renkSec, basHarf, isRozeti } from "@/lib/renk-palet"
 
 type Musteri = { id: string; ad: string; sube_sehir: string | null; aktif: boolean }
 type Sube = { id: string; grup_id: string; ad: string; ust_sube_id: string | null }
@@ -17,25 +18,6 @@ type Grup = { id: string; ad: string }
 type Kisi = { ad: string | null; telefon: string | null }
 type Suzgec = "tumu" | "isli" | "issiz" | "pasif"
 
-// Ad → sabit renk (aynı müşteri hep aynı renkte; göz alışır)
-const PALET = ["#2563eb", "#0891b2", "#059669", "#65a30d", "#d97706", "#dc2626", "#db2777", "#7c3aed", "#4f46e5", "#0d9488"]
-function renkSec(s: string) {
-  let h = 0
-  for (const ch of s) h = (h * 31 + (ch.codePointAt(0) ?? 0)) >>> 0
-  return PALET[h % PALET.length]
-}
-function basHarf(ad: string) {
-  const k = ad.trim().split(/\s+/)
-  return ((k[0]?.[0] ?? "") + (k[1]?.[0] ?? "")).toLocaleUpperCase("tr-TR") || "?"
-}
-// İş sayısı rozeti: büyüklüğe göre renk — büyük müşteri bir bakışta ayrılsın
-function isRozeti(n: number) {
-  if (n === 0) return { renk: "#94a3b8", metin: "iş yok" }
-  if (n < 5) return { renk: "#0ea5e9", metin: `${n} iş` }
-  if (n < 20) return { renk: "#10b981", metin: `${n} iş` }
-  if (n < 50) return { renk: "#f59e0b", metin: `${n} iş` }
-  return { renk: "#8b5cf6", metin: `${n} iş` }
-}
 const norm = (s: string) => s.toLocaleUpperCase("tr-TR").replace(/\s+/g, " ").trim()
 // İşlerden toplanan kişilerde çöp girişler var ("0", ".", "5"): yalnız GÖRÜNÜMDE ele —
 // telefon en az 7 rakam, isim en az 2 harf. (Veri değişmez.)
@@ -104,9 +86,15 @@ export function MusteriListesi({
       const m = byAd.get(norm(s.ad))
       if (m) agactaki.add(m.id)
     }
+    // Büyükten küçüğe: en kalabalık firma solda, küçükler sağ sütunda alt alta dolar
     const agac = gruplar
-      .map((g) => ({ g, ust: subeler.filter((s) => s.grup_id === g.id && !s.ust_sube_id) }))
+      .map((g) => ({
+        g,
+        ust: subeler.filter((s) => s.grup_id === g.id && !s.ust_sube_id),
+        toplam: subeler.filter((s) => s.grup_id === g.id).length,
+      }))
       .filter((x) => x.ust.length > 0)
+      .sort((a, b) => b.toplam - a.toplam)
     return { agac, agactaki }
   }, [musteriler, subeler, gruplar])
   const musteriByAd = useMemo(() => new Map(musteriler.map((m) => [norm(m.ad), m])), [musteriler])
@@ -394,11 +382,12 @@ export function MusteriListesi({
           {agac.length > 0 && (
             <div className="grid gap-2">
               <h2 className="text-sm font-semibold">Firmalara bağlı şubeler</h2>
-              <div className="grid items-start gap-3 lg:grid-cols-2">
-                {agac.map(({ g, ust }) => {
+              {/* Duvar düzeni (CSS sütunları): kartlar sütunlara akar, boşluk kalmaz */}
+              <div className="columns-1 gap-3 lg:columns-2">
+                {agac.map(({ g, ust, toplam }) => {
                   const gRenk = renkSec(g.ad)
                   return (
-                    <div key={g.id} className="overflow-hidden rounded-2xl border border-border bg-card">
+                    <div key={g.id} className="mb-3 break-inside-avoid overflow-hidden rounded-2xl border border-border bg-card">
                       <div
                         className="flex items-center gap-2 px-3 py-2 text-[13px] font-semibold"
                         style={{
@@ -409,7 +398,7 @@ export function MusteriListesi({
                         <span className="size-2.5 rounded-full" style={{ background: gRenk }} />
                         {g.ad}
                         <span className="ml-auto text-[11px] font-medium opacity-75">
-                          {subeler.filter((s) => s.grup_id === g.id).length} şube
+                          {toplam} şube
                         </span>
                       </div>
                       <div className="grid gap-1.5 p-2">{ust.map((s) => renderSube(s, 0, gRenk))}</div>

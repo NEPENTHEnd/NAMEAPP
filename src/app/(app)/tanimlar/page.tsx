@@ -65,7 +65,7 @@ export default async function TanimlarSayfasi({
         .order("fis_prefix"),
       supabase.from("grup").select("id, ad, sira, aktif").order("sira"),
       // Müşteri başına biriken ilgili kişi + telefon (işlerden otomatik toplanır)
-      supabase.from("is_kaydi").select("musteri_id, ilgili_kisi, telefon"),
+      supabase.from("is_kaydi").select("musteri_id, grup_id, sube_id, ilgili_kisi, telefon"),
       supabase
         .from("sube")
         .select("id, grup_id, ad, ilgili_kisi, telefon, ust_sube_id")
@@ -103,7 +103,12 @@ export default async function TanimlarSayfasi({
   // Her müşterinin işlerinden benzersiz (ad · telefon) iletişimlerini + iş sayısını çıkar
   const musteriIletisim = new Map<string, { ad: string | null; telefon: string | null }[]>()
   const musteriIsSayisi = new Map<string, number>()
+  // Firmalar sekmesi için: firma ve şube başına iş sayısı
+  const grupIsSayisi = new Map<string, number>()
+  const subeIsSayisi = new Map<string, number>()
   for (const r of isKisiler.data ?? []) {
+    if (r.grup_id) grupIsSayisi.set(r.grup_id, (grupIsSayisi.get(r.grup_id) ?? 0) + 1)
+    if (r.sube_id) subeIsSayisi.set(r.sube_id, (subeIsSayisi.get(r.sube_id) ?? 0) + 1)
     if (!r.musteri_id) continue
     musteriIsSayisi.set(r.musteri_id, (musteriIsSayisi.get(r.musteri_id) ?? 0) + 1)
     const ad = r.ilgili_kisi?.trim() || null
@@ -159,9 +164,10 @@ export default async function TanimlarSayfasi({
         <section className="grid gap-3">
           <p className="text-xs text-muted-foreground">
             İşler ekranının solundaki firma menüsü. Yeni firma yalnız
-            <strong> kayıtlı müşterilerden</strong> seçilerek eklenir. Satırı
-            sürükleyerek sırala; <strong>Şubeler</strong> ile firmaya alt firma ekle;
-            <strong> Sil</strong> firmayı menüden kaldırır (işleri silinmez, DİĞER'e taşınır).
+            <strong> kayıtlı müşterilerden</strong> seçilerek eklenir. Kartı tutma
+            noktasından <strong>sürükleyerek</strong> sırala; <strong>Şubeler</strong> ile alt
+            firma ekle; ad değiştirme ve <strong>Sil</strong> için <strong>Düzenle</strong> (silinen
+            firmanın işleri silinmez, DİĞER'e taşınır).
           </p>
           <FirmaListesi
             gruplar={(gruplar.data ?? []).map((g) => ({
@@ -171,6 +177,8 @@ export default async function TanimlarSayfasi({
             }))}
             musteriler={(musteriler.data ?? []).map((m) => ({ id: m.id, ad: m.ad }))}
             subeler={subeler.data ?? []}
+            isSayisi={Object.fromEntries(grupIsSayisi)}
+            subeIsSayisi={Object.fromEntries(subeIsSayisi)}
           />
         </section>
       )}
