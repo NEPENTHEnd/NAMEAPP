@@ -40,9 +40,14 @@ export function faturaRenk(
   return gecerliHex(renk) ?? FATURA_DOT[ad] ?? null
 }
 
+// Fatura rozetinin gösterdiği renk (seçilen renk > isim haritası > gri)
+export function faturaRozetRenk(ad?: string | null, renk?: string | null): string {
+  return gecerliHex(renk) ?? (ad ? FATURA_DOT[ad] : null) ?? "#94a3b8"
+}
+
 // Tema-bağımsız tint: card/foreground değişkenleriyle karışır →
 // açık temada koyu metin + açık zemin, koyu temada açık metin + koyu zemin.
-function tint(c: string) {
+export function tint(c: string) {
   return {
     background: `color-mix(in oklab, ${c} 16%, var(--card))`,
     borderColor: `color-mix(in oklab, ${c} 42%, var(--card))`,

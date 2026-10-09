@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { HizliFiltreDugme, type HizliDugmeVeri } from "@/components/hizli-filtre-dugme"
 
 type Oneri = { metin: string; tur: "cihaz" | "firma" | "fiş" | "seri" }
 
@@ -34,6 +35,7 @@ type Props = {
   sagSlot?: React.ReactNode // aramanın sağındaki hızlı butonlar
   aySlot?: React.ReactNode // en sağda ay kutucukları
   sadeMod?: boolean // personel: yalnız arama (Filtre tuşu ve detay filtreler yok)
+  gizliHizli?: HizliDugmeVeri[] // kişisel ayarda "Filtre içinde" seçilen hızlı filtreler
 }
 
 const selectClass =
@@ -48,6 +50,7 @@ export function IslerFiltreler({
   sagSlot,
   aySlot,
   sadeMod = false,
+  gizliHizli = [],
 }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -140,9 +143,13 @@ export function IslerFiltreler({
     setArama(urlQ)
   }, [urlQ, arama])
 
-  // Seçili detay filtre sayısı (arama hariç) — Filtre tuşundaki rozet
-  const detayFiltreSayisi = ["durum", "personel", "musteri", "baslangic", "bitis"]
-    .filter((k) => !!searchParams.get(k)).length
+  // Seçili detay filtre sayısı (arama hariç) — Filtre tuşundaki rozet.
+  // Filtre içine gizlenmiş aktif bir hızlı filtre de sayılır (görünmez kalmasın).
+  // (durum zaten "durum" parametresinden sayılıyor — iki kez sayma)
+  const gizliAktif = gizliHizli.filter((d) => d.aktif && !d.anahtar.startsWith("durum:")).length
+  const detayFiltreSayisi =
+    ["durum", "personel", "musteri", "baslangic", "bitis"].filter((k) => !!searchParams.get(k))
+      .length + gizliAktif
   // Detay filtreler varsayılan gizli; aktif filtre varsa açık başlar
   const [filtreAcik, setFiltreAcik] = useState(detayFiltreSayisi > 0)
 
@@ -319,6 +326,15 @@ export function IslerFiltreler({
         {sagSlot}
         {aySlot && <div className="ml-auto">{aySlot}</div>}
       </div>
+
+      {/* Filtre içine alınmış hızlı filtreler (Ayarlar → Filtre Butonları) */}
+      {!sadeMod && filtreAcik && gizliHizli.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {gizliHizli.map((d) => (
+            <HizliFiltreDugme key={d.anahtar} d={d} />
+          ))}
+        </div>
+      )}
 
       {/* Detay filtreler — Filtre tuşuyla açılır/kapanır (sade modda hiç yok) */}
       {!sadeMod && filtreAcik && (

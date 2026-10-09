@@ -9,6 +9,8 @@ import { AySecici } from "@/components/ay-secici"
 import { IslerFiltreler } from "./isler-filtreler"
 import { IslerEkrani } from "./isler-ekrani"
 import { ExcelIndirModal } from "@/components/excel-indir-modal"
+import { HizliFiltreDugme, type HizliDugmeVeri } from "@/components/hizli-filtre-dugme"
+import { hizliOgeler, cozumle, type HizliAyar } from "@/lib/hizli-filtre"
 
 const SAYFA_BOYUTU = 50
 
@@ -79,13 +81,13 @@ export default async function IslerSayfasi({
     profillerRes,
     subelerRes,
   ] = await Promise.all([
-      supabase.from("durum").select("id, ad").order("sira"),
+      supabase.from("durum").select("id, ad, renk").order("sira"),
       supabase
         .from("teknik_personel")
         .select("id, ad")
         .eq("aktif", true)
         .order("ad"),
-      supabase.from("fatura_durumu").select("id, ad, sira, hizli").order("sira"),
+      supabase.from("fatura_durumu").select("id, ad, sira, hizli, renk").order("sira"),
       supabase
         .from("musteri")
         .select("id, ad")
@@ -121,8 +123,6 @@ export default async function IslerSayfasi({
   const kapaliFaturaIdler = faturaDurumlari
     .filter((f) => KAPALI_FATURA.has(f.ad))
     .map((f) => f.id)
-  // Üst şeritteki hızlı fatura-durumu butonları (Tanımlar'dan yönetilir)
-  const hizliFaturalar = faturaDurumlari.filter((f) => f.hizli)
 
   // Ana sorgu — embed ile ilişkili isimleri çek + toplam say
   let query = supabase
@@ -398,11 +398,13 @@ export default async function IslerSayfasi({
       cikissiz?: string
       musterisiz?: string
       fatura?: string
+      durum?: string
     } = {}
   ): string {
     const params = new URLSearchParams()
     if (q) params.set("q", q)
-    if (durum) params.set("durum", durum)
+    const hedefDurum = over.durum !== undefined ? over.durum : durum
+    if (hedefDurum) params.set("durum", hedefDurum)
     if (personel) params.set("personel", personel)
     const hedefFatura = over.fatura !== undefined ? over.fatura : fatura
     if (hedefFatura) params.set("fatura", hedefFatura)
@@ -438,7 +440,34 @@ export default async function IslerSayfasi({
   }
   const sayfaLinki = (hedef: number) => linkUret({ sayfa: hedef })
 
-  // Üst şerit: Bakılmadı + hızlı fatura-durumu butonları (tıkla=filtrele, tekrar tıkla=kaldır)
+  // Hızlı filtreler — KİŞİSEL ayar (Ayarlar → Filtre Butonları): hangileri buton,
+  // hangileri Filtre panelinde; renk varsayılan olarak durumun kendi rengi.
+  // Tıkla = filtrele, tekrar tıkla = kaldır.
+  const hizliAyar = (kullanici.hizliFiltre ?? null) as HizliAyar | null
+  const hizliDugmeler = hizliOgeler(durumlarRes.data ?? [], faturaDurumlari).map((o) => {
+    const { buton, renk } = cozumle(o, hizliAyar)
+    let aktif: boolean
+    let href: string
+    if (o.tur === "durum") {
+      aktif = durum === o.id || (bakilmadiFiltre && o.id === bakilmadiId)
+      href = linkUret({ durum: aktif ? "" : o.id, bakilmadi: "", sayfa: 1 })
+    } else if (o.tur === "fatura") {
+      aktif = fatura === o.id
+      href = linkUret({ fatura: aktif ? "" : o.id, sayfa: 1 })
+    } else if (o.anahtar === "cikissiz") {
+      aktif = cikissizFiltre
+      href = linkUret({ cikissiz: aktif ? "" : "1", sayfa: 1 })
+    } else {
+      aktif = musterisizFiltre
+      href = linkUret({ musterisiz: aktif ? "" : "1", sayfa: 1, grup: "" })
+    }
+    const veri: HizliDugmeVeri = { anahtar: o.anahtar, etiket: o.etiket, href, aktif, renk }
+    return { veri, buton }
+  })
+  const gorunenHizli = hizliDugmeler.filter((d) => d.buton).map((d) => d.veri)
+  const gizliHizli = hizliDugmeler.filter((d) => !d.buton).map((d) => d.veri)
+
+  // Üst şerit: Excel + kişisel hızlı filtre butonları
   const hizliButonlar = (
     <div className="flex flex-wrap items-center gap-1.5">
       <ExcelIndirModal
@@ -451,58 +480,9 @@ export default async function IslerSayfasi({
         defDurum={durum}
         defFatura={fatura}
       />
-      <Link
-        href={linkUret({ bakilmadi: bakilmadiFiltre ? "" : "1", sayfa: 1 })}
-        className={
-          "rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors " +
-          (bakilmadiFiltre
-            ? "bg-amber-500 text-white"
-            : "border border-amber-300/60 bg-card text-amber-700 hover:bg-amber-500/10 dark:text-amber-300")
-        }
-      >
-        Bakılmadı
-      </Link>
-      <Link
-        href={linkUret({ cikissiz: cikissizFiltre ? "" : "1", sayfa: 1 })}
-        className={
-          "rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors " +
-          (cikissizFiltre
-            ? "bg-sky-600 text-white"
-            : "border border-sky-300/60 bg-card text-sky-700 hover:bg-sky-500/10 dark:text-sky-300")
-        }
-        title="Henüz çıkış tarihi girilmemiş (teslim edilmemiş) işler"
-      >
-        Çıkış tarihi olmayanlar
-      </Link>
-      <Link
-        href={linkUret({ musterisiz: musterisizFiltre ? "" : "1", sayfa: 1, grup: "" })}
-        className={
-          "rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors " +
-          (musterisizFiltre
-            ? "bg-rose-600 text-white"
-            : "border border-rose-300/60 bg-card text-rose-700 hover:bg-rose-500/10 dark:text-rose-300")
-        }
-        title="Müşterisi silinmiş (tanımsız) işler"
-      >
-        Müşterisiz
-      </Link>
-      {hizliFaturalar.map((f) => {
-        const aktifMi = fatura === f.id
-        return (
-          <Link
-            key={f.id}
-            href={linkUret({ fatura: aktifMi ? "" : f.id, sayfa: 1 })}
-            className={
-              "rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium transition-colors " +
-              (aktifMi
-                ? "bg-primary font-semibold text-primary-foreground"
-                : "border border-border bg-card text-muted-foreground hover:bg-muted")
-            }
-          >
-            {f.ad}
-          </Link>
-        )
-      })}
+      {gorunenHizli.map((d) => (
+        <HizliFiltreDugme key={d.anahtar} d={d} />
+      ))}
     </div>
   )
 
@@ -540,6 +520,7 @@ export default async function IslerSayfasi({
       musteriler={musterilerRes.data ?? []}
       sadeMod={!finansal} // personel: yalnız arama + aylar
       sagSlot={finansal ? hizliButonlar : undefined}
+      gizliHizli={finansal ? gizliHizli : []}
       aySlot={
         <div className="flex items-center gap-3">
           {/* Ay kutucukları yalnız yöneticide (geniş ekranda üst barda); personel hep tümü */}

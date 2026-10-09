@@ -15,6 +15,8 @@ import {
   type BekleyenDavet,
 } from "@/components/kullanici-yonetimi"
 import { GuvenlikAyari } from "@/components/guvenlik-ayari"
+import { HizliFiltreAyari } from "@/components/hizli-filtre-ayari"
+import { hizliOgeler, type HizliAyar } from "@/lib/hizli-filtre"
 import { oturumDurumu, epostaMaskele } from "@/lib/guvenlik"
 import {
   musteriEkle,
@@ -36,6 +38,7 @@ const SEKMELER = [
   { k: "personel", label: "Tekniker" },
   { k: "durum", label: "Durumlar" },
   { k: "fatura", label: "Fatura Durumları" },
+  { k: "filtreler", label: "Filtre Butonları" },
   { k: "roller", label: "Kullanıcılar" },
   { k: "davet", label: "Eski Davet Kodları" },
 ]
@@ -380,8 +383,10 @@ export default async function TanimlarSayfasi({
       {sekme === "fatura" && (
         <section className="grid gap-3">
           <p className="text-xs text-muted-foreground">
-            <strong>Hızlı</strong> işaretli durumlar İşler ekranının üstünde buton
-            olarak görünür; <strong>Sıra</strong> butonların dizilişini belirler;
+            <strong>Hızlı</strong> işaretli durumlar, kendi düzenini yapmamış yöneticilerde
+            İşler ekranının üstünde buton olarak görünür (her yönetici{" "}
+            <strong>Filtre Butonları</strong> sekmesinden kendine göre değiştirebilir);{" "}
+            <strong>Sıra</strong> butonların dizilişini belirler;
             <strong> renk</strong> tablodaki rozetin rengini değiştirir.
           </p>
           <form action={faturaEkle} className="flex flex-wrap items-center gap-2">
@@ -423,6 +428,14 @@ export default async function TanimlarSayfasi({
             ))}
           </div>
         </section>
+      )}
+
+      {/* FİLTRE BUTONLARI — kişisel: hangi hızlı filtre buton, hangisi Filtre içinde + renk */}
+      {sekme === "filtreler" && (
+        <HizliFiltreAyari
+          ogeler={hizliOgeler(durumlar.data ?? [], faturalar.data ?? [])}
+          ayar={(kullanici.hizliFiltre ?? null) as HizliAyar | null}
+        />
       )}
 
       {/* KULLANICILAR — davet / erişim kapat-aç / kalıcı sil / rol */}

@@ -11,6 +11,7 @@ export type Kullanici = {
   rol: Rol
   sahip: boolean
   aktif: boolean // false = erişimi kapatıldı (layout "erişim kapalı" ekranı gösterir)
+  hizliFiltre: unknown // kişisel hızlı filtre buton ayarı (user_metadata.hizli_filtre)
 }
 
 // Giriş yapan kullanıcıyı + profilini döndürür. Oturum yoksa /giris'e atar.
@@ -39,6 +40,7 @@ export async function getKullanici(): Promise<Kullanici> {
     rol: (profil?.rol as Rol) ?? "teknisyen",
     sahip: profil?.sahip ?? false,
     aktif: profil?.aktif ?? true,
+    hizliFiltre: (user.user_metadata as Record<string, unknown> | undefined)?.hizli_filtre ?? null,
   }
 }
 
