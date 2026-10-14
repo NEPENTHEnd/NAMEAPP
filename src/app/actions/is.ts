@@ -7,6 +7,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
 import { yoneticilereBildir } from "@/lib/push"
+import { fisElleDuzeltilebilir } from "@/lib/fis-duzeltme"
 import type {
   TablesInsert,
   TablesUpdate,
@@ -598,6 +599,37 @@ export async function isHucreGuncelle(
   const supabase = await createClient()
   const t = deger.trim()
   const guncelle: TablesUpdate<"is_kaydi"> = {}
+
+  // Fiş no yalnız izin verilen işlerde elle değişir (BOYTEKS stok kodu ya da
+  // Temmuz 2026'da admin hesabıyla içe aktarılan işler) — bkz. lib/fis-duzeltme.
+  if (alan === "servis_no") {
+    const { data: is } = await supabase
+      .from("is_kaydi")
+      .select("gelis_tarihi, olusturan_id, grup:grup_id ( ad )")
+      .eq("id", id)
+      .maybeSingle()
+    if (!is) return { ok: false, error: "İş bulunamadı." }
+    let olusturanSahip = false
+    if (is.olusturan_id) {
+      const { data: p } = await supabase
+        .from("kullanici_profil")
+        .select("sahip")
+        .eq("id", is.olusturan_id)
+        .maybeSingle()
+      olusturanSahip = !!p?.sahip
+    }
+    const izin = fisElleDuzeltilebilir({
+      gelisTarihi: is.gelis_tarihi,
+      olusturanSahip,
+      boyteks: !!is.grup?.ad?.includes("BOYTEKS"),
+    })
+    if (!izin) {
+      return {
+        ok: false,
+        error: "Fiş no yalnız Temmuz 2026'da admin hesabıyla girilmiş işlerde elle değiştirilebilir.",
+      }
+    }
+  }
 
   switch (alan) {
     case "cihaz_adi":

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table"
 import { DurumRozeti, FaturaRozeti, durumRenk, faturaRenk } from "@/components/rozet"
 import { HucreDuzenle } from "@/components/hucre-duzenle"
+import { FisHucresi } from "@/components/fis-hucresi"
 import { TeklifBirimi } from "@/components/teklif-birimi"
 import { PanelFinansal } from "@/components/panel-finansal"
 
@@ -54,6 +55,7 @@ export type Kayit = {
   sube_id: string | null
   olusturan_ad: string | null
   ilk_foto_url: string | null // satır üzerine gelince gösterilen küçük önizleme
+  fis_duzenlenebilir?: boolean // fiş no elle düzeltilebilir mi (lib/fis-duzeltme)
 }
 
 export type SeciliBilgi = {
@@ -70,6 +72,7 @@ export type SeciliBilgi = {
   fatura_tarihi: string | null
   garanti_no: string | null
   talep_no: string | null
+  fis_duzenlenebilir?: boolean
   fotolar: { id: string; url: string }[]
 }
 
@@ -740,6 +743,8 @@ export function IslerEkrani({
                 <TableCell className="font-medium">
                   {stokKoduModu && finansal ? (
                     <HucreDuzenle isId={k.id} alan="servis_no" deger={k.servis_no} bosEtiket="Stok kodu gir" className="font-mono text-[13px]" />
+                  ) : k.fis_duzenlenebilir ? (
+                    <FisHucresi isId={k.id} deger={k.servis_no} />
                   ) : (
                     <Link href={`/is/${k.id}`} onPointerDown={(e) => e.stopPropagation()} className="text-primary underline-offset-4 hover:underline">
                       {k.servis_no ?? "Aç"}
@@ -1015,8 +1020,8 @@ export function IslerEkrani({
                   />
                 </div>
 
-                {/* Fiş no / stok kodu — yönetici düzeltebilir */}
-                {finansal && (
+                {/* Fiş no / stok kodu — yalnız izin verilen işlerde (lib/fis-duzeltme) düzeltilir */}
+                {finansal && seciliBilgi.fis_duzenlenebilir && (
                   <div className="mt-3">
                     <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fiş no / stok kodu</div>
                     <HucreDuzenle

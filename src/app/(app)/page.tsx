@@ -11,6 +11,7 @@ import { IslerEkrani } from "./isler-ekrani"
 import { ExcelIndirModal } from "@/components/excel-indir-modal"
 import { HizliFiltreDugme, type HizliDugmeVeri } from "@/components/hizli-filtre-dugme"
 import { hizliOgeler, cozumle, siralaOgeler, type HizliAyar } from "@/lib/hizli-filtre"
+import { fisElleDuzeltilebilir } from "@/lib/fis-duzeltme"
 
 const SAYFA_BOYUTU = 50
 
@@ -94,7 +95,7 @@ export default async function IslerSayfasi({
         .eq("aktif", true)
         .order("ad"),
       supabase.from("grup").select("id, ad").eq("aktif", true).order("sira"),
-      supabase.from("kullanici_profil").select("id, ad"),
+      supabase.from("kullanici_profil").select("id, ad, sahip"),
       supabase
         .from("sube")
         .select("id, grup_id, ad, ust_sube_id")
@@ -313,10 +314,24 @@ export default async function IslerSayfasi({
       }
     }
   }
+  // Fiş no elle düzeltme izni (kural: lib/fis-duzeltme — Temmuz 2026 admin işleri + BOYTEKS)
+  const sahipIdler = new Set(
+    (profillerRes.data ?? []).filter((p) => p.sahip).map((p) => p.id)
+  )
+  const boyteksGrupIdler = new Set(
+    gruplar.filter((g) => g.ad.includes("BOYTEKS")).map((g) => g.id)
+  )
   const kayitlar = (data ?? []).map((k) => ({
     ...k,
     olusturan_ad: k.olusturan_id ? profilAd.get(k.olusturan_id) ?? null : null,
     ilk_foto_url: ilkFotoMap.get(k.id) ?? null,
+    fis_duzenlenebilir:
+      finansal &&
+      fisElleDuzeltilebilir({
+        gelisTarihi: k.gelis_tarihi,
+        olusturanSahip: !!k.olusturan_id && sahipIdler.has(k.olusturan_id),
+        boyteks: !!k.grup_id && boyteksGrupIdler.has(k.grup_id),
+      }),
   }))
 
   // Seçili işin fotoğrafları (yan önizleme paneli için)
@@ -334,6 +349,7 @@ export default async function IslerSayfasi({
     fatura_tarihi: string | null
     garanti_no: string | null
     talep_no: string | null
+    fis_duzenlenebilir: boolean
     fotolar: { id: string; url: string }[]
   }
   let seciliBilgi: SeciliBilgi | null = null
@@ -341,7 +357,7 @@ export default async function IslerSayfasi({
     const { data: kayit } = await supabase
       .from("is_kaydi")
       .select(
-        "cihaz_adi, servis_no, aciklama, kargo_takip_no, fatura_durumu_id, fiyat_teklifi, teklif_birim, fatura_tutari, fatura_tarihi, garanti_no, talep_no, musteri:musteri_id ( ad )"
+        "cihaz_adi, servis_no, gelis_tarihi, grup_id, olusturan_id, aciklama, kargo_takip_no, fatura_durumu_id, fiyat_teklifi, teklif_birim, fatura_tutari, fatura_tarihi, garanti_no, talep_no, musteri:musteri_id ( ad )"
       )
       .eq("id", secili)
       .maybeSingle()
@@ -380,6 +396,13 @@ export default async function IslerSayfasi({
         fatura_tarihi: kayit.fatura_tarihi,
         garanti_no: kayit.garanti_no,
         talep_no: kayit.talep_no,
+        fis_duzenlenebilir:
+          finansal &&
+          fisElleDuzeltilebilir({
+            gelisTarihi: kayit.gelis_tarihi,
+            olusturanSahip: !!kayit.olusturan_id && sahipIdler.has(kayit.olusturan_id),
+            boyteks: !!kayit.grup_id && boyteksGrupIdler.has(kayit.grup_id),
+          }),
         fotolar,
       }
     }
