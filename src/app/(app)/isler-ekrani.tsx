@@ -20,6 +20,7 @@ import {
 import { DurumRozeti, FaturaRozeti, durumRenk, faturaRenk } from "@/components/rozet"
 import { HucreDuzenle } from "@/components/hucre-duzenle"
 import { FisHucresi } from "@/components/fis-hucresi"
+import { faturaTarihliDurum } from "@/lib/fatura-tarih"
 import { TeklifBirimi } from "@/components/teklif-birimi"
 import { PanelFinansal } from "@/components/panel-finansal"
 
@@ -881,8 +882,8 @@ export function IslerEkrani({
                       secenekler={faturaDurumlari}
                       goster={() => <FaturaRozeti ad={k.fatura_durumu?.ad} renk={k.fatura_durumu?.renk} />}
                     />
-                    {/* Fatura tarihi — YALNIZ "FATURA EDİLDİ" durumunda görünür; oto gelir, düzenlenebilir */}
-                    {k.fatura_durumu?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ" && (
+                    {/* Fatura tarihi — YALNIZ FATURA EDİLDİ / PEŞİN ALINDI durumunda görünür; oto gelir, düzenlenebilir */}
+                    {faturaTarihliDurum(k.fatura_durumu?.ad) && (
                       <HucreDuzenle
                         isId={k.id}
                         alan="fatura_tarihi"

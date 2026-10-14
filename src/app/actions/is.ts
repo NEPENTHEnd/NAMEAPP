@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getKullanici } from "@/lib/auth"
 import { yoneticilereBildir } from "@/lib/push"
 import { fisElleDuzeltilebilir } from "@/lib/fis-duzeltme"
+import { faturaTarihliDurum } from "@/lib/fatura-tarih"
 import type {
   TablesInsert,
   TablesUpdate,
@@ -40,8 +41,9 @@ const buyuk = (s: string) => s.toLocaleUpperCase("tr-TR")
 const bugunTR = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" })
 
-// Verilen fatura durumu "FATURA EDİLDİ" mi? (fatura_tarihi otomatik atama kararı için)
-async function faturaEdildiMi(
+// Verilen fatura durumu fatura tarihi isteyen bir durum mu (FATURA EDİLDİ / PEŞİN ALINDI)?
+// (fatura_tarihi otomatik atama kararı için — bkz. lib/fatura-tarih)
+async function faturaTarihliMi(
   supabase: Awaited<ReturnType<typeof createClient>>,
   faturaDurumuId: string | null | undefined
 ): Promise<boolean> {
@@ -51,7 +53,7 @@ async function faturaEdildiMi(
     .select("ad")
     .eq("id", faturaDurumuId)
     .maybeSingle()
-  return data?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ"
+  return faturaTarihliDurum(data?.ad)
 }
 
 const sayi = z.preprocess(
@@ -315,9 +317,9 @@ export async function isOlustur(
     ekle.fatura_tarihi = parsed.data.fatura_tarihi ?? null
     ekle.garanti_no = parsed.data.garanti_no ?? null
     ekle.talep_no = parsed.data.talep_no ?? null
-    // FATURA EDİLDİ seçilip tarih girilmemişse otomatik bugün — hızlı düzenleme
+    // FATURA EDİLDİ / PEŞİN ALINDI seçilip tarih girilmemişse otomatik bugün — hızlı düzenleme
     // yollarıyla tutarlı olsun; yoksa iş ciroya hiç girmez (gelir kaçağı).
-    if (!ekle.fatura_tarihi && (await faturaEdildiMi(supabase, ekle.fatura_durumu_id))) {
+    if (!ekle.fatura_tarihi && (await faturaTarihliMi(supabase, ekle.fatura_durumu_id))) {
       ekle.fatura_tarihi = bugunTR()
     }
   }
@@ -401,8 +403,8 @@ export async function isGuncelle(
     guncelle.garanti_no = parsed.data.garanti_no ?? null
     guncelle.talep_no = parsed.data.talep_no ?? null
     guncelle.sube_id = parsed.data.sube_id ?? null
-    // FATURA EDİLDİ seçilip tarih boşsa otomatik bugün (hızlı düzenlemeyle tutarlı)
-    if (!guncelle.fatura_tarihi && (await faturaEdildiMi(supabase, guncelle.fatura_durumu_id))) {
+    // FATURA EDİLDİ / PEŞİN ALINDI seçilip tarih boşsa otomatik bugün (hızlı düzenlemeyle tutarlı)
+    if (!guncelle.fatura_tarihi && (await faturaTarihliMi(supabase, guncelle.fatura_durumu_id))) {
       guncelle.fatura_tarihi = bugunTR()
     }
   }
@@ -451,14 +453,14 @@ export async function isFinansalGuncelle(
   const supabase = await createClient()
   const faturaDurumuId = (formData.get("fatura_durumu_id") as string) || null
   let faturaTarihi = tarihSec(formData.get("fatura_tarihi"))
-  // "FATURA EDİLDİ" seçilip tarih girilmemişse fatura tarihi otomatik bugün
+  // "FATURA EDİLDİ" / "PEŞİN ALINDI" seçilip tarih girilmemişse fatura tarihi otomatik bugün
   if (!faturaTarihi && faturaDurumuId) {
     const { data: fd } = await supabase
       .from("fatura_durumu")
       .select("ad")
       .eq("id", faturaDurumuId)
       .maybeSingle()
-    if (fd?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ") {
+    if (faturaTarihliDurum(fd?.ad)) {
       faturaTarihi = new Date().toLocaleDateString("en-CA", {
         timeZone: "Europe/Istanbul",
       })
@@ -686,14 +688,14 @@ export async function isHucreGuncelle(
       break
     case "fatura_durumu_id": {
       guncelle.fatura_durumu_id = t || null
-      // "FATURA EDİLDİ" seçilince fatura tarihi otomatik bugün (yalnız boşsa — mevcut tarihi ezme)
+      // "FATURA EDİLDİ" / "PEŞİN ALINDI" seçilince fatura tarihi otomatik bugün (yalnız boşsa — mevcut tarihi ezme)
       if (t) {
         const { data: fd } = await supabase
           .from("fatura_durumu")
           .select("ad")
           .eq("id", t)
           .maybeSingle()
-        if (fd?.ad?.toLocaleUpperCase("tr-TR") === "FATURA EDİLDİ") {
+        if (faturaTarihliDurum(fd?.ad)) {
           const { data: mevcut } = await supabase
             .from("is_kaydi")
             .select("fatura_tarihi")
